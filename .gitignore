@@ -1,39 +1,5 @@
 note.txt
 
-# --- Unity プロジェクトに関する無視設定 ---
-[Gg]enerated*
-[Ll]ibrary/
-[Tt]emp/
-[Oo]bj/
-[Bb]uild/
-[Bb]uilds/
-[Ll]ogs/
-UserSettings/
-MemoryCaptures/
-*.csproj
-*.unityproj
-*.sln
-*.user
-*.pidb
-*.booproj
-*.svd
-*.pdb
-*.mdb
-*.opendb
-*.VC.db
-.vscode/
-
-# --- Python / Flask 関連 ---
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.env
-.venv/
-*.sqlite3
-instance/
-.pytest_cache/
-.coverage
 
 # --- macOS / Windows共通 ---
 .DS_Store
@@ -43,15 +9,5 @@ Thumbs.db
 *.swp
 *.lock
 
-# Unity generated folders
-Library/
-Temp/
-Obj/
-Build/
-Builds/
-UserSettings/
-Logs/
-MemoryCaptures/
 
-Unity/
 
