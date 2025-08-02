@@ -1,20 +1,33 @@
-const express = require('express');
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
-const cors = require('cors');
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.use(cors());
-app.use(express.static('public'));
+// for __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-io.on('connection', socket => {
-  console.log('User connected');
-  socket.on('video-frame', (data) => {
-    // ここでFlaskに渡してMediaPipeに送る処理を入れる
-    // 例: fetch('http://localhost:5000/handtrack', {...})
-  });
+// 静的ファイル提供（HTML/JS）
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-http.listen(3000, () => {
-  console.log('Node.js server running on http://localhost:3000');
+io.on('connection', socket => {
+  console.log('🔗 Socket connected');
+
+  socket.on('offer', (offer) => socket.broadcast.emit('offer', offer));
+  socket.on('answer', (answer) => socket.broadcast.emit('answer', answer));
+  socket.on('candidate', (candidate) => socket.broadcast.emit('candidate', candidate));
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

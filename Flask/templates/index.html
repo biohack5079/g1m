@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>G1m PWA Camera</title>
+
+  <link rel="manifest" href="/static/manifest.json" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js');
+    }
+  </script>
+</head>
+<body>
+  <h1>カメラを起動してG1mミッションを開始</h1>
+  <video id="video" autoplay playsinline width="100%"></video>
+
+  <script src="/static/js/camera.js"></script>
+</body>
+</html>
