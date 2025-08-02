@@ -1,19 +1,18 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-import os
 
-app = Flask(__name__, static_folder="static", static_url_path="")
-CORS(app)  # Unityや別ドメインからのリクエスト許可
+app = Flask(__name__, static_folder="static", template_folder="templates")
+CORS(app)
+
+@app.route('/')
+def index():
+    return render_template("index.html")
 
 @app.route('/hand', methods=['POST'])
 def hand():
     data = request.get_json()
-    print("🖐 Hand Data Received:", data)
-    return jsonify({"status": "ok", "echo": data})
-
-@app.route('/')
-def serve_index():
-    return send_from_directory(app.static_folder, 'index.html')
+    # ここでジェスチャーを判定する処理（仮）
+    return jsonify({"gesture": "open", "landmarks": data.get("landmarks", [])})
 
 if __name__ == '__main__':
     app.run(debug=True)
