@@ -1,16 +1,21 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>G1m ミッション</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>G1m PWA Camera</title>
+
+  <link rel="manifest" href="/static/manifest.json" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js');
+    }
+  </script>
 </head>
 <body>
   <h1>カメラを起動してG1mミッションを開始</h1>
-  <video id="input_video" autoplay playsinline width="640" height="480"></video>
-  <canvas id="output_canvas" width="640" height="480"></canvas>
+  <video id="video" autoplay playsinline width="100%"></video>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="/static/js/hands.js"></script>
+  <script src="/static/js/camera.js"></script>
 </body>
 </html>
