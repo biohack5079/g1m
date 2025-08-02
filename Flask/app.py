@@ -1,18 +1,19 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
-CORS(app)
-
-@app.route('/')
-def index():
-    return render_template("index.html")
+app = Flask(__name__)
+CORS(app)  # Unityからのリクエスト許可
 
 @app.route('/hand', methods=['POST'])
 def hand():
     data = request.get_json()
-    # ここでジェスチャーを判定する処理（仮）
-    return jsonify({"gesture": "open", "landmarks": data.get("landmarks", [])})
+    # TODO: MediaPipe Handsで処理（省略）
+    result = {"gesture": "open", "landmarks": [[0.1, 0.2, 0.3], ...]}
+    return jsonify(result)
 
-if __name__ == '__main__':
+@app.route('/')
+def index():
+    return "G1m Flask API Ready"
+
+if __name__ == "__main__":
     app.run(debug=True)
