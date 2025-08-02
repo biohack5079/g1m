@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>G1m Staff Client</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: black; color: white; text-align: center; }
+    #overlay { position: absolute; top: 0; left: 0; }
+  </style>
+</head>
+<body>
+  <h1>スタッフクライアント</h1>
+  <video id="input_video" autoplay playsinline style="display: none;"></video>
+  <canvas id="output_canvas" width="640" height="480" style="width: 100%;"></canvas>
+  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
