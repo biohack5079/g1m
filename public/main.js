@@ -8,23 +8,18 @@ let dataChannel = null;
 
 // MediaPipe Handsの初期設定
 const hands = new Hands({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-});
-hands.setOptions({
-  maxNumHands: 2,
-  minDetectionConfidence: 0.7,
-  minTrackingConfidence: 0.7
+  locateFile: (file) => {
+    // モデルファイルはhands.jsと同じCDNパスから読み込む
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+  }
 });
 
 // MediaPipe Poseの初期設定
 const pose = new Pose({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-});
-pose.setOptions({
-  upperBodyOnly: true,
-  smoothLandmarks: true,
-  minDetectionConfidence: 0.7,
-  minTrackingConfidence: 0.7
+  locateFile: (file) => {
+    // モデルファイルはpose.jsと同じCDNパスから読み込む
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+  }
 });
 
 let handLandmarks = null;
