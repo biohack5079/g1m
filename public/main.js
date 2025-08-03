@@ -8,18 +8,18 @@ let dataChannel = null;
 
 // MediaPipe Handsの初期設定
 const hands = new Hands({
-  locateFile: (file) => {
-    // モデルファイルはhands.jsと同じCDNパスから読み込む
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-  }
+  locateFile: (file) => {
+    // モデルファイルはhands.jsと同じCDNパスから読み込む
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+  }
 });
 
 // MediaPipe Poseの初期設定
 const pose = new Pose({
-  locateFile: (file) => {
-    // モデルファイルはpose.jsと同じCDNパスから読み込む
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-  }
+  locateFile: (file) => {
+    // モデルファイルはpose.jsと同じCDNパスから読み込む
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+  }
 });
 
 let handLandmarks = null;
