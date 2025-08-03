@@ -79,12 +79,21 @@ const camera = new Camera(videoElement, {
 camera.start();
 
 // WebRTCシグナリング
-socket.on('connect', () => {
-  console.log('Socket connected.');
-  startWebRTC();
+socket.on('answer', async (answer) => {
+  if (peerConnection) {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  }
 });
 
-function startWebRTC() {
+socket.on('candidate', async (candidate) => {
+  if (candidate && peerConnection) {
+    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  }
+});
+
+socket.on('connect', () => {
+  console.log('Socket connected. Initializing WebRTC.');
+
   peerConnection = new RTCPeerConnection({
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
   });
@@ -92,21 +101,16 @@ function startWebRTC() {
   dataChannel = peerConnection.createDataChannel('data');
   dataChannel.onopen = () => console.log('Data Channel is open!');
 
+  // peerConnectionが初期化された後にイベントハンドラを設定
   peerConnection.onicecandidate = (e) => {
     if (e.candidate) socket.emit('candidate', e.candidate);
   };
 
   peerConnection.createOffer()
     .then(offer => peerConnection.setLocalDescription(offer))
-    .then(() => socket.emit('offer', peerConnection.localDescription));
-}
-
-socket.on('answer', async (answer) => {
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-});
-
-socket.on('candidate', async (candidate) => {
-  if (candidate) {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-  }
+    .then(() => {
+        if (peerConnection.localDescription) {
+            socket.emit('offer', peerConnection.localDescription);
+        }
+    });
 });
