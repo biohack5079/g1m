@@ -101,16 +101,20 @@ socket.on('connect', () => {
   dataChannel = peerConnection.createDataChannel('data');
   dataChannel.onopen = () => console.log('Data Channel is open!');
 
-  // peerConnectionが初期化された後にイベントハンドラを設定
   peerConnection.onicecandidate = (e) => {
     if (e.candidate) socket.emit('candidate', e.candidate);
   };
+});
 
-  peerConnection.createOffer()
-    .then(offer => peerConnection.setLocalDescription(offer))
-    .then(() => {
-        if (peerConnection.localDescription) {
-            socket.emit('offer', peerConnection.localDescription);
-        }
-    });
+// ブラウザ側がofferを受け取ったときにanswerを返すロジック
+socket.on('offer', async (offer) => {
+  if (peerConnection) {
+    console.log('Received an offer from Unity client. Creating an answer.');
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    socket.emit('answer', peerConnection.localDescription);
+  }
 });
