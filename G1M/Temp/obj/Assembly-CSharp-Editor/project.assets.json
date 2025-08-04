@@ -1,0 +1,1347 @@
+{
+  "version": 3,
+  "targets": {
+    ".NETStandard,Version=v2.1": {
+      "Assembly-CSharp/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "AssistantCoreSDKEditor": "1.0.0",
+          "AssistantCoreSDKRuntime": "1.0.0",
+          "Facebook.Wit.Dictation": "1.0.0",
+          "Facebook.Wit.Dictation.Editor": "1.0.0",
+          "Meta.Voice.Hub.Editor": "1.0.0",
+          "Meta.Voice.Hub.Runtime": "1.0.0",
+          "Meta.Voice.Samples.BuiltInTimer": "1.0.0",
+          "Meta.Voice.Samples.Chess": "1.0.0",
+          "Meta.Voice.Samples.Dictation": "1.0.0",
+          "Meta.Voice.Samples.LightTraits": "1.0.0",
+          "Meta.Voice.Samples.LiveUnderstanding": "1.0.0",
+          "Meta.Voice.Samples.Shapes": "1.0.0",
+          "Meta.Voice.Samples.ShapesConduit": "1.0.0",
+          "Meta.Voice.Samples.TTSVoices": "1.0.0",
+          "Meta.Voice.VSDKHub.Editor": "1.0.0",
+          "Meta.VoiceSDK.Mic.Common": "1.0.0",
+          "Meta.VoiceSDK.Mic.Other": "1.0.0",
+          "Meta.VoiceSDK.Mic.WebGL": "1.0.0",
+          "Meta.WitAI.Lib.Editor": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Conduit": "1.0.0",
+          "Meta.WitAi.Conduit.Editor": "1.0.0",
+          "Meta.WitAi.Editor": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "Meta.WitAi.TTS": "1.0.0",
+          "Meta.WitAi.TTS.Editor": "1.0.0",
+          "Meta.XR.BuildingBlocks": "1.0.0",
+          "Meta.XR.BuildingBlocks.Editor": "1.0.0",
+          "Oculus.AudioManager": "1.0.0",
+          "Oculus.AudioManager.Audio.Editor": "1.0.0",
+          "Oculus.AudioManager.Utils.Editor": "1.0.0",
+          "Oculus.Interaction": "1.0.0",
+          "Oculus.Interaction.Editor": "1.0.0",
+          "Oculus.Interaction.InterfaceSupport": "1.0.0",
+          "Oculus.Interaction.OVR": "1.0.0",
+          "Oculus.Interaction.OVR.Editor": "1.0.0",
+          "Oculus.Interaction.OVR.Samples": "1.0.0",
+          "Oculus.Interaction.Samples.Editor": "1.0.0",
+          "Oculus.LipSync": "1.0.0",
+          "Oculus.LipSync.Editor": "1.0.0",
+          "Oculus.Platform": "1.0.0",
+          "Oculus.Platform.Editor": "1.0.0",
+          "Oculus.Spatializer": "1.0.0",
+          "Oculus.Spatializer.Editor": "1.0.0",
+          "Oculus.VR": "1.0.0",
+          "Oculus.VR.Editor": "1.0.0",
+          "Oculus.VR.Scripts.Editor": "1.0.0",
+          "VoiceSDK.Dictation.Editor": "1.0.0",
+          "VoiceSDK.Dictation.Runtime": "1.0.0",
+          "VoiceSDK.Editor": "1.0.0",
+          "VoiceSDK.Runtime": "1.0.0",
+          "VoiceSDK.Telemetry": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Assembly-CSharp.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Assembly-CSharp.dll": {}
+        }
+      },
+      "AssistantCoreSDKEditor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "AssistantCoreSDKRuntime": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/AssistantCoreSDKEditor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/AssistantCoreSDKEditor.dll": {}
+        }
+      },
+      "AssistantCoreSDKRuntime/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/AssistantCoreSDKRuntime.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/AssistantCoreSDKRuntime.dll": {}
+        }
+      },
+      "Facebook.Wit.Dictation/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Facebook.Wit.Dictation.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Facebook.Wit.Dictation.dll": {}
+        }
+      },
+      "Facebook.Wit.Dictation.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Facebook.Wit.Dictation": "1.0.0",
+          "Meta.WitAi.Editor": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Facebook.Wit.Dictation.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Facebook.Wit.Dictation.Editor.dll": {}
+        }
+      },
+      "Meta.Voice.Hub.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.Voice.Hub.Runtime": "1.0.0",
+          "VoiceSDK.Telemetry": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Hub.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Hub.Editor.dll": {}
+        }
+      },
+      "Meta.Voice.Hub.Runtime/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/Meta.Voice.Hub.Runtime.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Hub.Runtime.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.BuiltInTimer/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.BuiltInTimer.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.BuiltInTimer.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.Chess/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Conduit": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "VoiceSDK.Runtime": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.Chess.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.Chess.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.Dictation/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Facebook.Wit.Dictation": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.Dictation.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.Dictation.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.LightTraits/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.LightTraits.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.LightTraits.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.LiveUnderstanding/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.LiveUnderstanding.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.LiveUnderstanding.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.Shapes/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "VoiceSDK.Runtime": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.Shapes.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.Shapes.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.ShapesConduit/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Conduit": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "VoiceSDK.Runtime": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.ShapesConduit.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.ShapesConduit.dll": {}
+        }
+      },
+      "Meta.Voice.Samples.TTSVoices/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi.Lib": "1.0.0",
+          "Meta.WitAi.TTS": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.Samples.TTSVoices.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.Samples.TTSVoices.dll": {}
+        }
+      },
+      "Meta.Voice.VSDKHub.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.Voice.Hub.Editor": "1.0.0",
+          "Meta.Voice.Hub.Runtime": "1.0.0",
+          "VoiceSDK.Telemetry": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.Voice.VSDKHub.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.Voice.VSDKHub.Editor.dll": {}
+        }
+      },
+      "Meta.VoiceSDK.Mic.Common/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.VoiceSDK.Mic.Common.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.VoiceSDK.Mic.Common.dll": {}
+        }
+      },
+      "Meta.VoiceSDK.Mic.Other/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.VoiceSDK.Mic.Common": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.VoiceSDK.Mic.Other.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.VoiceSDK.Mic.Other.dll": {}
+        }
+      },
+      "Meta.VoiceSDK.Mic.WebGL/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.VoiceSDK.Mic.Common": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.VoiceSDK.Mic.WebGL.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.VoiceSDK.Mic.WebGL.dll": {}
+        }
+      },
+      "Meta.WitAi/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.VoiceSDK.Mic.Common": "1.0.0",
+          "Meta.VoiceSDK.Mic.Other": "1.0.0",
+          "Meta.VoiceSDK.Mic.WebGL": "1.0.0",
+          "Meta.WitAi.Conduit": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.WitAi.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAi.dll": {}
+        }
+      },
+      "Meta.WitAi.Conduit/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.WitAi.Conduit.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAi.Conduit.dll": {}
+        }
+      },
+      "Meta.WitAi.Conduit.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAI.Lib.Editor": "1.0.0",
+          "Meta.WitAi.Conduit": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.WitAi.Conduit.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAi.Conduit.Editor.dll": {}
+        }
+      },
+      "Meta.WitAi.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.VoiceSDK.Mic.Other": "1.0.0",
+          "Meta.WitAI.Lib.Editor": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Conduit": "1.0.0",
+          "Meta.WitAi.Conduit.Editor": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "VoiceSDK.Telemetry": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.WitAi.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAi.Editor.dll": {}
+        }
+      },
+      "Meta.WitAi.Lib/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/Meta.WitAi.Lib.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAi.Lib.dll": {}
+        }
+      },
+      "Meta.WitAI.Lib.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.WitAI.Lib.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAI.Lib.Editor.dll": {}
+        }
+      },
+      "Meta.WitAi.TTS/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.WitAi.TTS.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAi.TTS.dll": {}
+        }
+      },
+      "Meta.WitAi.TTS.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.WitAI.Lib.Editor": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Editor": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "Meta.WitAi.TTS": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.WitAi.TTS.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.WitAi.TTS.Editor.dll": {}
+        }
+      },
+      "Meta.XR.BuildingBlocks/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.dll": {}
+        }
+      },
+      "Meta.XR.BuildingBlocks.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.XR.BuildingBlocks": "1.0.0",
+          "Oculus.VR": "1.0.0",
+          "Oculus.VR.Editor": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.Editor.dll": {}
+        }
+      },
+      "Oculus.AudioManager/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Spatializer": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.AudioManager.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.AudioManager.dll": {}
+        }
+      },
+      "Oculus.AudioManager.Audio.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.AudioManager": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.AudioManager.Audio.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.AudioManager.Audio.Editor.dll": {}
+        }
+      },
+      "Oculus.AudioManager.Utils.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.AudioManager": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.AudioManager.Utils.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.AudioManager.Utils.Editor.dll": {}
+        }
+      },
+      "Oculus.Interaction/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.dll": {}
+        }
+      },
+      "Oculus.Interaction.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Interaction": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.Editor.dll": {}
+        }
+      },
+      "Oculus.Interaction.InterfaceSupport/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Interaction": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.InterfaceSupport.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.InterfaceSupport.dll": {}
+        }
+      },
+      "Oculus.Interaction.OVR/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Interaction": "1.0.0",
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.OVR.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.OVR.dll": {}
+        }
+      },
+      "Oculus.Interaction.OVR.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.XR.BuildingBlocks": "1.0.0",
+          "Meta.XR.BuildingBlocks.Editor": "1.0.0",
+          "Oculus.Interaction": "1.0.0",
+          "Oculus.Interaction.Editor": "1.0.0",
+          "Oculus.Interaction.OVR": "1.0.0",
+          "Oculus.VR": "1.0.0",
+          "Oculus.VR.Editor": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.OVR.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.OVR.Editor.dll": {}
+        }
+      },
+      "Oculus.Interaction.OVR.Samples/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Interaction": "1.0.0",
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.OVR.Samples.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.OVR.Samples.dll": {}
+        }
+      },
+      "Oculus.Interaction.Samples.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Interaction": "1.0.0",
+          "Oculus.Interaction.Editor": "1.0.0",
+          "Oculus.Interaction.OVR.Samples": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.Samples.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.Samples.Editor.dll": {}
+        }
+      },
+      "Oculus.LipSync/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/Oculus.LipSync.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.LipSync.dll": {}
+        }
+      },
+      "Oculus.LipSync.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.LipSync": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.LipSync.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.LipSync.Editor.dll": {}
+        }
+      },
+      "Oculus.Platform/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/Oculus.Platform.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Platform.dll": {}
+        }
+      },
+      "Oculus.Platform.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Platform": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Platform.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Platform.Editor.dll": {}
+        }
+      },
+      "Oculus.Spatializer/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/Oculus.Spatializer.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Spatializer.dll": {}
+        }
+      },
+      "Oculus.Spatializer.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Spatializer": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Spatializer.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Spatializer.Editor.dll": {}
+        }
+      },
+      "Oculus.VR/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/Oculus.VR.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.VR.dll": {}
+        }
+      },
+      "Oculus.VR.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.VR.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.VR.Editor.dll": {}
+        }
+      },
+      "Oculus.VR.Scripts.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.VR": "1.0.0",
+          "Oculus.VR.Editor": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.VR.Scripts.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.VR.Scripts.Editor.dll": {}
+        }
+      },
+      "VoiceSDK.Dictation.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Facebook.Wit.Dictation": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Editor": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "VoiceSDK.Dictation.Runtime": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/VoiceSDK.Dictation.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/VoiceSDK.Dictation.Editor.dll": {}
+        }
+      },
+      "VoiceSDK.Dictation.Runtime/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "AssistantCoreSDKRuntime": "1.0.0",
+          "Facebook.Wit.Dictation": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "VoiceSDK.Runtime": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/VoiceSDK.Dictation.Runtime.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/VoiceSDK.Dictation.Runtime.dll": {}
+        }
+      },
+      "VoiceSDK.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.Voice.Hub.Editor": "1.0.0",
+          "Meta.Voice.Hub.Runtime": "1.0.0",
+          "Meta.Voice.VSDKHub.Editor": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Editor": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "Meta.WitAi.TTS": "1.0.0",
+          "Meta.WitAi.TTS.Editor": "1.0.0",
+          "VoiceSDK.Runtime": "1.0.0",
+          "VoiceSDK.Telemetry": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/VoiceSDK.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/VoiceSDK.Editor.dll": {}
+        }
+      },
+      "VoiceSDK.Runtime/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "AssistantCoreSDKRuntime": "1.0.0",
+          "Meta.WitAi": "1.0.0",
+          "Meta.WitAi.Conduit": "1.0.0",
+          "Meta.WitAi.Lib": "1.0.0",
+          "Meta.WitAi.TTS": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/VoiceSDK.Runtime.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/VoiceSDK.Runtime.dll": {}
+        }
+      },
+      "VoiceSDK.Telemetry/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "AssistantCoreSDKEditor": "1.0.0",
+          "AssistantCoreSDKRuntime": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/VoiceSDK.Telemetry.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/VoiceSDK.Telemetry.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Assembly-CSharp/1.0.0": {
+      "type": "project",
+      "path": "Assembly-CSharp.csproj",
+      "msbuildProject": "Assembly-CSharp.csproj"
+    },
+    "AssistantCoreSDKEditor/1.0.0": {
+      "type": "project",
+      "path": "AssistantCoreSDKEditor.csproj",
+      "msbuildProject": "AssistantCoreSDKEditor.csproj"
+    },
+    "AssistantCoreSDKRuntime/1.0.0": {
+      "type": "project",
+      "path": "AssistantCoreSDKRuntime.csproj",
+      "msbuildProject": "AssistantCoreSDKRuntime.csproj"
+    },
+    "Facebook.Wit.Dictation/1.0.0": {
+      "type": "project",
+      "path": "Facebook.Wit.Dictation.csproj",
+      "msbuildProject": "Facebook.Wit.Dictation.csproj"
+    },
+    "Facebook.Wit.Dictation.Editor/1.0.0": {
+      "type": "project",
+      "path": "Facebook.Wit.Dictation.Editor.csproj",
+      "msbuildProject": "Facebook.Wit.Dictation.Editor.csproj"
+    },
+    "Meta.Voice.Hub.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Hub.Editor.csproj",
+      "msbuildProject": "Meta.Voice.Hub.Editor.csproj"
+    },
+    "Meta.Voice.Hub.Runtime/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Hub.Runtime.csproj",
+      "msbuildProject": "Meta.Voice.Hub.Runtime.csproj"
+    },
+    "Meta.Voice.Samples.BuiltInTimer/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.BuiltInTimer.csproj",
+      "msbuildProject": "Meta.Voice.Samples.BuiltInTimer.csproj"
+    },
+    "Meta.Voice.Samples.Chess/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.Chess.csproj",
+      "msbuildProject": "Meta.Voice.Samples.Chess.csproj"
+    },
+    "Meta.Voice.Samples.Dictation/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.Dictation.csproj",
+      "msbuildProject": "Meta.Voice.Samples.Dictation.csproj"
+    },
+    "Meta.Voice.Samples.LightTraits/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.LightTraits.csproj",
+      "msbuildProject": "Meta.Voice.Samples.LightTraits.csproj"
+    },
+    "Meta.Voice.Samples.LiveUnderstanding/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.LiveUnderstanding.csproj",
+      "msbuildProject": "Meta.Voice.Samples.LiveUnderstanding.csproj"
+    },
+    "Meta.Voice.Samples.Shapes/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.Shapes.csproj",
+      "msbuildProject": "Meta.Voice.Samples.Shapes.csproj"
+    },
+    "Meta.Voice.Samples.ShapesConduit/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.ShapesConduit.csproj",
+      "msbuildProject": "Meta.Voice.Samples.ShapesConduit.csproj"
+    },
+    "Meta.Voice.Samples.TTSVoices/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.Samples.TTSVoices.csproj",
+      "msbuildProject": "Meta.Voice.Samples.TTSVoices.csproj"
+    },
+    "Meta.Voice.VSDKHub.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.Voice.VSDKHub.Editor.csproj",
+      "msbuildProject": "Meta.Voice.VSDKHub.Editor.csproj"
+    },
+    "Meta.VoiceSDK.Mic.Common/1.0.0": {
+      "type": "project",
+      "path": "Meta.VoiceSDK.Mic.Common.csproj",
+      "msbuildProject": "Meta.VoiceSDK.Mic.Common.csproj"
+    },
+    "Meta.VoiceSDK.Mic.Other/1.0.0": {
+      "type": "project",
+      "path": "Meta.VoiceSDK.Mic.Other.csproj",
+      "msbuildProject": "Meta.VoiceSDK.Mic.Other.csproj"
+    },
+    "Meta.VoiceSDK.Mic.WebGL/1.0.0": {
+      "type": "project",
+      "path": "Meta.VoiceSDK.Mic.WebGL.csproj",
+      "msbuildProject": "Meta.VoiceSDK.Mic.WebGL.csproj"
+    },
+    "Meta.WitAi/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAi.csproj",
+      "msbuildProject": "Meta.WitAi.csproj"
+    },
+    "Meta.WitAi.Conduit/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAi.Conduit.csproj",
+      "msbuildProject": "Meta.WitAi.Conduit.csproj"
+    },
+    "Meta.WitAi.Conduit.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAi.Conduit.Editor.csproj",
+      "msbuildProject": "Meta.WitAi.Conduit.Editor.csproj"
+    },
+    "Meta.WitAi.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAi.Editor.csproj",
+      "msbuildProject": "Meta.WitAi.Editor.csproj"
+    },
+    "Meta.WitAi.Lib/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAi.Lib.csproj",
+      "msbuildProject": "Meta.WitAi.Lib.csproj"
+    },
+    "Meta.WitAI.Lib.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAI.Lib.Editor.csproj",
+      "msbuildProject": "Meta.WitAI.Lib.Editor.csproj"
+    },
+    "Meta.WitAi.TTS/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAi.TTS.csproj",
+      "msbuildProject": "Meta.WitAi.TTS.csproj"
+    },
+    "Meta.WitAi.TTS.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.WitAi.TTS.Editor.csproj",
+      "msbuildProject": "Meta.WitAi.TTS.Editor.csproj"
+    },
+    "Meta.XR.BuildingBlocks/1.0.0": {
+      "type": "project",
+      "path": "Meta.XR.BuildingBlocks.csproj",
+      "msbuildProject": "Meta.XR.BuildingBlocks.csproj"
+    },
+    "Meta.XR.BuildingBlocks.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.XR.BuildingBlocks.Editor.csproj",
+      "msbuildProject": "Meta.XR.BuildingBlocks.Editor.csproj"
+    },
+    "Oculus.AudioManager/1.0.0": {
+      "type": "project",
+      "path": "Oculus.AudioManager.csproj",
+      "msbuildProject": "Oculus.AudioManager.csproj"
+    },
+    "Oculus.AudioManager.Audio.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.AudioManager.Audio.Editor.csproj",
+      "msbuildProject": "Oculus.AudioManager.Audio.Editor.csproj"
+    },
+    "Oculus.AudioManager.Utils.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.AudioManager.Utils.Editor.csproj",
+      "msbuildProject": "Oculus.AudioManager.Utils.Editor.csproj"
+    },
+    "Oculus.Interaction/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.csproj",
+      "msbuildProject": "Oculus.Interaction.csproj"
+    },
+    "Oculus.Interaction.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.Editor.csproj",
+      "msbuildProject": "Oculus.Interaction.Editor.csproj"
+    },
+    "Oculus.Interaction.InterfaceSupport/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.InterfaceSupport.csproj",
+      "msbuildProject": "Oculus.Interaction.InterfaceSupport.csproj"
+    },
+    "Oculus.Interaction.OVR/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.OVR.csproj",
+      "msbuildProject": "Oculus.Interaction.OVR.csproj"
+    },
+    "Oculus.Interaction.OVR.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.OVR.Editor.csproj",
+      "msbuildProject": "Oculus.Interaction.OVR.Editor.csproj"
+    },
+    "Oculus.Interaction.OVR.Samples/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.OVR.Samples.csproj",
+      "msbuildProject": "Oculus.Interaction.OVR.Samples.csproj"
+    },
+    "Oculus.Interaction.Samples.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.Samples.Editor.csproj",
+      "msbuildProject": "Oculus.Interaction.Samples.Editor.csproj"
+    },
+    "Oculus.LipSync/1.0.0": {
+      "type": "project",
+      "path": "Oculus.LipSync.csproj",
+      "msbuildProject": "Oculus.LipSync.csproj"
+    },
+    "Oculus.LipSync.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.LipSync.Editor.csproj",
+      "msbuildProject": "Oculus.LipSync.Editor.csproj"
+    },
+    "Oculus.Platform/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Platform.csproj",
+      "msbuildProject": "Oculus.Platform.csproj"
+    },
+    "Oculus.Platform.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Platform.Editor.csproj",
+      "msbuildProject": "Oculus.Platform.Editor.csproj"
+    },
+    "Oculus.Spatializer/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Spatializer.csproj",
+      "msbuildProject": "Oculus.Spatializer.csproj"
+    },
+    "Oculus.Spatializer.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Spatializer.Editor.csproj",
+      "msbuildProject": "Oculus.Spatializer.Editor.csproj"
+    },
+    "Oculus.VR/1.0.0": {
+      "type": "project",
+      "path": "Oculus.VR.csproj",
+      "msbuildProject": "Oculus.VR.csproj"
+    },
+    "Oculus.VR.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.VR.Editor.csproj",
+      "msbuildProject": "Oculus.VR.Editor.csproj"
+    },
+    "Oculus.VR.Scripts.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.VR.Scripts.Editor.csproj",
+      "msbuildProject": "Oculus.VR.Scripts.Editor.csproj"
+    },
+    "VoiceSDK.Dictation.Editor/1.0.0": {
+      "type": "project",
+      "path": "VoiceSDK.Dictation.Editor.csproj",
+      "msbuildProject": "VoiceSDK.Dictation.Editor.csproj"
+    },
+    "VoiceSDK.Dictation.Runtime/1.0.0": {
+      "type": "project",
+      "path": "VoiceSDK.Dictation.Runtime.csproj",
+      "msbuildProject": "VoiceSDK.Dictation.Runtime.csproj"
+    },
+    "VoiceSDK.Editor/1.0.0": {
+      "type": "project",
+      "path": "VoiceSDK.Editor.csproj",
+      "msbuildProject": "VoiceSDK.Editor.csproj"
+    },
+    "VoiceSDK.Runtime/1.0.0": {
+      "type": "project",
+      "path": "VoiceSDK.Runtime.csproj",
+      "msbuildProject": "VoiceSDK.Runtime.csproj"
+    },
+    "VoiceSDK.Telemetry/1.0.0": {
+      "type": "project",
+      "path": "VoiceSDK.Telemetry.csproj",
+      "msbuildProject": "VoiceSDK.Telemetry.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    ".NETStandard,Version=v2.1": [
+      "Assembly-CSharp >= 1.0.0",
+      "AssistantCoreSDKEditor >= 1.0.0",
+      "AssistantCoreSDKRuntime >= 1.0.0",
+      "Facebook.Wit.Dictation >= 1.0.0",
+      "Facebook.Wit.Dictation.Editor >= 1.0.0",
+      "Meta.Voice.Hub.Editor >= 1.0.0",
+      "Meta.Voice.Hub.Runtime >= 1.0.0",
+      "Meta.Voice.Samples.BuiltInTimer >= 1.0.0",
+      "Meta.Voice.Samples.Chess >= 1.0.0",
+      "Meta.Voice.Samples.Dictation >= 1.0.0",
+      "Meta.Voice.Samples.LightTraits >= 1.0.0",
+      "Meta.Voice.Samples.LiveUnderstanding >= 1.0.0",
+      "Meta.Voice.Samples.Shapes >= 1.0.0",
+      "Meta.Voice.Samples.ShapesConduit >= 1.0.0",
+      "Meta.Voice.Samples.TTSVoices >= 1.0.0",
+      "Meta.Voice.VSDKHub.Editor >= 1.0.0",
+      "Meta.VoiceSDK.Mic.Common >= 1.0.0",
+      "Meta.VoiceSDK.Mic.Other >= 1.0.0",
+      "Meta.VoiceSDK.Mic.WebGL >= 1.0.0",
+      "Meta.WitAI.Lib.Editor >= 1.0.0",
+      "Meta.WitAi >= 1.0.0",
+      "Meta.WitAi.Conduit >= 1.0.0",
+      "Meta.WitAi.Conduit.Editor >= 1.0.0",
+      "Meta.WitAi.Editor >= 1.0.0",
+      "Meta.WitAi.Lib >= 1.0.0",
+      "Meta.WitAi.TTS >= 1.0.0",
+      "Meta.WitAi.TTS.Editor >= 1.0.0",
+      "Meta.XR.BuildingBlocks >= 1.0.0",
+      "Meta.XR.BuildingBlocks.Editor >= 1.0.0",
+      "Oculus.AudioManager >= 1.0.0",
+      "Oculus.AudioManager.Audio.Editor >= 1.0.0",
+      "Oculus.AudioManager.Utils.Editor >= 1.0.0",
+      "Oculus.Interaction >= 1.0.0",
+      "Oculus.Interaction.Editor >= 1.0.0",
+      "Oculus.Interaction.InterfaceSupport >= 1.0.0",
+      "Oculus.Interaction.OVR >= 1.0.0",
+      "Oculus.Interaction.OVR.Editor >= 1.0.0",
+      "Oculus.Interaction.OVR.Samples >= 1.0.0",
+      "Oculus.Interaction.Samples.Editor >= 1.0.0",
+      "Oculus.LipSync >= 1.0.0",
+      "Oculus.LipSync.Editor >= 1.0.0",
+      "Oculus.Platform >= 1.0.0",
+      "Oculus.Platform.Editor >= 1.0.0",
+      "Oculus.Spatializer >= 1.0.0",
+      "Oculus.Spatializer.Editor >= 1.0.0",
+      "Oculus.VR >= 1.0.0",
+      "Oculus.VR.Editor >= 1.0.0",
+      "Oculus.VR.Scripts.Editor >= 1.0.0",
+      "VoiceSDK.Dictation.Editor >= 1.0.0",
+      "VoiceSDK.Dictation.Runtime >= 1.0.0",
+      "VoiceSDK.Editor >= 1.0.0",
+      "VoiceSDK.Runtime >= 1.0.0",
+      "VoiceSDK.Telemetry >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\disti\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "c:\\g1m\\G1M\\Assembly-CSharp-Editor.csproj",
+      "projectName": "Assembly-CSharp-Editor",
+      "projectPath": "c:\\g1m\\G1M\\Assembly-CSharp-Editor.csproj",
+      "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+      "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Assembly-CSharp-Editor\\",
+      "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
+      "configFilePaths": [
+        "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+      ],
+      "originalTargetFrameworks": [
+        "netstandard2.1"
+      ],
+      "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "projectReferences": {
+            "c:\\g1m\\G1M\\Assembly-CSharp.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Assembly-CSharp.csproj"
+            },
+            "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj"
+            },
+            "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj"
+            },
+            "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj"
+            },
+            "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.AudioManager.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.LipSync.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Platform.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Spatializer.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj"
+            },
+            "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+            },
+            "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
+    },
+    "frameworks": {
+      "netstandard2.1": {
+        "targetAlias": "netstandard2.1",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}
