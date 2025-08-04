@@ -4,6 +4,7 @@ using SocketIOClient;
 using SocketIOClient.Transport;
 using System.Threading.Tasks;
 using System;
+using Unity.WebRTC; // この行を追加
 
 // WebRTC関連のクラスを使用する場合、using Unity.WebRTC; が必要
 // 今回はSocket.IOのDataChannelを使用するため、WebRTCの直接的な使用は省略
@@ -13,6 +14,13 @@ public class HandClient : MonoBehaviour
 {
     private SocketIOClient.SocketIO socket; // SocketIOUnityクラスは存在しないので、SocketIOに修正
     private const string ServerUrl = "https://your-render-app-name.onrender.com";
+
+    // WebRTC関連のメンバー変数を追加
+    private RTCPeerConnection _peerConnection;
+    private MediaStream _remoteStream;
+    private VideoStreamTrack _remoteVideoTrack;
+    private Renderer _renderer; // 映像を表示するRenderer
+    private bool _isInitialized = false;
 
     // Start関数で非同期処理を呼び出す
     void Start()
@@ -38,18 +46,58 @@ public class HandClient : MonoBehaviour
             await socket.EmitAsync("handshake", "UnityClient");
         };
 
-        socket.On("offer", async response =>
+
+        // ここにWebRTCの初期化ロジックを追加
+        var configuration = new RTCConfiguration
         {
-            // ここにofferを受け取ったときのWebRTCロジックを記述
-            // 現在のブラウザ側のコードでは、Unityクライアントがofferを送信し、
-            // ブラウザ側がanswerを返す役割になっています。
-            // よって、Unity側はofferを送信するロジックのみで良いはずです。
-        });
+            iceServers = new RTCIceServer[]
+            {
+                new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } }
+            }
+        };
+        _peerConnection = new RTCPeerConnection(ref configuration);
         
-        socket.On("answer", async response =>
+        _peerConnection.OnIceCandidate = candidate =>
         {
-            // answerを処理するロジック
-        });
+            // 取得したcandidateをSocket.IOで送信するロジックをここに書く
+            // socket.EmitAsync("candidate", candidate.candidate.sdp);
+        };
+        
+        _peerConnection.OnTrack = e =>
+        {
+            if (e.Track is VideoStreamTrack videoTrack)
+            {
+                _remoteVideoTrack = videoTrack;
+                // ビデオトラックが追加されたら、映像を表示するロジックをここに書く
+            }
+        };
+        
+        // ...
+    }
+
+
+
+    // ...
+    socket.On("offer", async response =>
+    {
+        var offerJson = response.GetValue<string>(); // offerのデータを取得
+        var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
+        await _peerConnection.SetRemoteDescription(ref sdp);
+        
+        // answerを生成して送信
+        var answer = _peerConnection.CreateAnswer();
+        await _peerConnection.SetLocalDescription(ref answer);
+        var answerJson = JsonUtility.ToJson(answer);
+        await socket.EmitAsync("answer", answerJson);
+    });
+
+    socket.On("answer", async response =>
+    {
+        var answerJson = response.GetValue<string>(); // answerのデータを取得
+        var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
+        await _peerConnection.SetRemoteDescription(ref sdp);
+    });
+    // ...
 
         socket.On("candidate", async response =>
         {
