@@ -39,6 +39,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoiceSDK.Dictation.Runtime"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoiceSDK.Editor", "VoiceSDK.Editor.csproj", "{CDB6810A-5CDE-A5CD-E7A5-06B15F3EF54C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.WebRTC.Samples", "Unity.WebRTC.Samples.csproj", "{331C25A2-42CB-7953-9CCE-136614CA5A60}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Oculus.VR.Scripts.Editor", "Oculus.VR.Scripts.Editor.csproj", "{8BB7FBA4-B84C-15E6-75B2-D4EC2E0D557A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meta.Voice.Samples.LightTraits", "Meta.Voice.Samples.LightTraits.csproj", "{91BA34D4-5DA5-E265-7C73-1D348FAF04F6}"
@@ -108,6 +110,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meta.VoiceSDK.Mic.WebGL", "Meta.VoiceSDK.Mic.WebGL.csproj", "{F3F7EF5E-99DA-8E1F-70CD-0D6E3D9582E8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meta.Voice.Samples.Chess", "Meta.Voice.Samples.Chess.csproj", "{FC05FDE3-5525-A5DA-A979-C8A61D122ABF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.WebRTC.Samples.Editror", "Unity.WebRTC.Samples.Editror.csproj", "{7DFDA5EA-37AF-1381-C564-5909CA403BA6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -191,6 +195,10 @@ Global
 		{CDB6810A-5CDE-A5CD-E7A5-06B15F3EF54C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CDB6810A-5CDE-A5CD-E7A5-06B15F3EF54C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CDB6810A-5CDE-A5CD-E7A5-06B15F3EF54C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8BB7FBA4-B84C-15E6-75B2-D4EC2E0D557A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8BB7FBA4-B84C-15E6-75B2-D4EC2E0D557A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8BB7FBA4-B84C-15E6-75B2-D4EC2E0D557A}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -331,6 +339,10 @@ Global
 		{FC05FDE3-5525-A5DA-A979-C8A61D122ABF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FC05FDE3-5525-A5DA-A979-C8A61D122ABF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FC05FDE3-5525-A5DA-A979-C8A61D122ABF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
