@@ -4,7 +4,7 @@ using SocketIOClient.Transport;
 using System.Threading.Tasks;
 using System;
 using SocketIO.Core;
-using Unity.WebRTC; // この行を追加
+using Unity.WebRTC;
 
 public class HandClient : MonoBehaviour
 {
@@ -17,10 +17,13 @@ public class HandClient : MonoBehaviour
     private Renderer _renderer;
     private bool _isInitialized = false;
 
-    
+    // Start is called before the first frame update
     void Start()
     {
-        InitializeSocketIO();
+        WebRTC.Initialize(WebRTCSettings.WebRTCInitializeFlags, () =>
+        {
+            InitializeSocketIO();
+        });
     }
 
     void InitializeSocketIO()
@@ -39,7 +42,7 @@ public class HandClient : MonoBehaviour
             await socket.EmitAsync("handshake", "UnityClient");
         };
 
-        // ここにWebRTCの初期化ロジックを追加
+        // WebRTCの初期化ロジック
         var configuration = new RTCConfiguration
         {
             iceServers = new RTCIceServer[]
@@ -51,91 +54,17 @@ public class HandClient : MonoBehaviour
         
         _peerConnection.OnIceCandidate = candidate =>
         {
-            // 取得したcandidateをSocket.IOで送信するロジックをここに書く
-            // socket.EmitAsync("candidate", candidate.candidate.sdp);
+            if (candidate != null && socket.Connected)
+            {
+                var candidateJson = JsonUtility.ToJson(candidate);
+                socket.EmitAsync("candidate", candidateJson);
+            }
         };
-
-
+        
+        // **イベントハンドラの登録**
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
-
-        private IEnumerator HandleOfferAsync(SocketIOResponse response)
-        {
-            var offerJson = response.GetValue<string>();
-            var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
-
-            Debug.Log("SetRemoteDescription start");
-            var op1 = _peerConnection.SetRemoteDescription(ref sdp);
-            yield return op1;
-            if (op1.IsError)
-            {
-                Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
-                yield break;
-            }
-            
-            Debug.Log("SetRemoteDescription complete");
-            Debug.Log("CreateAnswer start");
-
-            var op2 = _peerConnection.CreateAnswer();
-            yield return op2;
-            if (op2.IsError)
-            {
-                Debug.LogError($"CreateAnswer failed: {op2.Error.message}");
-                yield break;
-            }
-
-            var answer = op2.Desc;
-            Debug.Log("SetLocalDescription start");
-
-            var op3 = _peerConnection.SetLocalDescription(ref answer);
-            yield return op3;
-            if (op3.IsError)
-            {
-                Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
-                yield break;
-            }
-
-            Debug.Log("SetLocalDescription complete");
-            var answerJson = JsonUtility.ToJson(answer);
-            
-            // awaitを使わずTask.Runで待機するか、Socket.IOの非同期処理に合わせて修正
-            // UnityのMonoBehaviourはasync voidでasync Taskを待てないため、注意が必要
-            socket.EmitAsync("answer", answerJson);
-        }
-
-
-        // public IEnumerator CreateOfferAsync()
-        // {
-        //     var op = _peerConnection.CreateOffer();
-        //     yield return op;
-
-        //     if (!op.IsError)
-        //     {
-        //         var offer = op.Desc;
-        //         var op2 = _peerConnection.SetLocalDescription(ref offer);
-        //         yield return op2;
-
-        //         if (!op2.IsError)
-        //         {
-        //             var offerJson = JsonUtility.ToJson(offer);
-        //             socket.EmitAsync("offer", offerJson); // または awaitableな方法で
-        //         }
-        //     }
-        // }
-
-        // 受信したanswerを処理する
-
-    socket.On("answer", async response =>
-        {
-            var answerJson = response.GetValue<string>(); // answerのデータを取得
-            var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
-            await _peerConnection.SetRemoteDescription(ref sdp);
-        });
-
-        socket.On("candidate", response =>
-        {
-            // var candidateData = response.GetValue<string>();
-            // Debug.Log($"Received candidate: {candidateData}");
-        });
+        socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
+        socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
 
         socket.OnDisconnected += (sender, e) =>
         {
@@ -146,8 +75,72 @@ public class HandClient : MonoBehaviour
         {
             Debug.LogError($"Socket.IO Error: {e}");
         };
-        
+
         ConnectSocketAsync();
+    }
+
+    // `offer`イベントのハンドラ
+    private IEnumerator HandleOfferAsync(SocketIOResponse response)
+    {
+        Debug.Log("Received an offer from Web client.");
+        var offerJson = response.GetValue<string>();
+        var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
+
+        var op1 = _peerConnection.SetRemoteDescription(ref sdp);
+        yield return op1;
+        if (op1.IsError)
+        {
+            Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
+            yield break;
+        }
+
+        var op2 = _peerConnection.CreateAnswer();
+        yield return op2;
+        if (op2.IsError)
+        {
+            Debug.LogError($"CreateAnswer failed: {op2.Error.message}");
+            yield break;
+        }
+
+        var answer = op2.Desc;
+        var op3 = _peerConnection.SetLocalDescription(ref answer);
+        yield return op3;
+        if (op3.IsError)
+        {
+            Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
+            yield break;
+        }
+        
+        var answerJson = JsonUtility.ToJson(answer);
+        socket.EmitAsync("answer", answerJson);
+    }
+    
+    // `answer`イベントのハンドラ
+    private IEnumerator HandleAnswerAsync(SocketIOResponse response)
+    {
+        Debug.Log("Received an answer from Web client.");
+        var answerJson = response.GetValue<string>();
+        var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
+
+        var op = _peerConnection.SetRemoteDescription(ref sdp);
+        yield return op;
+        if (op.IsError)
+        {
+            Debug.LogError($"SetRemoteDescription failed: {op.Error.message}");
+        }
+    }
+
+    // `candidate`イベントのハンドラ
+    private IEnumerator HandleCandidateAsync(SocketIOResponse response)
+    {
+        var candidateJson = response.GetValue<string>();
+        var candidate = JsonUtility.FromJson<RTCIceCandidate>(candidateJson);
+
+        if (candidate != null)
+        {
+            _peerConnection.AddIceCandidate(candidate);
+        }
+        yield break;
     }
 
     private async void ConnectSocketAsync()
@@ -166,7 +159,7 @@ public class HandClient : MonoBehaviour
             }
         }
     }
-    
+
     public async Task EmitHandDataAsync(string data)
     {
         if (socket != null && socket.Connected)
@@ -177,6 +170,11 @@ public class HandClient : MonoBehaviour
 
     void OnDestroy()
     {
+        if (_peerConnection != null)
+        {
+            _peerConnection.Close();
+            _peerConnection.Dispose();
+        }
         if (socket != null && socket.Connected)
         {
             socket.DisconnectAsync();
