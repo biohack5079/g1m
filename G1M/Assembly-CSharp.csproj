@@ -1593,6 +1593,7 @@
     <ProjectReference Include="Oculus.Interaction.OVR.Samples.csproj" />
     <ProjectReference Include="Meta.Voice.Samples.Dictation.csproj" />
     <ProjectReference Include="Oculus.Interaction.OVR.csproj" />
+    <ProjectReference Include="Unity.WebRTC.Samples.csproj" />
     <ProjectReference Include="Meta.Voice.Hub.Runtime.csproj" />
     <ProjectReference Include="Oculus.Spatializer.csproj" />
     <ProjectReference Include="Facebook.Wit.Dictation.Editor.csproj" />
@@ -1607,6 +1608,7 @@
     <ProjectReference Include="Meta.WitAI.Lib.Editor.csproj" />
     <ProjectReference Include="Meta.Voice.Samples.Shapes.csproj" />
     <ProjectReference Include="Oculus.AudioManager.Audio.Editor.csproj" />
+    <ProjectReference Include="Unity.WebRTC.Samples.Editror.csproj" />
     <ProjectReference Include="VoiceSDK.Editor.csproj" />
     <ProjectReference Include="AssistantCoreSDKEditor.csproj" />
     <ProjectReference Include="VoiceSDK.Runtime.csproj" />
