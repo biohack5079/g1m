@@ -1,42 +1,40 @@
+// HTMLから要素を取得
 const videoElement = document.getElementById('input_video');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
 
+// Socket.IOとWebRTCの初期化
 const socket = io();
 let peerConnection = null;
 let dataChannel = null;
+let isHandsInitialized = false;
 
+// Handsモデルの初期化
 const hands = new Hands({
   locateFile: (file) => {
+    // バージョンを固定し、安定性を確保
     return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.5.1675469404/${file}`;
   }
 });
 
-const pose = new Pose({
-  locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`;
-  }
-});
-
 let handLandmarks = null;
-let poseLandmarks = null;
 
+// Handsモデルの処理結果を受け取る
 hands.onResults((results) => {
-  handLandmarks = results.multiHandLandmarks;
-});
+  // 初期化完了のログ
+  if (!isHandsInitialized) {
+    console.log("Hands model initialized successfully.");
+    isHandsInitialized = true;
+    camera.start(); // モデル初期化後にカメラを起動
+  }
 
-pose.onResults((results) => {
-  poseLandmarks = results.poseLandmarks;
+  handLandmarks = results.multiHandLandmarks;
 
   // キャンバスの描画
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
   
-  if (poseLandmarks) {
-    drawConnectors(canvasCtx, poseLandmarks, Pose.POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 4 });
-    drawLandmarks(canvasCtx, poseLandmarks, { color: '#FF0000', lineWidth: 2 });
-  }
   if (handLandmarks) {
     for (const landmarks of handLandmarks) {
       drawConnectors(canvasCtx, landmarks, Hands.HAND_CONNECTIONS, { color: '#FF0000', lineWidth: 5 });
@@ -46,8 +44,8 @@ pose.onResults((results) => {
   canvasCtx.restore();
 
   // Data Channelで座標データを送信
-  if (dataChannel && dataChannel.readyState === 'open' && (handLandmarks || poseLandmarks)) {
-    const payload = JSON.stringify({ hands: handLandmarks, body: poseLandmarks });
+  if (dataChannel && dataChannel.readyState === 'open' && handLandmarks) {
+    const payload = JSON.stringify({ hands: handLandmarks });
     dataChannel.send(payload);
   }
 });
@@ -55,12 +53,11 @@ pose.onResults((results) => {
 // カメラからの映像ストリームをMediaPipeに送る
 const camera = new Camera(videoElement, {
   onFrame: async () => {
-    await pose.send({ image: videoElement });
+    await hands.send({ image: videoElement });
   },
   width: 640,
   height: 480
 });
-camera.start();
 
 // WebRTCシグナリング
 socket.on('answer', async (answer) => {
@@ -90,7 +87,6 @@ socket.on('connect', () => {
   };
 });
 
-// ブラウザ側がofferを受け取ったときにanswerを返すロジック
 socket.on('offer', async (offer) => {
   if (peerConnection) {
     console.log('Received an offer from Unity client. Creating an answer.');
