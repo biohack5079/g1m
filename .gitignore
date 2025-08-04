@@ -1,5 +1,6 @@
 note.txt
 Library/
+node_modules/
 
 # --- macOS / Windows共通 ---
 .DS_Store
