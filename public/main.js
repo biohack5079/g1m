@@ -8,13 +8,13 @@ let dataChannel = null;
 
 const hands = new Hands({
   locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.5.1675469404/${file}`;
   }
 });
 
 const pose = new Pose({
   locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`;
   }
 });
 
