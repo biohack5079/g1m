@@ -18,14 +18,14 @@ public class HandClient : MonoBehaviour
     private Renderer _renderer;
     private bool _isInitialized = false;
 
-    // Start is called before the first frame update
-    void Start()
-    {
-        WebRTC.Initialize(WebRTCSettings.WebRTCInitializeFlags, () =>
-        {
-            InitializeSocketIO();
-        });
-    }
+    // // Start is called before the first frame update
+    // void Start()
+    // {
+    //     WebRTC.Initialize(WebRTCSettings.WebRTCInitializeFlags, () =>
+    //     {
+    //         InitializeSocketIO();
+    //     });
+    // }
 
     void InitializeSocketIO()
     {
