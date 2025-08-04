@@ -1,0 +1,232 @@
+{
+  "version": 3,
+  "targets": {
+    ".NETStandard,Version=v2.1": {
+      "Meta.XR.BuildingBlocks/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.dll": {}
+        }
+      },
+      "Meta.XR.BuildingBlocks.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Meta.XR.BuildingBlocks": "1.0.0",
+          "Oculus.VR": "1.0.0",
+          "Oculus.VR.Editor": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Meta.XR.BuildingBlocks.Editor.dll": {}
+        }
+      },
+      "Oculus.Interaction/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.dll": {}
+        }
+      },
+      "Oculus.Interaction.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Interaction": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.Editor.dll": {}
+        }
+      },
+      "Oculus.Interaction.OVR/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.Interaction": "1.0.0",
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.Interaction.OVR.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.Interaction.OVR.dll": {}
+        }
+      },
+      "Oculus.VR/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "compile": {
+          "bin/placeholder/Oculus.VR.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.VR.dll": {}
+        }
+      },
+      "Oculus.VR.Editor/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.1",
+        "dependencies": {
+          "Oculus.VR": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Oculus.VR.Editor.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Oculus.VR.Editor.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Meta.XR.BuildingBlocks/1.0.0": {
+      "type": "project",
+      "path": "Meta.XR.BuildingBlocks.csproj",
+      "msbuildProject": "Meta.XR.BuildingBlocks.csproj"
+    },
+    "Meta.XR.BuildingBlocks.Editor/1.0.0": {
+      "type": "project",
+      "path": "Meta.XR.BuildingBlocks.Editor.csproj",
+      "msbuildProject": "Meta.XR.BuildingBlocks.Editor.csproj"
+    },
+    "Oculus.Interaction/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.csproj",
+      "msbuildProject": "Oculus.Interaction.csproj"
+    },
+    "Oculus.Interaction.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.Editor.csproj",
+      "msbuildProject": "Oculus.Interaction.Editor.csproj"
+    },
+    "Oculus.Interaction.OVR/1.0.0": {
+      "type": "project",
+      "path": "Oculus.Interaction.OVR.csproj",
+      "msbuildProject": "Oculus.Interaction.OVR.csproj"
+    },
+    "Oculus.VR/1.0.0": {
+      "type": "project",
+      "path": "Oculus.VR.csproj",
+      "msbuildProject": "Oculus.VR.csproj"
+    },
+    "Oculus.VR.Editor/1.0.0": {
+      "type": "project",
+      "path": "Oculus.VR.Editor.csproj",
+      "msbuildProject": "Oculus.VR.Editor.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    ".NETStandard,Version=v2.1": [
+      "Meta.XR.BuildingBlocks >= 1.0.0",
+      "Meta.XR.BuildingBlocks.Editor >= 1.0.0",
+      "Oculus.Interaction >= 1.0.0",
+      "Oculus.Interaction.Editor >= 1.0.0",
+      "Oculus.Interaction.OVR >= 1.0.0",
+      "Oculus.VR >= 1.0.0",
+      "Oculus.VR.Editor >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\disti\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj",
+      "projectName": "Oculus.Interaction.OVR.Editor",
+      "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj",
+      "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+      "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction.OVR.Editor\\",
+      "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
+      "configFilePaths": [
+        "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+      ],
+      "originalTargetFrameworks": [
+        "netstandard2.1"
+      ],
+      "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "projectReferences": {
+            "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj"
+            },
+            "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+            },
+            "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+              "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
+    },
+    "frameworks": {
+      "netstandard2.1": {
+        "targetAlias": "netstandard2.1",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

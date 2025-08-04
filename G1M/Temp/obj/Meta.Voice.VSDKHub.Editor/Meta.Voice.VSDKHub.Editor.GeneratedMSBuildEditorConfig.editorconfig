@@ -1,0 +1,8 @@
+is_global = true
+build_property.RootNamespace = Meta.Voice.VSDKHub
+build_property.ProjectDir = c:\g1m\G1M\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.CsWinRTUseWindowsUIXamlProjections = false
+build_property.EffectiveAnalysisLevelStyle = 
+build_property.EnableCodeStyleSeverity = 

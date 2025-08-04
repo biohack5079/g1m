@@ -55,20 +55,76 @@ public class HandClient : MonoBehaviour
             // socket.EmitAsync("candidate", candidate.candidate.sdp);
         };
 
-        socket.On("offer", async response =>
-        {
-            var offerJson = response.GetValue<string>(); // offerのデータを取得
-            var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
-            await _peerConnection.SetRemoteDescription(ref sdp);
-            
-            // answerを生成して送信
-            var answer = _peerConnection.CreateAnswer();
-            await _peerConnection.SetLocalDescription(ref answer);
-            var answerJson = JsonUtility.ToJson(answer);
-            await socket.EmitAsync("answer", answerJson);
-        });
 
-        socket.On("answer", async response =>
+        socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
+
+        private IEnumerator HandleOfferAsync(SocketIOResponse response)
+        {
+            var offerJson = response.GetValue<string>();
+            var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
+
+            Debug.Log("SetRemoteDescription start");
+            var op1 = _peerConnection.SetRemoteDescription(ref sdp);
+            yield return op1;
+            if (op1.IsError)
+            {
+                Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
+                yield break;
+            }
+            
+            Debug.Log("SetRemoteDescription complete");
+            Debug.Log("CreateAnswer start");
+
+            var op2 = _peerConnection.CreateAnswer();
+            yield return op2;
+            if (op2.IsError)
+            {
+                Debug.LogError($"CreateAnswer failed: {op2.Error.message}");
+                yield break;
+            }
+
+            var answer = op2.Desc;
+            Debug.Log("SetLocalDescription start");
+
+            var op3 = _peerConnection.SetLocalDescription(ref answer);
+            yield return op3;
+            if (op3.IsError)
+            {
+                Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
+                yield break;
+            }
+
+            Debug.Log("SetLocalDescription complete");
+            var answerJson = JsonUtility.ToJson(answer);
+            
+            // awaitを使わずTask.Runで待機するか、Socket.IOの非同期処理に合わせて修正
+            // UnityのMonoBehaviourはasync voidでasync Taskを待てないため、注意が必要
+            socket.EmitAsync("answer", answerJson);
+        }
+
+
+        // public IEnumerator CreateOfferAsync()
+        // {
+        //     var op = _peerConnection.CreateOffer();
+        //     yield return op;
+
+        //     if (!op.IsError)
+        //     {
+        //         var offer = op.Desc;
+        //         var op2 = _peerConnection.SetLocalDescription(ref offer);
+        //         yield return op2;
+
+        //         if (!op2.IsError)
+        //         {
+        //             var offerJson = JsonUtility.ToJson(offer);
+        //             socket.EmitAsync("offer", offerJson); // または awaitableな方法で
+        //         }
+        //     }
+        // }
+
+        // 受信したanswerを処理する
+
+    socket.On("answer", async response =>
         {
             var answerJson = response.GetValue<string>(); // answerのデータを取得
             var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);

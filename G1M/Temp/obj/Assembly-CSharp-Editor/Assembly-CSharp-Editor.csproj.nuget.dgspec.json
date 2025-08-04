@@ -1,0 +1,3964 @@
+{
+  "format": 1,
+  "restore": {
+    "c:\\g1m\\G1M\\Assembly-CSharp-Editor.csproj": {}
+  },
+  "projects": {
+    "c:\\g1m\\G1M\\Assembly-CSharp-Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Assembly-CSharp-Editor.csproj",
+        "projectName": "Assembly-CSharp-Editor",
+        "projectPath": "c:\\g1m\\G1M\\Assembly-CSharp-Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Assembly-CSharp-Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Assembly-CSharp.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Assembly-CSharp.csproj"
+              },
+              "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj"
+              },
+              "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj"
+              },
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.AudioManager.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.LipSync.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Platform.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Spatializer.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Assembly-CSharp.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Assembly-CSharp.csproj",
+        "projectName": "Assembly-CSharp",
+        "projectPath": "c:\\g1m\\G1M\\Assembly-CSharp.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Assembly-CSharp\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj"
+              },
+              "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj"
+              },
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.AudioManager.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.LipSync.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Platform.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Spatializer.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj",
+        "projectName": "AssistantCoreSDKEditor",
+        "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\AssistantCoreSDKEditor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj",
+        "projectName": "AssistantCoreSDKRuntime",
+        "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\AssistantCoreSDKRuntime\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj",
+        "projectName": "Facebook.Wit.Dictation",
+        "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Facebook.Wit.Dictation\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj",
+        "projectName": "Facebook.Wit.Dictation.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Facebook.Wit.Dictation.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj",
+        "projectName": "Meta.Voice.Hub.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Hub.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj",
+        "projectName": "Meta.Voice.Hub.Runtime",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Hub.Runtime\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj",
+        "projectName": "Meta.Voice.Samples.BuiltInTimer",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.BuiltInTimer.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.BuiltInTimer\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj",
+        "projectName": "Meta.Voice.Samples.Chess",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Chess.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.Chess\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj",
+        "projectName": "Meta.Voice.Samples.Dictation",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Dictation.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.Dictation\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj",
+        "projectName": "Meta.Voice.Samples.LightTraits",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LightTraits.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.LightTraits\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj",
+        "projectName": "Meta.Voice.Samples.LiveUnderstanding",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.LiveUnderstanding.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.LiveUnderstanding\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj",
+        "projectName": "Meta.Voice.Samples.Shapes",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.Shapes.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.Shapes\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj",
+        "projectName": "Meta.Voice.Samples.ShapesConduit",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.ShapesConduit.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.ShapesConduit\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj",
+        "projectName": "Meta.Voice.Samples.TTSVoices",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Samples.TTSVoices.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.Samples.TTSVoices\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj",
+        "projectName": "Meta.Voice.VSDKHub.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.Voice.VSDKHub.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj",
+        "projectName": "Meta.VoiceSDK.Mic.Common",
+        "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.VoiceSDK.Mic.Common\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj",
+        "projectName": "Meta.VoiceSDK.Mic.Other",
+        "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.VoiceSDK.Mic.Other\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj",
+        "projectName": "Meta.VoiceSDK.Mic.WebGL",
+        "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.VoiceSDK.Mic.WebGL\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj",
+        "projectName": "Meta.WitAi.Conduit",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAi.Conduit\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj",
+        "projectName": "Meta.WitAi.Conduit.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAi.Conduit.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAi.csproj",
+        "projectName": "Meta.WitAi",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAi\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Common.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.WebGL.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj",
+        "projectName": "Meta.WitAi.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAi.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.VoiceSDK.Mic.Other.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj",
+        "projectName": "Meta.WitAi.Lib",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAi.Lib\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj",
+        "projectName": "Meta.WitAI.Lib.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAI.Lib.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj",
+        "projectName": "Meta.WitAi.TTS",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAi.TTS\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj",
+        "projectName": "Meta.WitAi.TTS.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.WitAi.TTS.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAI.Lib.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj",
+        "projectName": "Meta.XR.BuildingBlocks",
+        "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.XR.BuildingBlocks\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj",
+        "projectName": "Meta.XR.BuildingBlocks.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Meta.XR.BuildingBlocks.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj",
+        "projectName": "Oculus.AudioManager.Audio.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Audio.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.AudioManager.Audio.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.AudioManager.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.AudioManager.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.AudioManager.csproj",
+        "projectName": "Oculus.AudioManager",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.AudioManager\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Spatializer.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj",
+        "projectName": "Oculus.AudioManager.Utils.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.Utils.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.AudioManager.Utils.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.AudioManager.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.AudioManager.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.csproj",
+        "projectName": "Oculus.Interaction",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj",
+        "projectName": "Oculus.Interaction.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj",
+        "projectName": "Oculus.Interaction.InterfaceSupport",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.InterfaceSupport.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction.InterfaceSupport\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj",
+        "projectName": "Oculus.Interaction.OVR",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction.OVR\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj",
+        "projectName": "Oculus.Interaction.OVR.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction.OVR.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.XR.BuildingBlocks.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj",
+        "projectName": "Oculus.Interaction.OVR.Samples",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction.OVR.Samples\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj",
+        "projectName": "Oculus.Interaction.Samples.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Samples.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Interaction.Samples.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Interaction.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Interaction.OVR.Samples.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.LipSync.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.LipSync.csproj",
+        "projectName": "Oculus.LipSync",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.LipSync\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj",
+        "projectName": "Oculus.LipSync.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.LipSync.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.LipSync.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.LipSync.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Platform.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Platform.csproj",
+        "projectName": "Oculus.Platform",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Platform\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj",
+        "projectName": "Oculus.Platform.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Platform.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Platform.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Platform.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Spatializer.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Spatializer.csproj",
+        "projectName": "Oculus.Spatializer",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Spatializer\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj",
+        "projectName": "Oculus.Spatializer.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.Spatializer.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.Spatializer.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.Spatializer.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.VR.csproj",
+        "projectName": "Oculus.VR",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.VR\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj",
+        "projectName": "Oculus.VR.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.VR.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj",
+        "projectName": "Oculus.VR.Scripts.Editor",
+        "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Scripts.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\Oculus.VR.Scripts.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Oculus.VR.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.csproj"
+              },
+              "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Oculus.VR.Editor.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj",
+        "projectName": "VoiceSDK.Dictation.Editor",
+        "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\VoiceSDK.Dictation.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj",
+        "projectName": "VoiceSDK.Dictation.Runtime",
+        "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Dictation.Runtime.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\VoiceSDK.Dictation.Runtime\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj"
+              },
+              "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Facebook.Wit.Dictation.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj",
+        "projectName": "VoiceSDK.Editor",
+        "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Editor.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\VoiceSDK.Editor\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.Hub.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.Voice.VSDKHub.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.Editor.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj"
+              },
+              "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj",
+        "projectName": "VoiceSDK.Runtime",
+        "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Runtime.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\VoiceSDK.Runtime\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Conduit.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.Lib.csproj"
+              },
+              "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\Meta.WitAi.TTS.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj",
+        "projectName": "VoiceSDK.Telemetry",
+        "projectPath": "c:\\g1m\\G1M\\VoiceSDK.Telemetry.csproj",
+        "packagesPath": "C:\\Users\\disti\\.nuget\\packages\\",
+        "outputPath": "c:\\g1m\\G1M\\Temp\\obj\\VoiceSDK.Telemetry\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\disti\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.1"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.1": {
+            "targetAlias": "netstandard2.1",
+            "projectReferences": {
+              "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKEditor.csproj"
+              },
+              "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj": {
+                "projectPath": "c:\\g1m\\G1M\\AssistantCoreSDKRuntime.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "netstandard2.1": {
+          "targetAlias": "netstandard2.1",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
