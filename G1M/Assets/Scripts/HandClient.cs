@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System;
 using SocketIO.Core;
 using Unity.WebRTC;
+using System.Collections;
 
 public class HandClient : MonoBehaviour
 {
@@ -122,11 +123,11 @@ public class HandClient : MonoBehaviour
         var answerJson = response.GetValue<string>();
         var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
 
-        var op = _peerConnection.SetRemoteDescription(ref sdp);
-        yield return op;
-        if (op.IsError)
+        var op1 = _peerConnection.SetRemoteDescription(ref sdp);
+        yield return op1;
+        if (op1.IsError)
         {
-            Debug.LogError($"SetRemoteDescription failed: {op.Error.message}");
+            Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
         }
     }
 
