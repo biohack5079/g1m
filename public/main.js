@@ -14,8 +14,10 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
   // Handsモデルの初期化
   const hands = new Hands({
-    // locateFileの記述は不要なため削除
-  });
+    locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+    }
+  });  
 
   // Handsモデルの処理結果を受け取る
   hands.onResults((results) => {
@@ -47,7 +49,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
     width: 640,
     height: 480,
     video: {
-      facingMode: 'user' // 自撮りカメラに戻します
+      facingMode: 'environment'
     },
   });
 
