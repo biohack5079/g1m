@@ -13,7 +13,7 @@ let isHandsInitialized = false;
 const hands = new Hands({
   locateFile: (file) => {
     // バージョンを固定し、安定性を確保
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.5.1675469404/${file}`;
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`;
   }
 });
 
