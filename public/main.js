@@ -49,6 +49,9 @@ window.addEventListener('DOMContentLoaded', (event) => {
     },
     width: 640,
     height: 480
+    video: {
+      facingMode: 'environment'
+    }
   });
 
   // Handsモデルの起動
