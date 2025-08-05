@@ -14,7 +14,10 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
   // Handsモデルの初期化
   const hands = new Hands({
-    // locateFileは削除
+    // モデルファイルをCDNから直接参照するため、locateFileを削除
+    locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+    }
   });
 
   // Handsモデルの処理結果を受け取る
