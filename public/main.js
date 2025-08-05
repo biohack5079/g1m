@@ -22,6 +22,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
   
   let handLandmarks = null;
   
+// main.js の onResults 関数を以下のように書き換えます。
 
   hands.onResults((results) => {
     // 描画処理
