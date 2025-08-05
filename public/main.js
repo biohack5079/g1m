@@ -1,5 +1,3 @@
-// main.js
-
 // HTMLから要素を取得
 const videoElement = document.getElementById('input_video');
 const canvasElement = document.getElementById('output_canvas');
@@ -16,7 +14,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
   // Handsモデルの初期化
   const hands = new Hands({
-    // locateFileの記述を削除
+    // モデルファイルをCDNから直接参照するため、locateFileを削除
   });
 
   // Handsモデルの処理結果を受け取る
@@ -47,16 +45,13 @@ window.addEventListener('DOMContentLoaded', (event) => {
       await hands.send({ image: videoElement });
     },
     width: 640,
-    height: 480,
-    // ここに背面カメラを使用する設定を追加
-    video: {
-      facingMode: 'environment'
-    }
+    height: 480
   });
 
   // Handsモデルの起動
   hands.initialize().then(() => {
     console.log('Hands model initialized successfully and ready to use.');
+    // initialize() が成功したらカメラを起動
     camera.start();
   }).catch((error) => {
     console.error('Failed to initialize Hands model:', error);
