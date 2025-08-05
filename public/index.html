@@ -5,14 +5,165 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>G1m Staff Client</title>
   <style>
-    body { margin: 0; padding: 0; background-color: black; color: white; text-align: center; }
-    #overlay { position: absolute; top: 0; left: 0; }
+    body { 
+      margin: 0; 
+      padding: 0; 
+      background-color: black; 
+      color: white; 
+      text-align: center; 
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    
+    h1 {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      margin: 0;
+      font-size: 24px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    
+    .controls {
+      position: absolute;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 0 10px;
+    }
+    
+    .control-btn {
+      background-color: rgba(0, 123, 255, 0.9);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      transition: all 0.2s ease;
+      min-width: 80px;
+    }
+    
+    .control-btn:hover:not(:disabled) {
+      background-color: rgba(0, 86, 179, 1);
+      transform: translateY(-1px);
+    }
+    
+    .control-btn:disabled {
+      background-color: rgba(108, 117, 125, 0.6);
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .control-btn.stop {
+      background-color: rgba(220, 53, 69, 0.9);
+    }
+    
+    .control-btn.stop:hover:not(:disabled) {
+      background-color: rgba(200, 35, 51, 1);
+    }
+    
+    .status {
+      position: absolute;
+      top: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 6px 12px;
+      border-radius: 15px;
+      font-size: 11px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      max-width: 90%;
+      text-align: center;
+    }
+    
+    .status.ready { 
+      color: #28a745; 
+      border-color: rgba(40, 167, 69, 0.4); 
+    }
+    .status.loading { 
+      color: #ffc107; 
+      border-color: rgba(255, 193, 7, 0.4); 
+    }
+    .status.error { 
+      color: #dc3545; 
+      border-color: rgba(220, 53, 69, 0.4); 
+    }
+    
+    #input_video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      display: block;
+    }
+    
+    #output_canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      pointer-events: none;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    /* モバイル対応 */
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 20px;
+        top: 5px;
+      }
+      
+      .controls {
+        top: 35px;
+        gap: 6px;
+      }
+      
+      .control-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+        min-width: 70px;
+      }
+      
+      .status {
+        top: 75px;
+        font-size: 10px;
+        padding: 4px 8px;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>G1M</h1>
-  <video id="input_video" autoplay playsinline style="width: 100%;"></video>
-  <canvas id="output_canvas" width="640" height="480" style="position: absolute; top: 0; left: 0;"></canvas>
+  
+  <div class="status loading" id="status">
+    初期化中...
+  </div>
+  
+  <div class="controls">
+    <button class="control-btn" id="startFrontCamera" disabled>前面カメラ</button>
+    <button class="control-btn" id="startBackCamera" disabled>背面カメラ</button>
+    <button class="control-btn stop hidden" id="stopCamera">停止</button>
+  </div>
+  
+  <video id="input_video" autoplay playsinline muted></video>
+  <canvas id="output_canvas" width="640" height="480"></canvas>
   
   <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
