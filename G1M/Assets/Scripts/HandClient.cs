@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System;
 using SocketIO.Core;
 using Unity.WebRTC;
-using System.Collections;
+using System.Collections; // この行を追加
 
 public class HandClient : MonoBehaviour
 {
@@ -18,7 +18,7 @@ public class HandClient : MonoBehaviour
     private Renderer _renderer;
     private bool _isInitialized = false;
 
-    // // Start is called before the first frame update
+    // Start is called before the first frame update
     // void Start()
     // {
     //     WebRTC.Initialize(WebRTCSettings.WebRTCInitializeFlags, () =>
@@ -124,7 +124,7 @@ public class HandClient : MonoBehaviour
         var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
 
         var op1 = _peerConnection.SetRemoteDescription(ref sdp);
-        yield return op1;
+        yield return op1; // ここを修正
         if (op1.IsError)
         {
             Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");

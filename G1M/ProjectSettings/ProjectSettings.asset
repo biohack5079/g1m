@@ -4,7 +4,7 @@
 PlayerSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 28
-  productGUID: c91a26e57217c4e4cbc472456b746cf1
+  productGUID: 9f160a7d2988e9f4ea660f13832aa5ba
   AndroidProfiler: 0
   AndroidFilterTouchesWhenObscured: 0
   AndroidEnableSustainedPerformanceMode: 0
@@ -175,7 +175,7 @@ PlayerSettings:
   AndroidBundleVersionCode: 1
   AndroidMinSdkVersion: 23
   AndroidTargetSdkVersion: 0
-  AndroidPreferredInstallLocation: 0
+  AndroidPreferredInstallLocation: 1
   aotOptions: 
   stripEngineCode: 1
   iPhoneStrippingLevel: 0
@@ -916,10 +916,10 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 2
   windowsGamepadBackendHint: 0
-  cloudProjectId: 2aa78921-04b7-4761-b5d1-d1dfa319de60
+  cloudProjectId: b5e8b05c-0ee5-47d8-84d7-d5447c25e685
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: G1M 2025-08-03_13-19-38
+  projectName: G1M 2025-08-05_15-31-11
   organizationId: k-2701184
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
