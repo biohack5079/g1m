@@ -7,7 +7,6 @@ const canvasCtx = canvasElement.getContext('2d');
 const socket = io();
 let peerConnection = null;
 let dataChannel = null;
-let isHandsInitialized = false;
 
 // DOMのロードが完了してから処理を開始
 window.addEventListener('DOMContentLoaded', (event) => {
@@ -15,15 +14,10 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
   // Handsモデルの初期化
   const hands = new Hands({
-    locateFile: (file) => {
-      return `/mediapipe/hands/${file}`;
-    }
+    // モデルファイルをCDNから直接参照するため、locateFileを削除
   });
-  
-  let handLandmarks = null;
-  
-// main.js の onResults 関数を以下のように書き換えます。
 
+  // Handsモデルの処理結果を受け取る
   hands.onResults((results) => {
     // 描画処理
     canvasCtx.save();
@@ -57,19 +51,12 @@ window.addEventListener('DOMContentLoaded', (event) => {
   // Handsモデルの起動
   hands.initialize().then(() => {
     console.log('Hands model initialized successfully and ready to use.');
-    // ここでカメラを起動する
-    camera.start(); 
+    // initialize() が成功したらカメラを起動
+    camera.start();
   }).catch((error) => {
     console.error('Failed to initialize Hands model:', error);
   });
-
-  // onResultsからcamera.start()のロジックを削除
-  hands.onResults((results) => {
-    // 描画処理
-    canvasCtx.save();
-    // ... 描画とデータ送信のコード ...
-    canvasCtx.restore();
-  });
+});
 
 // WebRTCシグナリング
 socket.on('answer', async (answer) => {
