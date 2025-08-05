@@ -77,6 +77,18 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"Socket.IO Error: {e}");
         };
 
+        _peerConnection.OnDataChannel += channel =>
+        {
+            Debug.Log("DataChannel received!");
+            channel.OnMessage += bytes =>
+            {
+                string handData = System.Text.Encoding.UTF8.GetString(bytes);
+                Debug.Log("Received hand data: " + handData);
+                // ここで受け取ったデータをパースし、円柱の操作に利用する
+                // 例: ProcessHandData(handData);
+            };
+        };
+
         ConnectSocketAsync();
     }
 
