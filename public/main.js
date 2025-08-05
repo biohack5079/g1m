@@ -22,16 +22,26 @@ window.addEventListener('DOMContentLoaded', (event) => {
   
   let handLandmarks = null;
   
-  // Handsモデルの処理結果を受け取る
+
   hands.onResults((results) => {
-    // 初期化完了のログ
-    if (!isHandsInitialized) {
-      console.log("Hands model initialized successfully.");
-      isHandsInitialized = true;
-      camera.start(); // モデル初期化後にカメラを起動
+    // 描画処理
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+    if (results.multiHandLandmarks) {
+      for (const landmarks of results.multiHandLandmarks) {
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
+        drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2 });
+      }
+
+      // WebRTCデータチャンネルで手のデータを送信
+      if (dataChannel && dataChannel.readyState === 'open') {
+        const handData = JSON.stringify(results.multiHandLandmarks);
+        dataChannel.send(handData);
+      }
     }
-  
-    // ... (以下、元の onResults の中身をそのまま配置) ...
+    canvasCtx.restore();
   });
 
   // カメラからの映像ストリームをMediaPipeに送る
