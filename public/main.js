@@ -56,13 +56,20 @@ window.addEventListener('DOMContentLoaded', (event) => {
 
   // Handsモデルの起動
   hands.initialize().then(() => {
-    // initialize() が成功したらコンソールに表示
     console.log('Hands model initialized successfully and ready to use.');
+    // ここでカメラを起動する
+    camera.start(); 
   }).catch((error) => {
-    // エラーが発生した場合のログ
     console.error('Failed to initialize Hands model:', error);
   });
-});
+
+  // onResultsからcamera.start()のロジックを削除
+  hands.onResults((results) => {
+    // 描画処理
+    canvasCtx.save();
+    // ... 描画とデータ送信のコード ...
+    canvasCtx.restore();
+  });
 
 // WebRTCシグナリング
 socket.on('answer', async (answer) => {
