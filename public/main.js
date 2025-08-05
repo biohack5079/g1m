@@ -48,10 +48,10 @@ window.addEventListener('DOMContentLoaded', (event) => {
       await hands.send({ image: videoElement });
     },
     width: 640,
-    height: 480
-    // video: {
-    //   facingMode: 'environment'
-    // }
+    height: 480,
+    video: {
+      facingMode: 'environment'
+    
   });
 
   // Handsモデルの起動
