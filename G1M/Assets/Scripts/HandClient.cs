@@ -25,16 +25,6 @@ public class HandLandmarksListWrapper
     public List<List<Landmark>> multiHandLandmarks;
 }
 
-// RTCIceCandidateのJSONデータをパースするためのヘルパークラス
-// Unity.WebRTC の RTCIceCandidateInit クラスを使用するため、このヘルパークラスは不要かもしれません。
-// [System.Serializable]
-// public class RTCIceCandidateHelper
-// {
-//     public string candidate;
-//     public string sdpMid;
-//     public int sdpMLineIndex;
-// }
-
 public class HandClient : MonoBehaviour
 {
     private SocketIOClient.SocketIO socket;
@@ -67,7 +57,11 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected!");
             _isSocketConnecting = false;
             _hasConnectedOnce = true;
-            // 接続が確立したら、Offerの作成と送信を開始
+            
+            // ★追加: 接続成功時に "hello" メッセージを送信
+            SendHelloMessage();
+
+            // WebRTCのシグナリングを開始 (必要に応じてコメントアウトしてSocket.IO接続のみをテスト)
             StartCoroutine(CreateOfferAndSend());
         };
 
@@ -80,12 +74,10 @@ public class HandClient : MonoBehaviour
         };
         _peerConnection = new RTCPeerConnection(ref configuration);
         
-        // ICE Candidate が生成されたときに呼び出される
         _peerConnection.OnIceCandidate = candidate =>
         {
             if (candidate != null && socket.Connected)
             {
-                // RTCIceCandidate の情報を JSON に変換して送信
                 var candidateObj = new {
                     candidate = candidate.Candidate,
                     sdpMid = candidate.SdpMid,
@@ -97,7 +89,6 @@ public class HandClient : MonoBehaviour
             }
         };
 
-        // PeerConnection の状態変化を監視
         _peerConnection.OnIceConnectionChange += OnIceConnectionChange;
         _peerConnection.OnConnectionStateChange += OnConnectionStateChange;
         
@@ -105,6 +96,13 @@ public class HandClient : MonoBehaviour
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
         socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
+
+        // ★追加: サーバーからの "message" イベントを受信
+        socket.On("message", response =>
+        {
+            string receivedMessage = response.GetValue<string>();
+            Debug.Log($"Received message from server: {receivedMessage}");
+        });
 
         socket.OnDisconnected += (sender, e) => 
         {
@@ -118,7 +116,6 @@ public class HandClient : MonoBehaviour
         
         socket.OnError += (sender, e) => Debug.LogError($"Socket.IO Error: {e}");
 
-        // DataChannel の受信ハンドラ
         _peerConnection.OnDataChannel += channel =>
         {
             _dataChannel = channel;
@@ -129,7 +126,6 @@ public class HandClient : MonoBehaviour
                 
                 try
                 {
-                    // JSON の構造に合わせてパース
                     var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
                     if (parsedData != null && parsedData.multiHandLandmarks != null)
                     {
@@ -144,13 +140,25 @@ public class HandClient : MonoBehaviour
             };
         };
         
-        // ソケット接続を開始
         ConnectSocketAsync();
     }
 
     /// <summary>
-    /// PeerConnection の ICE 接続状態が変化したときに呼び出されます。
+    /// サーバーに "hello" メッセージを送信します。
     /// </summary>
+    private async void SendHelloMessage()
+    {
+        if (socket != null && socket.Connected)
+        {
+            await socket.EmitAsync("message", "Hello from Unity client!");
+            Debug.Log("Sent 'Hello from Unity client!' message.");
+        }
+        else
+        {
+            Debug.LogWarning("Socket is not connected. Cannot send 'hello' message.");
+        }
+    }
+
     private void OnIceConnectionChange(RTCIceConnectionState state)
     {
         Debug.Log($"ICE Connection State changed: {state}");
@@ -160,9 +168,6 @@ public class HandClient : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// PeerConnection の接続状態が変化したときに呼び出されます。
-    /// </summary>
     private void OnConnectionStateChange(RTCPeerConnectionState state)
     {
         Debug.Log($"Peer Connection State changed: {state}");
@@ -172,14 +177,11 @@ public class HandClient : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// WebRTC Offer を作成し、Socket.IO を通じて送信します。
-    /// </summary>
     private IEnumerator CreateOfferAndSend()
     {
         Debug.Log("Creating offer and sending to Web client...");
         var op = _peerConnection.CreateOffer();
-        yield return op; // CreateOffer は IEnumerator を返すので yield return で待機
+        yield return op;
         if (op.IsError)
         {
             Debug.LogError($"CreateOffer failed: {op.Error.message}");
@@ -188,7 +190,7 @@ public class HandClient : MonoBehaviour
 
         var offer = op.Desc;
         var op2 = _peerConnection.SetLocalDescription(ref offer);
-        yield return op2; // SetLocalDescription も IEnumerator を返すので yield return で待機
+        yield return op2;
         if (op2.IsError)
         {
             Debug.LogError($"SetLocalDescription failed: {op2.Error.message}");
@@ -200,10 +202,6 @@ public class HandClient : MonoBehaviour
         Debug.Log("Sent WebRTC offer.");
     }
 
-    /// <summary>
-    /// WebRTC Offer を受信し、処理します。
-    /// </summary>
-    /// <param name="response">SocketIOResponse オブジェクト。</param>
     private IEnumerator HandleOfferAsync(SocketIOResponse response)
     {
         Debug.Log("Received an offer from Web client.");
@@ -240,10 +238,6 @@ public class HandClient : MonoBehaviour
         Debug.Log("Sent WebRTC answer.");
     }
     
-    /// <summary>
-    /// WebRTC Answer を受信し、処理します。
-    /// </summary>
-    /// <param name="response">SocketIOResponse オブジェクト。</param>
     private IEnumerator HandleAnswerAsync(SocketIOResponse response)
     {
         Debug.Log("Received an answer from Web client.");
@@ -262,26 +256,17 @@ public class HandClient : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// ICE Candidate を受信し、PeerConnection に追加します。
-    /// </summary>
-    /// <param name="response">SocketIOResponse オブジェクト。</param>
     private IEnumerator HandleCandidateAsync(SocketIOResponse response)
     {
         Debug.Log("Received an ICE candidate.");
         var candidateJson = response.GetValue<string>();
         
-        // RTCIceCandidateInitを直接デシリアライズする
-        // Unity.WebRTC の RTCIceCandidateInit は candidate, sdpMid, sdpMLineIndex を持つ構造体です。
         RTCIceCandidateInit iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
 
         if (iceCandidateInit.candidate != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
         {
-            // RTCIceCandidateInitを引数に、RTCIceCandidateを生成する
             var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
             
-            // AddIceCandidate は void を返すため、戻り値を受け取る必要はありません。
-            // エラーはイベントや例外で処理されます。
             try
             {
                 _peerConnection.AddIceCandidate(rtcIceCandidate);
@@ -289,7 +274,6 @@ public class HandClient : MonoBehaviour
             }
             catch (System.Exception ex)
             {
-                // AddIceCandidate 呼び出し中に発生した例外をキャッチ
                 Debug.LogError($"Failed to add ICE candidate due to exception: {ex.Message}");
             }
         }
@@ -298,12 +282,9 @@ public class HandClient : MonoBehaviour
             Debug.LogWarning("Received invalid ICE candidate JSON or candidate string is empty.");
         }
 
-        yield break; // コルーチンの終了
+        yield break;
     }
 
-    /// <summary>
-    /// Socket.IO への接続を非同期で行います。
-    /// </summary>
     private async void ConnectSocketAsync()
     {
         if (_isSocketConnecting) return;
@@ -312,7 +293,7 @@ public class HandClient : MonoBehaviour
         if (_hasConnectedOnce)
         {
             Debug.Log($"Attempting to reconnect to {ServerUrl}...");
-            await Task.Delay(2000); // 再接続前に少し待機
+            await Task.Delay(2000);
         }
         else
         {
@@ -331,30 +312,23 @@ public class HandClient : MonoBehaviour
                 Debug.LogError($"Inner Exception: {e.InnerException.Message}");
             }
             _isSocketConnecting = false;
-            // 接続に失敗した場合は、再試行ロジックをここに実装できます。
-            // 例: Invoke("ConnectSocketAsync", 5f); // 5秒後に再試行
         }
     }
     
-    /// <summary>
-    /// オブジェクトが破棄されるときにリソースを解放します。
-    /// </summary>
     void OnDestroy()
     {
-        // PeerConnection のイベントハンドラを解除
         if (_peerConnection != null)
         {
             _peerConnection.OnIceConnectionChange -= OnIceConnectionChange;
             _peerConnection.OnConnectionStateChange -= OnConnectionStateChange;
             _peerConnection.Close();
             _peerConnection.Dispose();
-            _peerConnection = null; // null に設定して参照をクリア
+            _peerConnection = null;
         }
-        // Socket.IO の接続を切断
         if (socket != null && socket.Connected)
         {
             socket.DisconnectAsync();
         }
-        socket = null; // null に設定して参照をクリア
+        socket = null;
     }
 }

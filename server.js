@@ -1,5 +1,3 @@
-// server.js
-
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -41,27 +39,43 @@ io.on('connection', socket => {
     return;
   }
 
+  // ★追加: Unityクライアントからの「message」イベントを受信
+  socket.on('message', (msg) => {
+    console.log(`Received message from ${socket.id}: ${msg}`);
+    // 必要であれば、受信したメッセージに応じて応答を返す
+    // 例: socket.emit('message', `Server received your message: ${msg}`);
+  });
+
   // シグナリング情報の転送
   socket.on('offer', (offer) => {
+    console.log(`Offer received from ${socket.id}`);
     if (socket === staffSocket && unitySocket) {
+      console.log('Forwarding offer to Unity client.');
       unitySocket.emit('offer', offer);
     } else if (socket === unitySocket && staffSocket) {
+      console.log('Forwarding offer to Staff client.');
       staffSocket.emit('offer', offer);
     }
   });
 
   socket.on('answer', (answer) => {
+    console.log(`Answer received from ${socket.id}`);
     if (socket === staffSocket && unitySocket) {
+      console.log('Forwarding answer to Unity client.');
       unitySocket.emit('answer', answer);
     } else if (socket === unitySocket && staffSocket) {
+      console.log('Forwarding answer to Staff client.');
       staffSocket.emit('answer', answer);
     }
   });
 
   socket.on('candidate', (candidate) => {
+    console.log(`Candidate received from ${socket.id}`);
     if (socket === staffSocket && unitySocket) {
+      console.log('Forwarding candidate to Unity client.');
       unitySocket.emit('candidate', candidate);
     } else if (socket === unitySocket && staffSocket) {
+      console.log('Forwarding candidate to Staff client.');
       staffSocket.emit('candidate', candidate);
     }
   });
