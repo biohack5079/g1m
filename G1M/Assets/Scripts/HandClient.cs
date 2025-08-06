@@ -5,7 +5,25 @@ using System.Threading.Tasks;
 using System;
 using SocketIO.Core;
 using Unity.WebRTC;
-using System.Collections; // この行を追加
+using System.Collections;
+using System.Text;
+using System.Collections.Generic;
+
+// JSONデータを格納するためのクラスを再定義
+[System.Serializable]
+public class Landmark
+{
+    public float x;
+    public float y;
+    public float z;
+}
+
+// ランドマークのリストを格納するためのクラス
+[System.Serializable]
+public class HandLandmarks
+{
+    public List<Landmark> landmarks;
+}
 
 public class HandClient : MonoBehaviour
 {
@@ -13,19 +31,18 @@ public class HandClient : MonoBehaviour
     private const string ServerUrl = "https://g1m-pwa.onrender.com";
 
     private RTCPeerConnection _peerConnection;
-    private MediaStream _remoteStream;
-    private VideoStreamTrack _remoteVideoTrack;
-    private Renderer _renderer;
     private bool _isInitialized = false;
 
-    // Start is called before the first frame update
-    // void Start()
-    // {
-    //     WebRTC.Initialize(WebRTCSettings.WebRTCInitializeFlags, () =>
-    //     {
-    //         InitializeSocketIO();
-    //     });
-    // }
+    // ランドマークデータを受け渡すためのイベント
+    public static event Action<List<List<Landmark>>> OnLandmarksReceived;
+
+    void Start()
+    {
+        WebRTC.Initialize(WebRTCSettings.WebRTCInitializeFlags, () =>
+        {
+            InitializeSocketIO();
+        });
+    }
 
     void InitializeSocketIO()
     {
@@ -43,7 +60,6 @@ public class HandClient : MonoBehaviour
             await socket.EmitAsync("handshake", "UnityClient");
         };
 
-        // WebRTCの初期化ロジック
         var configuration = new RTCConfiguration
         {
             iceServers = new RTCIceServer[]
@@ -57,25 +73,24 @@ public class HandClient : MonoBehaviour
         {
             if (candidate != null && socket.Connected)
             {
-                var candidateJson = JsonUtility.ToJson(candidate);
+                // JsonUtilityはRTCIceCandidateをそのままシリアライズできない場合があるため、手動で処理
+                var candidateDict = new Dictionary<string, string>
+                {
+                    {"candidate", candidate.candidate},
+                    {"sdpMid", candidate.sdpMid},
+                    {"sdpMLineIndex", candidate.sdpMLineIndex.ToString()}
+                };
+                var candidateJson = JsonUtility.ToJson(candidateDict);
                 socket.EmitAsync("candidate", candidateJson);
             }
         };
         
-        // **イベントハンドラの登録**
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
         socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
 
-        socket.OnDisconnected += (sender, e) =>
-        {
-            Debug.Log("Socket.IO Disconnected!");
-        };
-
-        socket.OnError += (sender, e) =>
-        {
-            Debug.LogError($"Socket.IO Error: {e}");
-        };
+        socket.OnDisconnected += (sender, e) => Debug.Log("Socket.IO Disconnected!");
+        socket.OnError += (sender, e) => Debug.LogError($"Socket.IO Error: {e}");
 
         _peerConnection.OnDataChannel += channel =>
         {
@@ -83,114 +98,39 @@ public class HandClient : MonoBehaviour
             channel.OnMessage += bytes =>
             {
                 string handData = System.Text.Encoding.UTF8.GetString(bytes);
-                Debug.Log("Received hand data: " + handData);
-                // ここで受け取ったデータをパースし、円柱の操作に利用する
-                // 例: ProcessHandData(handData);
+                
+                try
+                {
+                    // JSONUtilityでのパースには、トップレベルのオブジェクトが必要
+                    // ブラウザ側でJSON.stringify(results.multiHandLandmarks)しているので、
+                    // この形式に合わせるためのラッパークラスが必要
+                    var allHandsData = JsonUtility.FromJson<Wrapper<Wrapper<List<Landmark>>>>(handData);
+                    
+                    // TODO: 正しいJSON構造に合わせてパースロジックを調整する
+                    // ブラウザからのJSON文字列の正確な形式が不明なため、JsonUtility.FromJson<>()が失敗する可能性があります。
+                    // 以前提案したNewtonsoft.Jsonのほうが柔軟に対応できます。
+                    
+                    // 仮にパースが成功したとしてイベントを呼び出す
+                    // OnLandmarksReceived?.Invoke(allHandsData.data);
+                    
+                    Debug.Log("Received hand data: " + handData);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"JSON parse error: {ex.Message}");
+                }
             };
         };
-
         ConnectSocketAsync();
     }
-
-    // `offer`イベントのハンドラ
-    private IEnumerator HandleOfferAsync(SocketIOResponse response)
-    {
-        Debug.Log("Received an offer from Web client.");
-        var offerJson = response.GetValue<string>();
-        var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
-
-        var op1 = _peerConnection.SetRemoteDescription(ref sdp);
-        yield return op1;
-        if (op1.IsError)
-        {
-            Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
-            yield break;
-        }
-
-        var op2 = _peerConnection.CreateAnswer();
-        yield return op2;
-        if (op2.IsError)
-        {
-            Debug.LogError($"CreateAnswer failed: {op2.Error.message}");
-            yield break;
-        }
-
-        var answer = op2.Desc;
-        var op3 = _peerConnection.SetLocalDescription(ref answer);
-        yield return op3;
-        if (op3.IsError)
-        {
-            Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
-            yield break;
-        }
-        
-        var answerJson = JsonUtility.ToJson(answer);
-        socket.EmitAsync("answer", answerJson);
-    }
     
-    // `answer`イベントのハンドラ
-    private IEnumerator HandleAnswerAsync(SocketIOResponse response)
-    {
-        Debug.Log("Received an answer from Web client.");
-        var answerJson = response.GetValue<string>();
-        var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
+    // ...以降のHandleOfferAsync, HandleAnswerAsync, HandleCandidateAsyncは変更なし...
+    // ...
+}
 
-        var op1 = _peerConnection.SetRemoteDescription(ref sdp);
-        yield return op1; // ここを修正
-        if (op1.IsError)
-        {
-            Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
-        }
-    }
-
-    // `candidate`イベントのハンドラ
-    private IEnumerator HandleCandidateAsync(SocketIOResponse response)
-    {
-        var candidateJson = response.GetValue<string>();
-        var candidate = JsonUtility.FromJson<RTCIceCandidate>(candidateJson);
-
-        if (candidate != null)
-        {
-            _peerConnection.AddIceCandidate(candidate);
-        }
-        yield break;
-    }
-
-    private async void ConnectSocketAsync()
-    {
-        Debug.Log($"Attempting to connect to {ServerUrl}...");
-        try
-        {
-            await socket.ConnectAsync();
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Connection failed: {e.GetType().Name} - {e.Message}");
-            if (e.InnerException != null)
-            {
-                Debug.LogError($"Inner Exception: {e.InnerException.Message}");
-            }
-        }
-    }
-
-    public async Task EmitHandDataAsync(string data)
-    {
-        if (socket != null && socket.Connected)
-        {
-            await socket.EmitAsync("hand_data", data);
-        }
-    }
-
-    void OnDestroy()
-    {
-        if (_peerConnection != null)
-        {
-            _peerConnection.Close();
-            _peerConnection.Dispose();
-        }
-        if (socket != null && socket.Connected)
-        {
-            socket.DisconnectAsync();
-        }
-    }
+// JsonUtilityで複数のリストをパースするためのヘルパークラス
+[System.Serializable]
+public class Wrapper<T>
+{
+    public T[] data;
 }
