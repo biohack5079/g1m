@@ -124,7 +124,6 @@ function onHandsResults(results) {
   canvasCtx.restore();
 }
 
-// カメラ開始
 async function startCamera(facingMode = 'user') {
   try {
     const cameraType = facingMode === 'user' ? '前面' : '背面';
@@ -144,7 +143,7 @@ async function startCamera(facingMode = 'user') {
       width: 640,
       height: 480,
       video: {
-        facingMode: facingMode, // exactを使わない（iPhoneで失敗しにくい）
+        facingMode: facingMode,
         width: { ideal: 1280, max: 1920 },
         height: { ideal: 720, max: 1080 },
         frameRate: { ideal: 30, max: 60 }
@@ -160,17 +159,11 @@ async function startCamera(facingMode = 'user') {
     updateUIState('running');
 
     console.log(`Camera started with ${cameraType} facing mode`);
-    
+
   } catch (error) {
     console.error(`カメラ開始エラー (${facingMode}):`, error);
     updateStatus(`カメラエラー: ${error.message}`, 'error');
     updateUIState('ready');
-    
-    // フォールバック: 別のfacingModeを試す
-    if (facingMode === 'environment') {
-      console.log('Fallback to user camera...');
-      setTimeout(() => startCamera('user'), 1000);
-    }
   }
 }
 
