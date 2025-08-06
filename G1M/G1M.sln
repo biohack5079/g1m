@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.WebRTC.Samples", "Unity.WebRTC.Samples.csproj", "{331C25A2-42CB-7953-9CCE-136614CA5A60}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-Editor", "Assembly-CSharp-Editor.csproj", "{1E51D537-FB3F-59B5-2249-7E430E1BC328}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "Assembly-CSharp.csproj", "{C242920A-6D9B-0276-3EBD-897DEBE18476}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.WebRTC.Samples.Editror", "Unity.WebRTC.Samples.Editror.csproj", "{7DFDA5EA-37AF-1381-C564-5909CA403BA6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,6 +15,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{331C25A2-42CB-7953-9CCE-136614CA5A60}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1E51D537-FB3F-59B5-2249-7E430E1BC328}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1E51D537-FB3F-59B5-2249-7E430E1BC328}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1E51D537-FB3F-59B5-2249-7E430E1BC328}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -19,6 +27,10 @@ Global
 		{C242920A-6D9B-0276-3EBD-897DEBE18476}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C242920A-6D9B-0276-3EBD-897DEBE18476}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C242920A-6D9B-0276-3EBD-897DEBE18476}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DFDA5EA-37AF-1381-C564-5909CA403BA6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
