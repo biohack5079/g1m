@@ -1278,6 +1278,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="Unity.WebRTC.Samples.Editror.csproj" />
+    <ProjectReference Include="Unity.WebRTC.Samples.csproj" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <ItemGroup>
