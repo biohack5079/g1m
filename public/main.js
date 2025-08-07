@@ -302,10 +302,14 @@ socket.on('connect', () => {
     peerConnection.onconnectionstatechange = () => {
         console.log('WebRTC connection state:', peerConnection.connectionState);
     };
+
+    // ★ WebRTCの初期化が完了したことをサーバーに通知
+    console.log('WebRTC initialized. Emitting staff_ready event.');
+    socket.emit('staff_ready');
 });
 
 socket.on('offer', async (offer) => {
-  console.log('Received offer:', offer);
+    console.log('Received offer:', offer);
     if (peerConnection) {
         console.log('Received offer from Unity client. Creating answer...');
         
