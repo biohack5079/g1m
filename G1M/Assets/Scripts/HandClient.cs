@@ -66,8 +66,13 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected!");
             _isSocketConnecting = false;
             _hasConnectedOnce = true;
-            StartCoroutine(CreateOfferAndSend());
         };
+
+        socket.On("ready_to_connect", response => 
+        {
+            Debug.Log("Web client is ready. Starting WebRTC offer.");
+            StartCoroutine(CreateOfferAndSend());
+        });        
 
         var configuration = new RTCConfiguration
         {
