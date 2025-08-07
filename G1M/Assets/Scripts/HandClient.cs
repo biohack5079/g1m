@@ -25,6 +25,15 @@ public class HandLandmarksListWrapper
     public List<List<Landmark>> multiHandLandmarks;
 }
 
+// RTCIceCandidateのJSONデータをパースするためのヘルパークラス
+[System.Serializable]
+public class RTCIceCandidateHelper
+{
+    public string candidate;
+    public string sdpMid;
+    public int sdpMLineIndex;
+}
+
 public class HandClient : MonoBehaviour
 {
     private SocketIOClient.SocketIO socket;
@@ -57,11 +66,6 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected!");
             _isSocketConnecting = false;
             _hasConnectedOnce = true;
-            
-            // ★追加: 接続成功時に "hello" メッセージを送信
-            SendHelloMessage();
-
-            // WebRTCのシグナリングを開始 (必要に応じてコメントアウトしてSocket.IO接続のみをテスト)
             StartCoroutine(CreateOfferAndSend());
         };
 
@@ -85,24 +89,12 @@ public class HandClient : MonoBehaviour
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
                 socket.EmitAsync("candidate", candidateJson);
-                Debug.Log("Sent ICE candidate.");
             }
         };
-
-        _peerConnection.OnIceConnectionChange += OnIceConnectionChange;
-        _peerConnection.OnConnectionStateChange += OnConnectionStateChange;
         
-        // Socket.IO イベントハンドラの設定
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
         socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
-
-        // ★追加: サーバーからの "message" イベントを受信
-        socket.On("message", response =>
-        {
-            string receivedMessage = response.GetValue<string>();
-            Debug.Log($"Received message from server: {receivedMessage}");
-        });
 
         socket.OnDisconnected += (sender, e) => 
         {
@@ -127,7 +119,7 @@ public class HandClient : MonoBehaviour
                 try
                 {
                     var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
-                    if (parsedData != null && parsedData.multiHandLandmarks != null)
+                    if (parsedData != null)
                     {
                         OnLandmarksReceived?.Invoke(parsedData.multiHandLandmarks);
                     }
@@ -141,40 +133,6 @@ public class HandClient : MonoBehaviour
         };
         
         ConnectSocketAsync();
-    }
-
-    /// <summary>
-    /// サーバーに "hello" メッセージを送信します。
-    /// </summary>
-    private async void SendHelloMessage()
-    {
-        if (socket != null && socket.Connected)
-        {
-            await socket.EmitAsync("message", "Hello from Unity client!");
-            Debug.Log("Sent 'Hello from Unity client!' message.");
-        }
-        else
-        {
-            Debug.LogWarning("Socket is not connected. Cannot send 'hello' message.");
-        }
-    }
-
-    private void OnIceConnectionChange(RTCIceConnectionState state)
-    {
-        Debug.Log($"ICE Connection State changed: {state}");
-        if (state == RTCIceConnectionState.Failed || state == RTCIceConnectionState.Disconnected)
-        {
-            Debug.LogError("ICE connection failed or disconnected. Consider re-establishing connection.");
-        }
-    }
-
-    private void OnConnectionStateChange(RTCPeerConnectionState state)
-    {
-        Debug.Log($"Peer Connection State changed: {state}");
-        if (state == RTCPeerConnectionState.Failed || state == RTCPeerConnectionState.Disconnected)
-        {
-            Debug.LogError("Peer connection failed or disconnected. Consider re-establishing connection.");
-        }
     }
 
     private IEnumerator CreateOfferAndSend()
@@ -199,7 +157,6 @@ public class HandClient : MonoBehaviour
         
         var offerJson = JsonUtility.ToJson(offer);
         socket.EmitAsync("offer", offerJson);
-        Debug.Log("Sent WebRTC offer.");
     }
 
     private IEnumerator HandleOfferAsync(SocketIOResponse response)
@@ -235,7 +192,6 @@ public class HandClient : MonoBehaviour
         
         var answerJson = JsonUtility.ToJson(answer);
         socket.EmitAsync("answer", answerJson);
-        Debug.Log("Sent WebRTC answer.");
     }
     
     private IEnumerator HandleAnswerAsync(SocketIOResponse response)
@@ -250,10 +206,6 @@ public class HandClient : MonoBehaviour
         {
             Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
         }
-        else
-        {
-            Debug.Log("Successfully set remote description (answer).");
-        }
     }
 
     private IEnumerator HandleCandidateAsync(SocketIOResponse response)
@@ -261,25 +213,29 @@ public class HandClient : MonoBehaviour
         Debug.Log("Received an ICE candidate.");
         var candidateJson = response.GetValue<string>();
         
-        RTCIceCandidateInit iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
+        // RTCIceCandidateInitを直接デシリアライズする
+        var iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
 
-        if (iceCandidateInit.candidate != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
+        if (iceCandidateInit != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
         {
+            // RTCIceCandidateInitを引数に、RTCIceCandidateを生成する
             var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
             
-            try
+            // AddIceCandidateはboolを返すため、戻り値で成否を判断する
+            bool success = _peerConnection.AddIceCandidate(rtcIceCandidate);
+            
+            if (success)
             {
-                _peerConnection.AddIceCandidate(rtcIceCandidate);
                 Debug.Log("Successfully added ICE candidate.");
             }
-            catch (System.Exception ex)
+            else
             {
-                Debug.LogError($"Failed to add ICE candidate due to exception: {ex.Message}");
+                Debug.LogError("Failed to add ICE candidate: candidate is invalid.");
             }
         }
         else
         {
-            Debug.LogWarning("Received invalid ICE candidate JSON or candidate string is empty.");
+            Debug.LogWarning("Received invalid ICE candidate JSON.");
         }
 
         yield break;
@@ -319,16 +275,12 @@ public class HandClient : MonoBehaviour
     {
         if (_peerConnection != null)
         {
-            _peerConnection.OnIceConnectionChange -= OnIceConnectionChange;
-            _peerConnection.OnConnectionStateChange -= OnConnectionStateChange;
             _peerConnection.Close();
             _peerConnection.Dispose();
-            _peerConnection = null;
         }
         if (socket != null && socket.Connected)
         {
             socket.DisconnectAsync();
         }
-        socket = null;
     }
 }
