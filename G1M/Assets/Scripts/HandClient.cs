@@ -102,11 +102,12 @@ public class HandClient : MonoBehaviour
         {
             iceServers = new RTCIceServer[]
             {
-                new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
-                new RTCIceServer { urls = new string[] { "stun:stun1.l.google.com:19302" } },
-                new RTCIceServer { urls = new string[] { "stun:stun2.l.google.com:19302" } },
-                new RTCIceServer { urls = new string[] { "stun:stun.services.mozilla.com:3478" } },
-                new RTCIceServer { urls = new string[] { "stun:stun.voip.blackberry.com:3478" } }                
+                // new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
+                // new RTCIceServer { urls = new string[] { "stun:stun1.l.google.com:19302" } },
+                // new RTCIceServer { urls = new string[] { "stun:stun2.l.google.com:19302" } },
+                // new RTCIceServer { urls = new string[] { "stun:stun.services.mozilla.com:3478" } },
+                // new RTCIceServer { urls = new string[] { "stun:stun.voip.blackberry.com:3478" } }
+                new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } }                
             }
         };
         _peerConnection = new RTCPeerConnection(ref configuration);
