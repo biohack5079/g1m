@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_PixelRect:
     serializedVersion: 2
-    x: 391
-    y: 174
+    x: 350
+    y: 213
     width: 804
     height: 458
   m_ShowMode: 0
@@ -1143,7 +1143,7 @@ MonoBehaviour:
       scrollPos: {x: 0, y: 0}
       m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: c0f6ffff20fbffff
+      m_ExpandedIDs: 74f6ffff20fbffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
