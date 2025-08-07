@@ -15,7 +15,6 @@ const io = new Server(server, {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 静的ファイルを /public から提供
 app.use(express.static(path.join(__dirname, 'public')));
 
 let staffSocket = null;
@@ -24,7 +23,6 @@ let unitySocket = null;
 io.on('connection', socket => {
   console.log(`🔗 Socket connected: ${socket.id}`);
 
-  // 接続元を識別し、役割を割り当てる
   if (!staffSocket) {
     staffSocket = socket;
     console.log('Staff connected.');
@@ -33,20 +31,18 @@ io.on('connection', socket => {
     unitySocket = socket;
     console.log('Unity client connected.');
     socket.emit('role', 'unity');
+
+    // ★重要: 両クライアントが接続したら、Unity側に相手（Staff）の準備ができたことを通知する
+    if (staffSocket) {
+      console.log('Both clients connected. Notifying Unity to start WebRTC.');
+      unitySocket.emit('ready_to_connect');
+    }
   } else {
     console.log('Connection refused: Maximum clients reached.');
     socket.disconnect();
     return;
   }
 
-  // ★追加: Unityクライアントからの「message」イベントを受信
-  socket.on('message', (msg) => {
-    console.log(`Received message from ${socket.id}: ${msg}`);
-    // 必要であれば、受信したメッセージに応じて応答を返す
-    // 例: socket.emit('message', `Server received your message: ${msg}`);
-  });
-
-  // シグナリング情報の転送
   socket.on('offer', (offer) => {
     console.log(`Offer received from ${socket.id}`);
     if (socket === staffSocket && unitySocket) {
