@@ -250,23 +250,20 @@ window.addEventListener('DOMContentLoaded', async (event) => {
     await initializeHands();
 });
 
-// WebRTCシグナリング
-socket.on('answer', async (answer) => {
+// 新しいWebRTC初期化関数を作成
+// 接続が切れた場合に再利用します
+function initializeWebRTC() {
+    // 既存のPeerConnectionとDataChannelを閉じる
     if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log('WebRTC answer received and set');
+        peerConnection.close();
+        peerConnection = null;
     }
-});
-
-socket.on('candidate', async (candidate) => {
-    if (candidate && peerConnection) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log('ICE candidate added');
+    if (dataChannel) {
+        dataChannel.close();
+        dataChannel = null;
     }
-});
-
-socket.on('connect', () => {
-    console.log('Socket connected. Initializing WebRTC.');
+    
+    console.log('Initializing WebRTC.');
 
     peerConnection = new RTCPeerConnection({
         iceServers: [
@@ -295,36 +292,69 @@ socket.on('connect', () => {
 
     peerConnection.onicecandidate = (e) => {
         if (e.candidate) {
-            // 修正: 送信されたICE Candidateをログに出力します
             console.log('Found and sending ICE candidate:', e.candidate);
             socket.emit('candidate', e.candidate);
         }
     };
     
+    // 修正: 接続状態の変化を監視するイベントハンドラを追加
     peerConnection.onconnectionstatechange = () => {
         console.log('WebRTC connection state:', peerConnection.connectionState);
+        // 接続が切断されたり失敗したりした場合、WebRTCを再初期化する
+        if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+            console.warn('WebRTC connection failed. Re-initializing...');
+            // 接続試行がループしないように、少し遅延を入れてから再初期化
+            setTimeout(() => {
+                initializeWebRTC();
+                socket.emit('staff_ready'); // 再初期化後に再度シグナリングを開始
+            }, 3000); // 3秒後に再試行
+        }
     };
 
     // WebRTCの初期化が完了したことをサーバーに通知
     console.log('WebRTC initialized. Emitting staff_ready event.');
     socket.emit('staff_ready');
+}
+
+// Socket.IO接続イベント
+socket.on('connect', () => {
+    console.log('Socket connected.');
+    // 修正: ソケット接続時にWebRTCの初期化を開始
+    initializeWebRTC();
 });
 
+// offerを受け取った時の処理
 socket.on('offer', async (offer) => {
     console.log('Received offer:', offer);
     if (peerConnection) {
         console.log('Received offer from Unity client. Creating answer...');
-        
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        
         const answer = await peerConnection.createAnswer();
         console.log('Successfully created answer.');
         await peerConnection.setLocalDescription(answer);
-        
         console.log('Sending answer:', peerConnection.localDescription);
         socket.emit('answer', peerConnection.localDescription);
-        
         console.log('Answer sent to Unity client');
+    }
+});
+
+// answerを受け取った時の処理
+socket.on('answer', async (answer) => {
+    if (peerConnection && peerConnection.signalingState !== 'closed' && peerConnection.remoteDescription === null) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log('WebRTC answer received and set');
+    }
+});
+
+// candidateを受け取った時の処理
+socket.on('candidate', async (candidate) => {
+    if (candidate && peerConnection && peerConnection.remoteDescription !== null) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log('ICE candidate added');
+        } catch (e) {
+            console.error('Error adding received ICE candidate', e);
+        }
     }
 });
 
@@ -334,7 +364,13 @@ socket.on('connect_error', (error) => {
     updateStatus('サーバー接続エラー', 'error');
 });
 
+// 修正: ソケット切断時にWebRTC接続をクリーンアップ
 socket.on('disconnect', (reason) => {
     console.log('Socket disconnected:', reason);
     updateStatus('サーバー切断', 'error');
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    dataChannel = null;
 });
