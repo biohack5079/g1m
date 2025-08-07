@@ -6,10 +6,17 @@ import { fileURLToPath } from 'url';
 
 const app = express();
 const server = http.createServer(app);
+
+// ★修正箇所: Socket.IOサーバーの初期化時にオプションを追加
 const io = new Server(server, {
     cors: {
         origin: "*", // クロスオリジンアクセスを許可
-    }
+    },
+    // pingTimeout: クライアントからの応答を待つ時間を60秒に延長
+    // WebRTCのシグナリングプロセスを完了させるための余裕を持たせます
+    pingTimeout: 60000, 
+    // pingInterval: pingを送信する間隔をデフォルトのまま25秒に設定
+    pingInterval: 25000 
 });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,7 +26,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let staffSocket = null;
 let unitySocket = null;
-let isStaffReady = false; // ★ Webクライアントの準備完了フラグ
+let isStaffReady = false; // Webクライアントの準備完了フラグ
 
 io.on('connection', socket => {
     console.log(`🔗 Socket connected: ${socket.id}`);
@@ -33,7 +40,6 @@ io.on('connection', socket => {
         console.log('Unity client connected.');
         socket.emit('role', 'unity');
 
-        // ★修正: StaffがWebRTC準備完了かチェックしてから通知
         if (isStaffReady) {
             console.log('Both clients connected and Staff is ready. Notifying Unity to start WebRTC.');
             unitySocket.emit('ready_to_connect');
@@ -44,12 +50,10 @@ io.on('connection', socket => {
         return;
     }
 
-    // ★追加: WebクライアントがWebRTC準備完了を通知するイベント
     socket.on('staff_ready', () => {
         if (socket === staffSocket) {
             isStaffReady = true;
             console.log('Staff client is ready for WebRTC. Waiting for Unity connection.');
-            // Unityが既に接続している場合はここで通知
             if (unitySocket) {
                 console.log('Unity is already connected. Notifying now.');
                 unitySocket.emit('ready_to_connect');
@@ -94,7 +98,7 @@ io.on('connection', socket => {
         console.log(`Socket disconnected: ${socket.id}`);
         if (socket === staffSocket) {
             staffSocket = null;
-            isStaffReady = false; // ★切断時にフラグをリセット
+            isStaffReady = false;
             console.log('Staff disconnected.');
         } else if (socket === unitySocket) {
             unitySocket = null;
