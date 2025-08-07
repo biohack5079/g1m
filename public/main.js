@@ -295,7 +295,8 @@ function initializeWebRTC() {
 
     peerConnection.onicecandidate = (e) => {
         if (e.candidate) {
-            console.log('Found and sending ICE candidate:', e.candidate);
+            // 送信するICE候補の内容をログに出力
+            console.log('Found and sending ICE candidate:', JSON.stringify(e.candidate));
             socket.emit('candidate', e.candidate);
         }
     };
@@ -343,6 +344,8 @@ socket.on('offer', async (offer) => {
 
 // answerを受け取った時の処理
 socket.on('answer', async (answer) => {
+    // 受信したanswerの内容をログに出力
+    console.log('Received answer from Unity client:', answer);
     if (peerConnection && peerConnection.signalingState !== 'closed' && peerConnection.remoteDescription === null) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
         console.log('WebRTC answer received and set');
@@ -351,6 +354,8 @@ socket.on('answer', async (answer) => {
 
 // candidateを受け取った時の処理
 socket.on('candidate', async (candidate) => {
+    // 受信したICE候補の内容をログに出力
+    console.log('Received ICE candidate from Unity client:', candidate);
     if (candidate && peerConnection && peerConnection.remoteDescription !== null) {
         try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
