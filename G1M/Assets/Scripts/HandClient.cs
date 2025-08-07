@@ -25,15 +25,6 @@ public class HandLandmarksListWrapper
     public List<List<Landmark>> multiHandLandmarks;
 }
 
-// RTCIceCandidateのJSONデータをパースするためのヘルパークラス
-[System.Serializable]
-public class RTCIceCandidateHelper
-{
-    public string candidate;
-    public string sdpMid;
-    public int sdpMLineIndex;
-}
-
 public class HandClient : MonoBehaviour
 {
     private SocketIOClient.SocketIO socket;
@@ -72,7 +63,7 @@ public class HandClient : MonoBehaviour
         {
             Debug.Log("Web client is ready. Starting WebRTC offer.");
             StartCoroutine(CreateOfferAndSend());
-        });        
+        });
 
         var configuration = new RTCConfiguration
         {
@@ -93,13 +84,14 @@ public class HandClient : MonoBehaviour
                     sdpMLineIndex = candidate.SdpMLineIndex
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
+                Debug.Log($"Sending ICE candidate: {candidateJson}");
                 socket.EmitAsync("candidate", candidateJson);
             }
         };
         
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
         socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
-        Debug.Log("Received answer.");
+        // 修正: この行は削除しました。
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
 
         socket.OnDisconnected += (sender, e) => 
@@ -202,8 +194,10 @@ public class HandClient : MonoBehaviour
     
     private IEnumerator HandleAnswerAsync(SocketIOResponse response)
     {
+        // 修正: ここにログを追加しました
         Debug.Log("Received an answer from Web client.");
         var answerJson = response.GetValue<string>();
+        Debug.Log($"Answer received: {answerJson}");
         var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
 
         var op1 = _peerConnection.SetRemoteDescription(ref sdp);
@@ -219,15 +213,13 @@ public class HandClient : MonoBehaviour
         Debug.Log("Received an ICE candidate.");
         var candidateJson = response.GetValue<string>();
         
-        // RTCIceCandidateInitを直接デシリアライズする
+        // 修正: RTCIceCandidateInitを直接使うことで、シンプルかつ正確にパースします
         var iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
 
         if (iceCandidateInit != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
         {
-            // RTCIceCandidateInitを引数に、RTCIceCandidateを生成する
             var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
             
-            // AddIceCandidateはboolを返すため、戻り値で成否を判断する
             bool success = _peerConnection.AddIceCandidate(rtcIceCandidate);
             
             if (success)
