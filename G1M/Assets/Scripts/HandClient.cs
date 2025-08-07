@@ -75,7 +75,10 @@ public class HandClient : MonoBehaviour
             };
             _dataChannel.OnMessage += bytes => 
             { 
+
                 string handData = Encoding.UTF8.GetString(bytes);
+                // ここにデバッグログを追加
+                Debug.Log($"Received hand data JSON: {handData}");
                 try
                 {
                     var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
