@@ -312,8 +312,10 @@ socket.on('offer', async (offer) => {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         
         const answer = await peerConnection.createAnswer();
+        console.log('Successfully created answer.');
         await peerConnection.setLocalDescription(answer);
         
+        console.log('Sending answer:', peerConnection.localDescription);
         socket.emit('answer', peerConnection.localDescription);
         
         console.log('Answer sent to Unity client');

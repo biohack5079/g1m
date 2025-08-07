@@ -99,6 +99,7 @@ public class HandClient : MonoBehaviour
         
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
         socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
+        Debug.Log("Received answer.");
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
 
         socket.OnDisconnected += (sender, e) => 
