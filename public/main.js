@@ -305,6 +305,7 @@ socket.on('connect', () => {
 });
 
 socket.on('offer', async (offer) => {
+  console.log('Received offer:', offer);
     if (peerConnection) {
         console.log('Received offer from Unity client. Creating answer...');
         
