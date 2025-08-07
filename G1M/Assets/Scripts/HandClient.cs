@@ -61,7 +61,37 @@ public class HandClient : MonoBehaviour
 
         socket.On("ready_to_connect", response => 
         {
-            Debug.Log("Web client is ready. Starting WebRTC offer.");
+            Debug.Log("Web client is ready. Creating DataChannel and starting WebRTC offer.");
+            
+            // ★修正箇所: ここでDataChannelを作成する
+            _dataChannel = _peerConnection.CreateDataChannel("handDataChannel");
+            _dataChannel.OnOpen += () => 
+            {
+                Debug.Log("WebRTC DataChannel is now open!");
+            };
+            _dataChannel.OnClose += () => 
+            {
+                Debug.Log("WebRTC DataChannel is closed.");
+            };
+            _dataChannel.OnMessage += bytes => 
+            { 
+                string handData = Encoding.UTF8.GetString(bytes);
+                try
+                {
+                    var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
+                    if (parsedData != null)
+                    {
+                        OnLandmarksReceived?.Invoke(parsedData.multiHandLandmarks);
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"JSON parse error: {ex.Message}");
+                    Debug.Log("Received data was: " + handData);
+                }
+            };
+            
+            // その後、Offerの作成と送信を開始する
             StartCoroutine(CreateOfferAndSend());
         });
 
@@ -91,7 +121,6 @@ public class HandClient : MonoBehaviour
         
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
         socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
-        // 修正: この行は削除しました。
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
 
         socket.OnDisconnected += (sender, e) => 
@@ -105,31 +134,10 @@ public class HandClient : MonoBehaviour
         };
         
         socket.OnError += (sender, e) => Debug.LogError($"Socket.IO Error: {e}");
-
-        _peerConnection.OnDataChannel += channel =>
-        {
-            _dataChannel = channel;
-            Debug.Log("DataChannel received!");
-            channel.OnMessage += bytes =>
-            {
-                string handData = Encoding.UTF8.GetString(bytes);
-                
-                try
-                {
-                    var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
-                    if (parsedData != null)
-                    {
-                        OnLandmarksReceived?.Invoke(parsedData.multiHandLandmarks);
-                    }
-                }
-                catch (System.Exception ex)
-                {
-                    Debug.LogError($"JSON parse error: {ex.Message}");
-                    Debug.Log("Received data was: " + handData);
-                }
-            };
-        };
         
+        // ★修正箇所: DataChannelはここでは作成しないため、OnDataChannelハンドラは不要
+        // _peerConnection.OnDataChannel += channel => { ... }; 
+
         ConnectSocketAsync();
     }
 
@@ -194,7 +202,6 @@ public class HandClient : MonoBehaviour
     
     private IEnumerator HandleAnswerAsync(SocketIOResponse response)
     {
-        // 修正: ここにログを追加しました
         Debug.Log("Received an answer from Web client.");
         var answerJson = response.GetValue<string>();
         Debug.Log($"Answer received: {answerJson}");
@@ -213,7 +220,6 @@ public class HandClient : MonoBehaviour
         Debug.Log("Received an ICE candidate.");
         var candidateJson = response.GetValue<string>();
         
-        // 修正: RTCIceCandidateInitを直接使うことで、シンプルかつ正確にパースします
         var iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
 
         if (iceCandidateInit != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
