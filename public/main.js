@@ -295,6 +295,8 @@ socket.on('connect', () => {
 
     peerConnection.onicecandidate = (e) => {
         if (e.candidate) {
+            // 修正: 送信されたICE Candidateをログに出力します
+            console.log('Found and sending ICE candidate:', e.candidate);
             socket.emit('candidate', e.candidate);
         }
     };
@@ -303,7 +305,7 @@ socket.on('connect', () => {
         console.log('WebRTC connection state:', peerConnection.connectionState);
     };
 
-    // ★ WebRTCの初期化が完了したことをサーバーに通知
+    // WebRTCの初期化が完了したことをサーバーに通知
     console.log('WebRTC initialized. Emitting staff_ready event.');
     socket.emit('staff_ready');
 });
