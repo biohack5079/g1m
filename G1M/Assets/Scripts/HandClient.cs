@@ -64,10 +64,8 @@ public class HandClient : MonoBehaviour
         socket.OnConnected += async (sender, e) =>
         {
             Debug.Log("Socket.IO Connected!");
-            // サーバーに自身の役割を通知
             await socket.EmitAsync("register_role", "unity");
             Debug.Log("Registered as 'unity' client.");
-            // 接続成功後にWebRTCの初期化を開始
             InitializeWebRTC();
         };
 
@@ -87,7 +85,6 @@ public class HandClient : MonoBehaviour
         socket.OnDisconnected += (sender, e) => 
         {
             Debug.Log($"Socket.IO Disconnected! Reason: {e}");
-            // ソケット切断時にWebRTC接続もクリーンアップ
             CloseWebRTCConnection();
             Debug.Log("Attempting to reconnect in 3 seconds...");
             Task.Delay(3000).ContinueWith(_ => ConnectSocketAsync());
@@ -100,7 +97,6 @@ public class HandClient : MonoBehaviour
 
     void InitializeWebRTC()
     {
-        // 既存のPeerConnectionを閉じてから再作成
         CloseWebRTCConnection();
 
         var configuration = new RTCConfiguration
@@ -120,7 +116,7 @@ public class HandClient : MonoBehaviour
             _dataChannel.OnMessage += bytes => 
             {
                 string handData = Encoding.UTF8.GetString(bytes);
-                Debug.Log($"Received raw hand data: {handData}"); // 受信した生のJSONデータをログに出力
+                Debug.Log($"Received raw hand data: {handData}");
                 try
                 {
                     var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
@@ -147,11 +143,12 @@ public class HandClient : MonoBehaviour
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
                 Debug.Log("Sending ICE candidate.");
+                // CS4014警告を回避するため、EmitAsyncの結果を待たずに次の処理へ進めます。
+                // UnityのIEnumerator内ではawaitは使えないため、この方法が一般的です。
                 socket.EmitAsync("candidate", candidateJson);
             }
         };
         
-        // WebRTCの状態変化を監視するイベントハンドラを追加
         _peerConnection.OnConnectionStateChange += state =>
         {
             Debug.Log($"WebRTC connection state: {state}");
@@ -159,7 +156,6 @@ public class HandClient : MonoBehaviour
             {
                 Debug.LogWarning("WebRTC connection failed or disconnected. Attempting to restart.");
                 CloseWebRTCConnection();
-                // ソケット接続が維持されている場合、WebRTCのみ再試行
                 if (socket != null && socket.Connected) {
                     // PWAが再度Offerを送ってくれることを期待
                 }
@@ -169,7 +165,6 @@ public class HandClient : MonoBehaviour
 
     private IEnumerator HandleOfferAsync(SocketIOResponse response)
     {
-        // 修正箇所：追加されたデバッグログ
         Debug.Log("HandleOfferAsync started.");
         
         if (_peerConnection == null)
@@ -179,7 +174,6 @@ public class HandClient : MonoBehaviour
         }
 
         var offerJson = response.GetValue<string>();
-        // 修正箇所：追加されたデバッグログ
         Debug.Log($"Offer JSON received: {offerJson}");
 
         var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
@@ -190,7 +184,6 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
             yield break;
         }
-        // 修正箇所：追加されたデバッグログ
         Debug.Log("SetRemoteDescription succeeded.");
 
         var op2 = _peerConnection.CreateAnswer();
@@ -200,7 +193,6 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"CreateAnswer failed: {op2.Error.message}");
             yield break;
         }
-        // 修正箇所：追加されたデバッグログ
         Debug.Log("CreateAnswer succeeded.");
 
         var answer = op2.Desc;
@@ -211,14 +203,12 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
             yield break;
         }
-        // 修正箇所：追加されたデバッグログ
         Debug.Log("SetLocalDescription succeeded.");
         
         var answerJson = JsonUtility.ToJson(answer);
-        // 修正箇所：追加されたデバッグログ
         Debug.Log($"Sending answer JSON: {answerJson}");
+        // ここでの EmitAsync も非同期で実行し、IEnumeratorのフローをブロックしません。
         socket.EmitAsync("answer", answerJson);
-        // 修正箇所：追加されたデバッグログ
         Debug.Log("Answer sent to signaling server.");
     }
     
@@ -254,7 +244,7 @@ public class HandClient : MonoBehaviour
         yield break;
     }
 
-    private async void ConnectSocketAsync()
+    private async Task ConnectSocketAsync()
     {
         // 既に接続試行中か接続済みであれば何もしない
         if (socket.Connected) return;
@@ -268,7 +258,10 @@ public class HandClient : MonoBehaviour
         {
             Debug.LogError($"Connection failed: {e.GetType().Name} - {e.Message}");
             // 接続失敗時に再試行
-            Task.Delay(5000).ContinueWith(_ => ConnectSocketAsync());
+            await Task.Delay(5000);
+
+            // 修正箇所: 再帰呼び出しの前に await を追加
+            await ConnectSocketAsync();
         }
     }
 
