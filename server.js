@@ -28,50 +28,44 @@ io.on('connection', socket => {
 
     // クライアントが役割を自己申告するのを待つ
     socket.on('register_role', (role) => {
-        if (role === 'staff' && !staffSocket) {
+        if (role === 'staff') {
             staffSocket = socket;
             console.log('Staff client registered.');
-        } else if (role === 'unity' && !unitySocket) {
+        } else if (role === 'unity') {
             unitySocket = socket;
             console.log('Unity client registered.');
         } else {
-            console.log(`Connection refused: Role '${role}' is already taken or invalid.`);
+            console.log(`Connection refused: Role '${role}' is invalid.`);
             socket.disconnect();
             return;
         }
-
-        // 両方のクライアントが接続・登録されたら、PWAに接続開始を通知
-        if (staffSocket && unitySocket) {
-            console.log('Both clients are ready. Notifying Staff to start WebRTC.');
-            staffSocket.emit('start_webrtc'); 
-        }
     });
 
+    // PWA (staff)からOfferを受信し、Unityに転送
     socket.on('offer', (offer) => {
-        // PWA (staff)からOfferを受信し、Unityに転送
         console.log(`Offer received from Staff client (${socket.id}).`);
-        if (socket === staffSocket && unitySocket) {
+        if (unitySocket) {
             console.log('Forwarding offer to Unity client.');
             unitySocket.emit('offer', offer);
         } else {
-            console.log('Offer received from an unexpected client. Ignoring.');
+            console.log('Unity client is not connected. Cannot forward offer.');
         }
     });
 
+    // UnityからAnswerを受信し、PWA (staff)に転送
     socket.on('answer', (answer) => {
-        // UnityからAnswerを受信し、PWA (staff)に転送
         console.log(`Answer received from Unity client (${socket.id}).`);
-        if (socket === unitySocket && staffSocket) {
+        if (staffSocket) {
             console.log('Forwarding answer to Staff client.');
             staffSocket.emit('answer', answer);
         } else {
-            console.log('Answer received from an unexpected client. Ignoring.');
+            console.log('Staff client is not connected. Cannot forward answer.');
         }
     });
 
+    // ICE Candidateを双方向で転送
     socket.on('candidate', (candidate) => {
         console.log(`Candidate received from ${socket.id}`);
-        // どちらのクライアントからのCandidateも、もう一方に転送
         if (socket === staffSocket && unitySocket) {
             console.log('Forwarding candidate from Staff to Unity.');
             unitySocket.emit('candidate', candidate);
@@ -90,6 +84,7 @@ io.on('connection', socket => {
             unitySocket = null;
             console.log('Unity client disconnected.');
         }
+        
         // 片方が切断されたら、もう一方もWebRTC接続を終了させるために通知
         if (staffSocket) {
             staffSocket.emit('webrtc_close');
