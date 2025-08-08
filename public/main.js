@@ -1,11 +1,259 @@
-// 省略: videoElement, canvasElement, statusElement, UIボタン取得・MediaPipe初期化などはそのまま
+// HTMLから要素を取得
+const videoElement = document.getElementById('input_video');
+const canvasElement = document.getElementById('output_canvas');
+const canvasCtx = canvasElement.getContext('2d');
 
-// --- WebRTCの追加変数 ---
-let iceCandidateBuffer = [];
-let isDescriptionSet = false;
+// UI要素
+const statusElement = document.getElementById('status');
+const startFrontBtn = document.getElementById('startFrontCamera');
+const startBackBtn = document.getElementById('startBackCamera');
+const stopBtn = document.getElementById('stopCamera');
 
-// WebRTC初期化関数
+// Socket.IOとWebRTCの初期化
+const socket = io();
+let peerConnection = null;
+let dataChannel = null;
+
+// MediaPipe関連
+let hands = null;
+let currentStream = null;
+let isHandsReady = false;
+let isRunning = false;
+let animationFrameId = null; // requestAnimationFrameのIDを保持
+
+// ステータス更新関数
+function updateStatus(message, type = 'loading') {
+    statusElement.textContent = message;
+    statusElement.className = `status ${type}`;
+}
+
+// UI状態更新
+function updateUIState(state) {
+    switch (state) {
+        case 'initializing':
+            startFrontBtn.disabled = true;
+            startBackBtn.disabled = true;
+            stopBtn.classList.add('hidden');
+            break;
+        case 'ready':
+            startFrontBtn.disabled = false;
+            startBackBtn.disabled = false;
+            stopBtn.classList.add('hidden');
+            break;
+        case 'running':
+            startFrontBtn.disabled = true;
+            startBackBtn.disabled = true;
+            stopBtn.classList.remove('hidden');
+            break;
+    }
+}
+
+// MediaPipe Handsの初期化
+async function initializeHands() {
+    try {
+        updateStatus('MediaPipe Hands初期化中...', 'loading');
+        updateUIState('initializing');
+
+        hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
+        });
+
+        // Handsの設定
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        // Handsモデルの処理結果を受け取る
+        hands.onResults(onHandsResults);
+
+        // 初期化実行
+        await hands.initialize();
+        
+        isHandsReady = true;
+        updateStatus('準備完了 - カメラを選択してください', 'ready');
+        updateUIState('ready');
+        
+        console.log('MediaPipe Hands initialized successfully');
+        
+    } catch (error) {
+        console.error('MediaPipe Hands初期化エラー:', error);
+        updateStatus(`初期化エラー: ${error.message}`, 'error');
+    }
+}
+
+// 手のランドマーク処理結果
+function onHandsResults(results) {
+    // キャンバスサイズを動的に調整
+    const videoRect = videoElement.getBoundingClientRect();
+    canvasElement.width = videoRect.width;
+    canvasElement.height = videoRect.height;
+    
+    // 描画処理
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+    if (results.multiHandLandmarks) {
+        for (const landmarks of results.multiHandLandmarks) {
+            // 接続線を描画
+            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { 
+                color: '#00FF00', 
+                lineWidth: Math.max(2, canvasElement.width / 320)
+            });
+            
+            // ランドマークポイントを描画
+            drawLandmarks(canvasCtx, landmarks, { 
+                color: '#FF0000', 
+                lineWidth: Math.max(1, canvasElement.width / 480),
+                radius: Math.max(2, canvasElement.width / 320)
+            });
+        }
+
+        // WebRTCデータチャンネルで手のデータを送信
+        if (dataChannel && dataChannel.readyState === 'open') {
+            const handData = JSON.stringify(results.multiHandLandmarks);
+            dataChannel.send(handData);
+        }
+    }
+    
+    canvasCtx.restore();
+}
+
+// フレームをMediaPipeに送信するループ
+function sendToMediaPipe() {
+    if (isRunning && isHandsReady) {
+        hands.send({ image: videoElement });
+        animationFrameId = requestAnimationFrame(sendToMediaPipe);
+    }
+}
+
+async function startCamera(facingMode = 'user') {
+    try {
+        const cameraType = facingMode === 'user' ? '前面' : '背面';
+        updateStatus(`${cameraType}カメラ開始中...`, 'loading');
+        updateUIState('initializing');
+
+        // 既存のリソースをクリーンアップ
+        await stopCamera(false);
+
+        const constraints = {
+            video: { 
+                facingMode: facingMode,
+                width: { ideal: 1280, max: 1920 },
+                height: { ideal: 720, max: 1080 },
+                frameRate: { ideal: 30, max: 60 }
+            }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoElement.srcObject = stream;
+        currentStream = stream;
+        isRunning = true;
+
+        // ビデオが再生可能になったらMediaPipeへのフレーム送信を開始
+        videoElement.onloadeddata = () => {
+            console.log('Video stream loaded.');
+            videoElement.play();
+            sendToMediaPipe();
+            updateStatus(`${cameraType}カメラで動作中`, 'ready');
+            updateUIState('running');
+        };
+
+        console.log(`Camera started with ${cameraType} facing mode`);
+
+    } catch (error) {
+        console.error(`カメラ開始エラー (${facingMode}):`, error);
+        updateStatus(`カメラエラー: ${error.message}`, 'error');
+        updateUIState('ready');
+    }
+}
+
+// カメラ停止
+async function stopCamera(updateUI = true) {
+    try {
+        isRunning = false;
+        
+        // requestAnimationFrameを停止
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+
+        // カメラストリームを停止
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => {
+                track.stop();
+                console.log(`Stopped track: ${track.kind}`);
+            });
+            currentStream = null;
+        }
+        
+        // ビデオ要素をクリア
+        videoElement.srcObject = null;
+        
+        // キャンバスをクリア
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        
+        if (updateUI) {
+            updateStatus('準備完了 - カメラを選択してください', 'ready');
+            updateUIState('ready');
+        }
+        
+        console.log('Camera stopped successfully');
+        
+    } catch (error) {
+        console.error('カメラ停止エラー:', error);
+    }
+}
+
+// ウィンドウリサイズ対応
+function handleResize() {
+    if (isRunning && videoElement.videoWidth && videoElement.videoHeight) {
+        const videoRect = videoElement.getBoundingClientRect();
+        canvasElement.width = videoRect.width;
+        canvasElement.height = videoRect.height;
+    }
+}
+
+// イベントリスナー設定
+function setupEventListeners() {
+    startFrontBtn.addEventListener('click', () => startCamera('user'));
+    startBackBtn.addEventListener('click', () => startCamera('environment'));
+    stopBtn.addEventListener('click', () => stopCamera());
+    
+    // ウィンドウリサイズ対応
+    window.addEventListener('resize', handleResize);
+    
+    // ページ離脱時のクリーンアップ
+    window.addEventListener('beforeunload', () => stopCamera(false));
+    
+    // 可視性変更時の処理（バックグラウンド時にリソース節約）
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && isRunning) {
+            console.log('Page hidden - pausing camera');
+        } else if (!document.hidden && isRunning) {
+            console.log('Page visible - resuming camera');
+        }
+    });
+}
+
+// DOMのロードが完了してから処理を開始
+window.addEventListener('DOMContentLoaded', async (event) => {
+    console.log('DOM fully loaded and parsed');
+    
+    setupEventListeners();
+    await initializeHands();
+});
+
+// 新しいWebRTC初期化関数を作成
+// 接続が切れた場合に再利用します
 function initializeWebRTC() {
+    // 既存のPeerConnectionとDataChannelを閉じる
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
@@ -15,75 +263,59 @@ function initializeWebRTC() {
         dataChannel = null;
     }
     
-    // バッファとフラグは初期化時にクリア
-    iceCandidateBuffer = [];
-    isDescriptionSet = false;
-
     console.log('Initializing WebRTC.');
 
     peerConnection = new RTCPeerConnection({
         iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' }
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun.services.mozilla.com:3478' },
+            { urls: 'stun:stun.voip.blackberry.com:3478' }
         ]
     });
 
-    // PWA側がDataChannelを作成する設定なので、自分は受け取る側としてdatachannelイベントを使うことも検討可
     dataChannel = peerConnection.createDataChannel('handData', {
         ordered: false,
         maxRetransmits: 0
     });
-
+    
     dataChannel.onopen = () => {
         console.log('Data Channel is open!');
         updateStatus(statusElement.textContent + ' (WebRTC接続)', 'ready');
     };
-
+    
     dataChannel.onclose = () => {
         console.log('Data Channel closed');
     };
-
+    
     dataChannel.onerror = (error) => {
         console.error('Data Channel error:', error);
     };
 
-    // ICE candidateを収集したら逐次シグナリングサーバーに送信する
     peerConnection.onicecandidate = (e) => {
         if (e.candidate) {
+            // 送信するICE候補の内容をログに出力
             console.log('Found and sending ICE candidate:', JSON.stringify(e.candidate));
             socket.emit('candidate', e.candidate);
         }
     };
-
-    // negotiationneededイベントでOfferを作成、送信する。これでOffer生成処理が標準化されます。
-    peerConnection.onnegotiationneeded = async () => {
-        try {
-            console.log('onnegotiationneeded triggered. Creating offer...');
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('offer', peerConnection.localDescription);
-
-            isDescriptionSet = true; // Offer送信時にフラグを立てる
-
-            // Offer送信後にバッファしているICE候補を送信
-            console.log(`Sending ${iceCandidateBuffer.length} buffered ICE candidates.`);
-            for (const candidate of iceCandidateBuffer) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-            iceCandidateBuffer = []; // バッファクリア
-        } catch (e) {
-            console.error('Error in onnegotiationneeded:', e);
-        }
-    };
-
-    // 接続状態変化をログ、失敗時は再初期化を試みる
+    
+    // 修正: 接続状態の変化を監視するイベントハンドラを追加
     peerConnection.onconnectionstatechange = () => {
         console.log('WebRTC connection state:', peerConnection.connectionState);
+        // 接続が切断されたり失敗したりした場合、WebRTCを再初期化する
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
             console.warn('WebRTC connection failed. Re-initializing...');
-            setTimeout(() => initializeWebRTC(), 3000);
+            // 接続試行がループしないように、少し遅延を入れてから再初期化
+            setTimeout(() => {
+                initializeWebRTC();
+                socket.emit('staff_ready'); // 再初期化後に再度シグナリングを開始
+            }, 3000); // 3秒後に再試行
         }
     };
 
+    // WebRTCの初期化が完了したことをサーバーに通知
     console.log('WebRTC initialized. Emitting staff_ready event.');
     socket.emit('staff_ready');
 }
@@ -91,74 +323,62 @@ function initializeWebRTC() {
 // Socket.IO接続イベント
 socket.on('connect', () => {
     console.log('Socket connected.');
+    // 修正: ソケット接続時にWebRTCの初期化を開始
     initializeWebRTC();
 });
 
-// Offerを受け取った時の処理
+// offerを受け取った時の処理
 socket.on('offer', async (offer) => {
     console.log('Received offer:', offer);
-
-    if (peerConnection && peerConnection.signalingState !== 'closed') {
-        try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            isDescriptionSet = true;
-
-            // バッファリングされているcandidateをセット
-            console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates after setting remote description.`);
-            for (const candidate of iceCandidateBuffer) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-            iceCandidateBuffer = [];
-
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('answer', peerConnection.localDescription);
-            console.log('Answer sent to Unity client');
-        } catch (e) {
-            console.error('Error handling received offer:', e);
-        }
+    if (peerConnection) {
+        console.log('Received offer from Unity client. Creating answer...');
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        console.log('Successfully created answer.');
+        await peerConnection.setLocalDescription(answer);
+        console.log('Sending answer:', peerConnection.localDescription);
+        socket.emit('answer', peerConnection.localDescription);
+        console.log('Answer sent to Unity client');
     }
 });
 
-// Answerを受け取った時の処理
+// answerを受け取った時の処理
 socket.on('answer', async (answer) => {
+    // 受信したanswerの内容をログに出力
     console.log('Received answer from Unity client:', answer);
-
-    if (peerConnection && peerConnection.signalingState !== 'closed') {
-        try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            isDescriptionSet = true;
-
-            // バッファ中のICE候補を追加
-            console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates after setting remote description.`);
-            for (const candidate of iceCandidateBuffer) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-            iceCandidateBuffer = [];
-
-            console.log('WebRTC answer received and set.');
-        } catch (e) {
-            console.error('Error setting remote description from answer:', e);
-        }
+    if (peerConnection && peerConnection.signalingState !== 'closed' && peerConnection.remoteDescription === null) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log('WebRTC answer received and set');
     }
 });
 
-// ICE Candidateを受け取った時の処理、バッファリング対応済み
+// candidateを受け取った時の処理
 socket.on('candidate', async (candidate) => {
+    // 受信したICE候補の内容をログに出力
     console.log('Received ICE candidate from Unity client:', candidate);
-
-    if (isDescriptionSet) {
+    if (candidate && peerConnection && peerConnection.remoteDescription !== null) {
         try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log('ICE candidate added immediately.');
+            console.log('ICE candidate added');
         } catch (e) {
-            console.error('Error adding received ICE candidate immediately:', e);
+            console.error('Error adding received ICE candidate', e);
         }
-    } else {
-        iceCandidateBuffer.push(candidate);
-        console.log('ICE candidate buffered.');
     }
 });
 
-// ... エラーハンドリングや切断処理は必要に応じて追加 ...
+// エラーハンドリング
+socket.on('connect_error', (error) => {
+    console.error('Socket connection error:', error);
+    updateStatus('サーバー接続エラー', 'error');
+});
 
+// 修正: ソケット切断時にWebRTC接続をクリーンアップ
+socket.on('disconnect', (reason) => {
+    console.log('Socket disconnected:', reason);
+    updateStatus('サーバー切断', 'error');
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    dataChannel = null;
+});
