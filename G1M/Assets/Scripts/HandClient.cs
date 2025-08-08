@@ -82,12 +82,15 @@ public class HandClient : MonoBehaviour
             CloseWebRTCConnection();
         });
 
-        socket.OnDisconnected += (sender, e) => 
+        socket.OnDisconnected += async (sender, e) => 
         {
             Debug.Log($"Socket.IO Disconnected! Reason: {e}");
+            // ソケット切断時にWebRTC接続もクリーンアップ
             CloseWebRTCConnection();
             Debug.Log("Attempting to reconnect in 3 seconds...");
-            Task.Delay(3000).ContinueWith(_ => ConnectSocketAsync());
+            // 修正箇所: Task.DelayとConnectSocketAsyncをawaitで呼び出すように変更
+            await Task.Delay(3000);
+            await ConnectSocketAsync();
         };
         
         socket.OnError += (sender, e) => Debug.LogError($"Socket.IO Error: {e}");
