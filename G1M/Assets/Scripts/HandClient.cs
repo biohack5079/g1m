@@ -161,7 +161,7 @@ public class HandClient : MonoBehaviour
                 CloseWebRTCConnection();
                 // ソケット接続が維持されている場合、WebRTCのみ再試行
                 if (socket != null && socket.Connected) {
-                     // PWAが再度Offerを送ってくれることを期待
+                    // PWAが再度Offerを送ってくれることを期待
                 }
             }
         };
@@ -169,7 +169,9 @@ public class HandClient : MonoBehaviour
 
     private IEnumerator HandleOfferAsync(SocketIOResponse response)
     {
-        Debug.Log("Received an offer from PWA client.");
+        // 修正箇所：追加されたデバッグログ
+        Debug.Log("HandleOfferAsync started.");
+        
         if (_peerConnection == null)
         {
             Debug.LogError("PeerConnection is not initialized. Cannot handle offer.");
@@ -177,6 +179,9 @@ public class HandClient : MonoBehaviour
         }
 
         var offerJson = response.GetValue<string>();
+        // 修正箇所：追加されたデバッグログ
+        Debug.Log($"Offer JSON received: {offerJson}");
+
         var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
         var op1 = _peerConnection.SetRemoteDescription(ref sdp);
         yield return op1;
@@ -185,6 +190,8 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
             yield break;
         }
+        // 修正箇所：追加されたデバッグログ
+        Debug.Log("SetRemoteDescription succeeded.");
 
         var op2 = _peerConnection.CreateAnswer();
         yield return op2;
@@ -193,6 +200,8 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"CreateAnswer failed: {op2.Error.message}");
             yield break;
         }
+        // 修正箇所：追加されたデバッグログ
+        Debug.Log("CreateAnswer succeeded.");
 
         var answer = op2.Desc;
         var op3 = _peerConnection.SetLocalDescription(ref answer);
@@ -202,10 +211,15 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
             yield break;
         }
+        // 修正箇所：追加されたデバッグログ
+        Debug.Log("SetLocalDescription succeeded.");
         
         var answerJson = JsonUtility.ToJson(answer);
+        // 修正箇所：追加されたデバッグログ
+        Debug.Log($"Sending answer JSON: {answerJson}");
         socket.EmitAsync("answer", answerJson);
-        Debug.Log("Answer sent to PWA.");
+        // 修正箇所：追加されたデバッグログ
+        Debug.Log("Answer sent to signaling server.");
     }
     
     private IEnumerator HandleCandidateAsync(SocketIOResponse response)
