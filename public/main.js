@@ -209,11 +209,9 @@ function handleResize() {
 function setupEventListeners() {
     startFrontBtn.addEventListener('click', async () => {
         await startCamera('user');
-        initializeWebRTC('offer');
     });
     startBackBtn.addEventListener('click', async () => {
         await startCamera('environment');
-        initializeWebRTC('offer');
     });
     stopBtn.addEventListener('click', () => {
         stopCamera();
@@ -242,7 +240,8 @@ window.addEventListener('DOMContentLoaded', async (event) => {
     await initializeHands();
 });
 
-// PWAがOffererとなるように修正
+// PWAがOffererとなり、WebRTC接続プロセスを開始する関数
+// サーバーからのstart_webrtcイベントを受信したときに呼び出される
 function initializeWebRTC() {
     if (peerConnection) {
         peerConnection.close();
@@ -367,6 +366,16 @@ socket.on('connect', () => {
     updateStatus('Unityクライアントを待機中...', 'loading');
 });
 
+// サーバーからWebRTC接続開始の指示を受け取るイベント
+socket.on('start_webrtc', async () => {
+    console.log('Received start_webrtc event from server. Initializing WebRTC.');
+    // カメラが起動していなければ、デフォルトで前面カメラを起動
+    if (!isRunning) {
+        await startCamera('user');
+    }
+    initializeWebRTC();
+});
+
 
 // サーバーから切断通知を受け取った時の処理
 socket.on('webrtc_close', () => {
@@ -395,6 +404,3 @@ socket.on('disconnect', (reason) => {
     }
     dataChannel = null;
 });
-
-// PWA側がOfferorとなるため、start_webrtc イベントは不要に。
-// ユーザーがボタンをクリックして接続を開始する方式に戻す
