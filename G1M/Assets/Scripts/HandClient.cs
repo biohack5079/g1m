@@ -45,12 +45,13 @@ public class HandClient : MonoBehaviour
         WebRTC.Update();
     }
 
-    void InitializeSocketIO()
+    // 修正箇所：asyncキーワードを追加し、async void に変更
+    async void InitializeSocketIO()
     {
         // 既存の接続があればクリーンアップ
         if (socket != null && socket.Connected)
         {
-            socket.DisconnectAsync();
+            await socket.DisconnectAsync();
         }
         
         var uri = new Uri(ServerUrl);
@@ -85,17 +86,16 @@ public class HandClient : MonoBehaviour
         socket.OnDisconnected += async (sender, e) => 
         {
             Debug.Log($"Socket.IO Disconnected! Reason: {e}");
-            // ソケット切断時にWebRTC接続もクリーンアップ
             CloseWebRTCConnection();
             Debug.Log("Attempting to reconnect in 3 seconds...");
-            // 修正箇所: Task.DelayとConnectSocketAsyncをawaitで呼び出すように変更
             await Task.Delay(3000);
             await ConnectSocketAsync();
         };
         
         socket.OnError += (sender, e) => Debug.LogError($"Socket.IO Error: {e}");
         
-        ConnectSocketAsync();
+        // 修正箇所: async void内でConnectSocketAsync()をawaitで呼び出す
+        await ConnectSocketAsync();
     }
 
     void InitializeWebRTC()
@@ -146,8 +146,6 @@ public class HandClient : MonoBehaviour
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
                 Debug.Log("Sending ICE candidate.");
-                // CS4014警告を回避するため、EmitAsyncの結果を待たずに次の処理へ進めます。
-                // UnityのIEnumerator内ではawaitは使えないため、この方法が一般的です。
                 socket.EmitAsync("candidate", candidateJson);
             }
         };
@@ -160,7 +158,6 @@ public class HandClient : MonoBehaviour
                 Debug.LogWarning("WebRTC connection failed or disconnected. Attempting to restart.");
                 CloseWebRTCConnection();
                 if (socket != null && socket.Connected) {
-                    // PWAが再度Offerを送ってくれることを期待
                 }
             }
         };
@@ -210,7 +207,6 @@ public class HandClient : MonoBehaviour
         
         var answerJson = JsonUtility.ToJson(answer);
         Debug.Log($"Sending answer JSON: {answerJson}");
-        // ここでの EmitAsync も非同期で実行し、IEnumeratorのフローをブロックしません。
         socket.EmitAsync("answer", answerJson);
         Debug.Log("Answer sent to signaling server.");
     }
@@ -249,7 +245,6 @@ public class HandClient : MonoBehaviour
 
     private async Task ConnectSocketAsync()
     {
-        // 既に接続試行中か接続済みであれば何もしない
         if (socket.Connected) return;
 
         Debug.Log($"Attempting to connect to {ServerUrl}...");
@@ -260,10 +255,7 @@ public class HandClient : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"Connection failed: {e.GetType().Name} - {e.Message}");
-            // 接続失敗時に再試行
             await Task.Delay(5000);
-
-            // 修正箇所: 再帰呼び出しの前に await を追加
             await ConnectSocketAsync();
         }
     }
