@@ -34,12 +34,18 @@ public class HandClient : MonoBehaviour
     private RTCDataChannel _dataChannel;
     private bool _isSocketConnecting = false;
     private bool _hasConnectedOnce = false;
-    
+
     public static event Action<List<List<Landmark>>> OnLandmarksReceived;
 
     void Start()
     {
         InitializeSocketIO();
+    }
+
+    void Update()
+    {
+        // WebRTCのイベント処理を毎フレーム実行する
+        WebRTC.Update();
     }
 
     void InitializeSocketIO()
@@ -58,29 +64,47 @@ public class HandClient : MonoBehaviour
             _isSocketConnecting = false;
             _hasConnectedOnce = true;
         };
-
+        
+        // PWA側がOfferを作成するため、Unity側は待機する。
+        // ready_to_connectイベントは、PWAからOfferを受け取るための準備ができたことを知らせるだけ。
         socket.On("ready_to_connect", response => 
         {
-            Debug.Log("Web client is ready. Creating DataChannel and starting WebRTC offer.");
-            
-            // ★修正箇所: ここでDataChannelを作成する
-            _dataChannel = _peerConnection.CreateDataChannel("handDataChannel");
+            Debug.Log("PWA is ready. Waiting for WebRTC offer.");
+            // このタイミングでは何もせず、PWAからのOfferを待つ
+        });
+
+        var configuration = new RTCConfiguration
+        {
+            iceServers = new RTCIceServer[]
+            {
+                new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
+                new RTCIceServer { urls = new string[] { "stun:stun1.l.google.com:19302" } },
+                new RTCIceServer { urls = new string[] { "stun:stun2.l.google.com:19302" } },
+                new RTCIceServer { urls = new string[] { "stun:stun.services.mozilla.com:3478" } },
+                new RTCIceServer { urls = new string[] { "stun:stun.voip.blackberry.com:3478" } }
+            }
+        };
+        _peerConnection = new RTCPeerConnection(ref configuration);
+        
+        // PWA側がDataChannelを作成するので、Unity側はそれを受け取るハンドラを設定
+        _peerConnection.OnDataChannel += channel => 
+        {
+            _dataChannel = channel;
             _dataChannel.OnOpen += () => 
             {
-                Debug.Log("WebRTC DataChannel is now open!");
+                Debug.Log("WebRTC DataChannel is now open! (Received from PWA)");
             };
             _dataChannel.OnClose += () => 
             {
                 Debug.Log("WebRTC DataChannel is closed.");
             };
             _dataChannel.OnMessage += bytes => 
-            { 
-
+            {
                 string handData = Encoding.UTF8.GetString(bytes);
-                // ここにデバッグログを追加
                 Debug.Log($"Received hand data JSON: {handData}");
                 try
                 {
+                    // JSONUtilityでのパース処理
                     var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
                     if (parsedData != null)
                     {
@@ -93,25 +117,8 @@ public class HandClient : MonoBehaviour
                     Debug.Log("Received data was: " + handData);
                 }
             };
-            
-            // その後、Offerの作成と送信を開始する
-            StartCoroutine(CreateOfferAndSend());
-        });
-
-        var configuration = new RTCConfiguration
-        {
-            iceServers = new RTCIceServer[]
-            {
-                // new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } },
-                // new RTCIceServer { urls = new string[] { "stun:stun1.l.google.com:19302" } },
-                // new RTCIceServer { urls = new string[] { "stun:stun2.l.google.com:19302" } },
-                // new RTCIceServer { urls = new string[] { "stun:stun.services.mozilla.com:3478" } },
-                // new RTCIceServer { urls = new string[] { "stun:stun.voip.blackberry.com:3478" } }
-                new RTCIceServer { urls = new string[] { "stun:stun.l.google.com:19302" } }                
-            }
         };
-        _peerConnection = new RTCPeerConnection(ref configuration);
-        
+
         _peerConnection.OnIceCandidate = candidate =>
         {
             if (candidate != null && socket.Connected)
@@ -127,8 +134,13 @@ public class HandClient : MonoBehaviour
             }
         };
         
+        // UnityはAnswerを作成・送信する役割
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
-        socket.On("answer", response => StartCoroutine(HandleAnswerAsync(response)));
+        
+        // UnityはOfferを受け取る役割から外れる
+        // socket.On("answer", ...);
+        
+        // candidateは双方向で処理するため変更なし
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
 
         socket.OnDisconnected += (sender, e) => 
@@ -143,40 +155,17 @@ public class HandClient : MonoBehaviour
         
         socket.OnError += (sender, e) => Debug.LogError($"Socket.IO Error: {e}");
         
-        // ★修正箇所: DataChannelはここでは作成しないため、OnDataChannelハンドラは不要
-        // _peerConnection.OnDataChannel += channel => { ... }; 
-
         ConnectSocketAsync();
     }
 
-    private IEnumerator CreateOfferAndSend()
-    {
-        Debug.Log("Creating offer and sending to Web client...");
-        var op = _peerConnection.CreateOffer();
-        yield return op;
-        if (op.IsError)
-        {
-            Debug.LogError($"CreateOffer failed: {op.Error.message}");
-            yield break;
-        }
-
-        var offer = op.Desc;
-        var op2 = _peerConnection.SetLocalDescription(ref offer);
-        yield return op2;
-        if (op2.IsError)
-        {
-            Debug.LogError($"SetLocalDescription failed: {op2.Error.message}");
-            yield break;
-        }
-        
-        var offerJson = JsonUtility.ToJson(offer);
-        socket.EmitAsync("offer", offerJson);
-    }
+    // PWA側がOfferを作成するため、このメソッドは不要になります
+    // private IEnumerator CreateOfferAndSend() { ... }
 
     private IEnumerator HandleOfferAsync(SocketIOResponse response)
     {
         Debug.Log("Received an offer from Web client.");
         var offerJson = response.GetValue<string>();
+        Debug.Log($"Offer received from PWA: {offerJson}"); // ログを追加
         var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
 
         var op1 = _peerConnection.SetRemoteDescription(ref sdp);
@@ -186,6 +175,7 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
             yield break;
         }
+        Debug.Log("Set remote description successfully."); // ログを追加
 
         var op2 = _peerConnection.CreateAnswer();
         yield return op2;
@@ -203,30 +193,22 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
             yield break;
         }
+        Debug.Log("Set local description (answer) successfully."); // ログを追加
         
         var answerJson = JsonUtility.ToJson(answer);
+        Debug.Log($"Sending answer JSON: {answerJson}"); // ログを追加
         socket.EmitAsync("answer", answerJson);
+        Debug.Log("Answer sent to PWA."); // ログを追加
     }
     
-    private IEnumerator HandleAnswerAsync(SocketIOResponse response)
-    {
-        Debug.Log("Received an answer from Web client.");
-        var answerJson = response.GetValue<string>();
-        Debug.Log($"Answer received: {answerJson}");
-        var sdp = JsonUtility.FromJson<RTCSessionDescription>(answerJson);
-
-        var op1 = _peerConnection.SetRemoteDescription(ref sdp);
-        yield return op1;
-        if (op1.IsError)
-        {
-            Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
-        }
-    }
+    // このメソッドはPWAがAnswerを作成する際に使用する。今回はUnityが作成するので不要になる。
+    // private IEnumerator HandleAnswerAsync(SocketIOResponse response) { ... }
 
     private IEnumerator HandleCandidateAsync(SocketIOResponse response)
     {
         Debug.Log("Received an ICE candidate.");
         var candidateJson = response.GetValue<string>();
+        Debug.Log($"Received ICE candidate JSON: {candidateJson}"); // ログを追加
         
         var iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
 
@@ -255,6 +237,7 @@ public class HandClient : MonoBehaviour
 
     private async void ConnectSocketAsync()
     {
+        // (中略) 変更なし
         if (_isSocketConnecting) return;
         _isSocketConnecting = true;
 
