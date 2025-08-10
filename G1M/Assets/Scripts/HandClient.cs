@@ -85,7 +85,6 @@ public class HandClient : MonoBehaviour
         });
 
         socket.On("offer", response => {
-            // オブジェクトが有効な場合のみコルーチンを起動
             if (this != null)
             {
                 unityContext.Post(_ => StartCoroutine(HandleOfferCoroutine(response)), null);
@@ -93,7 +92,6 @@ public class HandClient : MonoBehaviour
         });
 
         socket.On("candidate", response => {
-            // オブジェクトが有効な場合のみコルーチンを起動
             if (this != null)
             {
                 unityContext.Post(_ => StartCoroutine(HandleCandidateCoroutine(response)), null);
@@ -219,7 +217,8 @@ public class HandClient : MonoBehaviour
 
         try
         {
-            string offerJson = response.GetValue<string>();
+            // responseの最初の引数をJSON文字列として取得
+            string offerJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
             Debug.Log($"Offer JSON string received: {offerJson}");
 
             SdpMessage offerMsg = JsonUtility.FromJson<SdpMessage>(offerJson);
@@ -298,7 +297,8 @@ public class HandClient : MonoBehaviour
         
         try
         {
-            string candidateJson = response.GetValue<string>();
+            // responseの最初の引数をJSON文字列として取得
+            string candidateJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
             SdpCandidate candidateMsg = JsonUtility.FromJson<SdpCandidate>(candidateJson);
             
             if (candidateMsg != null && !string.IsNullOrEmpty(candidateMsg.candidate))
