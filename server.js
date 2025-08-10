@@ -26,14 +26,13 @@ const roleSockets = {
 };
 
 function setRoleSocket(role, socket) {
-    // 上書き（新しい方を正、古いソケットがまだ生きてたら即切断する）
-    if (roleSockets[role] && roleSockets[role].id !== socket.id) {
-        roleSockets[role].socket.disconnect();
-        console.log(`Disconnected previous ${role} socket: ${roleSockets[role].id}`);
-    }
-    roleSockets[role] = { socket, id: socket.id };
-    console.log(`${role} registered (${socket.id})`);
-}
+  if (roleSockets[role] && roleSockets[role].id && roleSockets[role].id !== socket.id) {
+    roleSockets[role].socket.disconnect();
+    console.log(`Disconnected previous ${role} socket: ${roleSockets[role].id}`);
+  }
+  roleSockets[role] = { socket, id: socket.id };
+  console.log(`${role} registered (${socket.id})`);
+}}
 
 function getSocket(role) {
     if (!roleSockets[role]) return null;
