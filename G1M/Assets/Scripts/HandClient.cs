@@ -51,7 +51,6 @@ public class HandClient : MonoBehaviour
     public static event Action<List<List<Landmark>>> OnLandmarksReceived;
     private SynchronizationContext unityContext;
 
-    // Offer/Answerの同時処理を防ぐためのフラグ
     private bool isHandlingOffer = false;
 
     void Awake()
@@ -61,7 +60,6 @@ public class HandClient : MonoBehaviour
 
     void Start()
     {
-        WebRTC.Initialize(WebRTCSettings.EncoderType);
         InitializeSocketIO();
     }
 
@@ -180,6 +178,7 @@ public class HandClient : MonoBehaviour
         {
             if (candidate != null && socket.Connected)
             {
+                // Web PWA側が期待するJSON形式にCandidateを変換
                 var candidateObj = new
                 {
                     candidate = candidate.Candidate,
@@ -187,7 +186,17 @@ public class HandClient : MonoBehaviour
                     sdpMLineIndex = candidate.SdpMLineIndex
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
-                socket.EmitAsync("candidate", candidateJson);
+                
+                // JsonUtility.ToJson()はstring, sdpMid, sdpMLineIndexがnullの場合、JSONに出力しない
+                // サーバー側が空のオブジェクトを受け取ってエラーになることを防ぐため、
+                // Candidateが有効か確認してからEmitする
+                if (!string.IsNullOrEmpty(candidateObj.candidate))
+                {
+                    Debug.Log($"Sending ICE candidate to server: {candidateJson}");
+                    socket.EmitAsync("candidate", candidateJson);
+                } else {
+                    Debug.LogWarning("Skipping ICE candidate with empty `candidate` string.");
+                }
             }
         };
 
@@ -315,8 +324,8 @@ public class HandClient : MonoBehaviour
                     sdpMLineIndex = candidateMsg.sdpMLineIndex
                 };
                 
-                // AddIceCandidateが返すのはboolではなく、即時実行される
-                if (!_peerConnection.AddIceCandidate(new RTCIceCandidate(iceCandidateInit)))
+                var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
+                if (!_peerConnection.AddIceCandidate(rtcIceCandidate))
                 {
                     Debug.LogError("Failed to add ICE candidate: candidate is invalid.");
                 }
