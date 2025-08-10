@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_PixelRect:
     serializedVersion: 2
-    x: 8
-    y: 127
+    x: 78
+    y: 255
     width: 1350
     height: 539
   m_ShowMode: 0
@@ -375,8 +375,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "Console\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 8
-    y: 127
+    x: 78
+    y: 255
     width: 1350
     height: 513
   m_SerializedDataModeController:
