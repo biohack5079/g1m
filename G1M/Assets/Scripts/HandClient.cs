@@ -54,9 +54,15 @@ public class HandClient : MonoBehaviour
 
     private SynchronizationContext unityContext;
 
+    // ICE Candidate バッファリング用リスト
+    private List<RTCIceCandidateInit> iceCandidateBuffer = new List<RTCIceCandidateInit>();
+    private bool isDescriptionSet = false;
+
     void Awake()
     {
+        // UnityのメインスレッドのSynchronizationContextを取得
         unityContext = SynchronizationContext.Current;
+        WebRTC.Initialize(WebRTCSettings.EncoderType);
     }
 
     void Start()
@@ -84,20 +90,25 @@ public class HandClient : MonoBehaviour
             ConnectionTimeout = TimeSpan.FromSeconds(20)
         });
 
-        socket.On("offer", response => {
+        // offer イベント受信
+        socket.On("offer", response =>
+        {
             if (this != null)
             {
                 unityContext.Post(_ => StartCoroutine(HandleOfferCoroutine(response)), null);
             }
         });
 
-        socket.On("candidate", response => {
+        // candidate イベント受信
+        socket.On("candidate", response =>
+        {
             if (this != null)
             {
                 unityContext.Post(_ => StartCoroutine(HandleCandidateCoroutine(response)), null);
             }
         });
 
+        // webrtc_close イベント
         socket.On("webrtc_close", response =>
         {
             if (this != null)
@@ -152,6 +163,7 @@ public class HandClient : MonoBehaviour
         };
         _peerConnection = new RTCPeerConnection(ref configuration);
 
+        // DataChannel受信処理
         _peerConnection.OnDataChannel += channel =>
         {
             _dataChannel = channel;
@@ -162,8 +174,7 @@ public class HandClient : MonoBehaviour
                 string handData = Encoding.UTF8.GetString(bytes);
                 try
                 {
-                    var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>(
-                        "{\"multiHandLandmarks\":" + handData + "}");
+                    var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
                     if (parsedData != null && parsedData.multiHandLandmarks != null)
                     {
                         OnLandmarksReceived?.Invoke(parsedData.multiHandLandmarks);
@@ -177,15 +188,21 @@ public class HandClient : MonoBehaviour
             };
         };
 
+        // ICE Candidate送信（送信前にプレフィックス修正・補完）
         _peerConnection.OnIceCandidate = candidate =>
         {
             if (candidate != null && socket.Connected)
             {
+                string cand = candidate.Candidate;
+                if (cand.StartsWith("a="))
+                {
+                    cand = cand.Substring(2);
+                }
                 var candidateObj = new
                 {
-                    candidate = candidate.Candidate,
-                    sdpMid = candidate.SdpMid,
-                    sdpMLineIndex = candidate.SdpMLineIndex
+                    candidate = cand,
+                    sdpMid = candidate.SdpMid ?? "",
+                    sdpMLineIndex = candidate.SdpMLineIndex >= 0 ? candidate.SdpMLineIndex : 0
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
                 socket.EmitAsync("candidate", candidateJson);
@@ -199,6 +216,24 @@ public class HandClient : MonoBehaviour
             {
                 Debug.LogWarning("WebRTC connection failed or disconnected. Closing.");
                 CloseWebRTCConnection();
+            }
+        };
+
+        // ネゴシエーションイベントでOffer作成 -> サーバー送信
+        _peerConnection.OnNegotiationNeeded += async () =>
+        {
+            try
+            {
+                Debug.Log("onnegotiationneeded triggered. Creating offer...");
+                var offer = await _peerConnection.CreateOffer();
+                await _peerConnection.SetLocalDescription(ref offer);
+                socket.EmitAsync("offer", _peerConnection.LocalDescription);
+                Debug.Log("💙 Offerを作成し、サーバーに送信しました。");
+                isDescriptionSet = true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error creating offer: {e}");
             }
         };
     }
@@ -217,18 +252,14 @@ public class HandClient : MonoBehaviour
 
         try
         {
-            // responseの最初の引数をJSON文字列として取得
             string offerJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
             Debug.Log($"Offer JSON string received: {offerJson}");
-
             SdpMessage offerMsg = JsonUtility.FromJson<SdpMessage>(offerJson);
-            
             if (string.IsNullOrEmpty(offerMsg?.sdp))
             {
-                 Debug.LogError("Offer SDP is null or empty after parsing.");
-                 yield break;
+                Debug.LogError("Offer SDP is null or empty after parsing.");
+                yield break;
             }
-
             sdp = new RTCSessionDescription
             {
                 type = RTCSdpType.Offer,
@@ -282,7 +313,6 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"Failed to send answer: {emitTask.Exception?.GetBaseException().Message}");
             yield break;
         }
-
         Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
 
@@ -294,21 +324,22 @@ public class HandClient : MonoBehaviour
             Debug.LogWarning("PeerConnection is not initialized yet. Discarding ICE candidate.");
             yield break;
         }
-        
+
         try
         {
-            // responseの最初の引数をJSON文字列として取得
             string candidateJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
             SdpCandidate candidateMsg = JsonUtility.FromJson<SdpCandidate>(candidateJson);
-            
+
             if (candidateMsg != null && !string.IsNullOrEmpty(candidateMsg.candidate))
             {
                 var iceCandidateInit = new RTCIceCandidateInit
                 {
+                    // ★ candidate先頭に "a=" が付いていれば削除したい場合はここで加工可
                     candidate = candidateMsg.candidate,
-                    sdpMid = candidateMsg.sdpMid,
+                    sdpMid = candidateMsg.sdpMid ?? "",
                     sdpMLineIndex = candidateMsg.sdpMLineIndex
                 };
+
                 var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
                 if (!_peerConnection.AddIceCandidate(rtcIceCandidate))
                 {
