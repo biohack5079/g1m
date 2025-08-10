@@ -127,7 +127,7 @@ function sendToMediaPipe() {
     }
 }
 
-async function startCamera(facingMode = 'user') {
+async function startCamera(facingMode = 'environment') {
     try {
         const cameraType = facingMode === 'user' ? '前面' : '背面';
         updateStatus(`${cameraType}カメラ開始中...`, 'loading');
@@ -141,8 +141,6 @@ async function startCamera(facingMode = 'user') {
                 width: { ideal: 1280, max: 1920 },
                 height: { ideal: 720, max: 1080 },
                 frameRate: { ideal: 30, max: 60 },
-                // 背面カメラを明示的に指定
-                facingMode: { exact: "environment" }
             }
         };
 
