@@ -191,8 +191,6 @@ async function stopCamera(updateUI = true) {
             updateUIState('ready');
         }
         
-        console.log('Camera stopped successfully');
-        
     } catch (error) {
         console.error('カメラ停止エラー:', error);
     }
@@ -330,12 +328,16 @@ function initializeWebRTC() {
         console.log('💙 UnityからAnswerを受信しました。');
         if (peerConnection && peerConnection.signalingState !== 'closed') {
             try {
-                // ★この部分を修正: UnityからのAnswerが文字列の場合を考慮
                 let parsedAnswer = typeof answer === 'string' ? JSON.parse(answer) : answer;
                 
-                // UnityのWebRTCライブラリの形式に合わせてSdpをパース
-                if (parsedAnswer.sdp) {
-                    parsedAnswer = { sdp: parsedAnswer.sdp, type: parsedAnswer.type };
+                // ★修正: UnityのWebRTCライブラリの形式に合わせてSdpとtypeをパース
+                if (parsedAnswer.sdp && parsedAnswer.type) {
+                    // typeが数値の場合は文字列に変換
+                    if (parsedAnswer.type === 2) {
+                        parsedAnswer.type = 'answer';
+                    } else if (parsedAnswer.type === 1) {
+                        parsedAnswer.type = 'offer';
+                    }
                 }
                 
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(parsedAnswer));
@@ -360,20 +362,24 @@ function initializeWebRTC() {
         console.log('Received ICE candidate from Unity client.');
         console.log('💙 UnityからCandidateを受信しました。');
         if (candidate) {
-            // ★この部分を修正: UnityからのCandidateが文字列の場合を考慮
-            const parsedCandidate = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            let parsedCandidate = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            
+            // ★修正: UnityからのICE Candidateの形式を処理
+            // UnityのWebRTCライブラリのCandidateは、sdpMid, sdpMLineIndexが含まれないことがある
+            // そのため、candidate文字列からsdpMidとsdpMLineIndexを補完する
+            if (!parsedCandidate.sdpMid || parsedCandidate.sdpMLineIndex === null) {
+                // sdpMidとsdpMLineIndexがnullの場合、暫定的に空文字列と-1を割り当てる
+                parsedCandidate = {
+                    candidate: parsedCandidate.candidate || parsedCandidate,
+                    sdpMid: '', 
+                    sdpMLineIndex: -1 
+                };
+            }
             
             if (isDescriptionSet) {
                 try {
-                    // UnityのWebRTCライブラリの形式に合わせてSdpをパース
-                    if (parsedCandidate.candidate) {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(parsedCandidate));
-                        console.log('ICE candidate added immediately.');
-                    } else {
-                        // candidateプロパティがない場合、全体がcandidate文字列と判断して処理
-                        await peerConnection.addIceCandidate(new RTCIceCandidate({ candidate: parsedCandidate }));
-                        console.log('ICE candidate added immediately as plain string.');
-                    }
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(parsedCandidate));
+                    console.log('ICE candidate added immediately.');
                 } catch (e) {
                     console.error('Error adding received ICE candidate immediately:', e);
                 }
