@@ -357,13 +357,13 @@ function initializeWebRTC() {
         }
     });
 
-    // UnityからのICE Candidate受信
+    // UnityからのICE Candidate受信処理
     socket.on('candidate', async (candidate) => {
         console.log('Received ICE candidate from Unity client.');
         console.log('💙 UnityからCandidateを受信しました。');
 
         if (!candidate) {
-            console.warn('Candidate is null/undefined, skipping.');
+            console.warn('Candidate is null or undefined, skipping.');
             return;
         }
 
@@ -382,20 +382,20 @@ function initializeWebRTC() {
             return;
         }
 
-        // a= プレフィックス除去
+        // "a=" のプレフィックスがあれば削除
         if (typeof sdpCandidate === 'string' && sdpCandidate.startsWith('a=')) {
             console.log("Trimming 'a=' prefix from candidate string.");
             sdpCandidate = sdpCandidate.substring(2);
         }
 
-        // 最終的な candidate オブジェクトを構築
+        // Candidateオブジェクト作成・補完（必須フィールドを保証）
         const finalCandidate = {
             candidate: sdpCandidate,
-            sdpMid: parsedCandidate.sdpMid !== undefined ? parsedCandidate.sdpMid : '',
-            sdpMLineIndex: parsedCandidate.sdpMLineIndex !== undefined ? parsedCandidate.sdpMLineIndex : 0
+            sdpMid: parsedCandidate.sdpMid !== undefined && parsedCandidate.sdpMid !== null ? parsedCandidate.sdpMid : '',
+            sdpMLineIndex: parsedCandidate.sdpMLineIndex !== undefined && parsedCandidate.sdpMLineIndex !== null ? parsedCandidate.sdpMLineIndex : 0
         };
 
-        // 接続状態をチェックしてから追加 or バッファ
+        // 接続情報が安定してから追加すべきか判定
         const canAddNow =
             isDescriptionSet &&
             peerConnection &&
@@ -404,15 +404,16 @@ function initializeWebRTC() {
         if (canAddNow) {
             try {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(finalCandidate));
-                console.log('ICE candidate added immediately.');
+                console.log('ICE candidate added immediately:', finalCandidate);
             } catch (e) {
                 console.error('Error adding ICE candidate immediately:', e, finalCandidate);
             }
         } else {
             iceCandidateBuffer.push(finalCandidate);
-            console.log(`ICE candidate buffered (buffer length: ${iceCandidateBuffer.length}).`);
+            console.log(`ICE candidate buffered (buffer length: ${iceCandidateBuffer.length}):`, finalCandidate);
         }
     });
+
 
 
 
