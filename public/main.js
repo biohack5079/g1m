@@ -308,19 +308,16 @@ function initializeWebRTC() {
         }
     };
 
-    // ★この部分を修正します★
     peerConnection.onconnectionstatechange = () => {
         console.log('WebRTC connection state:', peerConnection.connectionState);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
             console.warn('WebRTC connection failed or disconnected. Closing peer connection.');
-            // ここで stopCamera() を呼び出すのではなく、peerConnection のクリーンアップのみを行う
             if (peerConnection) {
                 peerConnection.close();
                 peerConnection = null;
             }
             dataChannel = null;
             updateStatus('WebRTC接続失敗 - 再試行してください', 'error');
-            // Socket.IO接続は維持するため、webrtc_closeイベントは送信されない
         } else if (peerConnection.connectionState === 'closed') {
             console.log('WebRTC connection has been closed.');
             updateStatus('WebRTC接続が切断されました', 'error');
@@ -333,7 +330,15 @@ function initializeWebRTC() {
         console.log('💙 UnityからAnswerを受信しました。');
         if (peerConnection && peerConnection.signalingState !== 'closed') {
             try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                // ★この部分を修正: UnityからのAnswerが文字列の場合を考慮
+                let parsedAnswer = typeof answer === 'string' ? JSON.parse(answer) : answer;
+                
+                // UnityのWebRTCライブラリの形式に合わせてSdpをパース
+                if (parsedAnswer.sdp) {
+                    parsedAnswer = { sdp: parsedAnswer.sdp, type: parsedAnswer.type };
+                }
+                
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(parsedAnswer));
                 isDescriptionSet = true;
                 console.log('WebRTC answer received and set.');
                 console.log('💙 Answerをリモート記述に設定しました。');
@@ -355,15 +360,25 @@ function initializeWebRTC() {
         console.log('Received ICE candidate from Unity client.');
         console.log('💙 UnityからCandidateを受信しました。');
         if (candidate) {
+            // ★この部分を修正: UnityからのCandidateが文字列の場合を考慮
+            const parsedCandidate = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            
             if (isDescriptionSet) {
                 try {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                    console.log('ICE candidate added immediately.');
+                    // UnityのWebRTCライブラリの形式に合わせてSdpをパース
+                    if (parsedCandidate.candidate) {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(parsedCandidate));
+                        console.log('ICE candidate added immediately.');
+                    } else {
+                        // candidateプロパティがない場合、全体がcandidate文字列と判断して処理
+                        await peerConnection.addIceCandidate(new RTCIceCandidate({ candidate: parsedCandidate }));
+                        console.log('ICE candidate added immediately as plain string.');
+                    }
                 } catch (e) {
                     console.error('Error adding received ICE candidate immediately:', e);
                 }
             } else {
-                iceCandidateBuffer.push(candidate);
+                iceCandidateBuffer.push(parsedCandidate);
                 console.log('ICE candidate buffered.');
             }
         }
