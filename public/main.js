@@ -19,7 +19,7 @@ let hands = null;
 let currentStream = null;
 let isHandsReady = false;
 let isRunning = false;
-let animationFrameId = null; 
+let animationFrameId = null;
 
 // WebRTCの追加変数
 let iceCandidateBuffer = [];
@@ -34,7 +34,7 @@ function updateStatus(message, type = 'loading') {
 
 // UI状態更新
 function updateUIState(state) {
-    switch(state) {
+    switch (state) {
         case 'initializing':
             startFrontBtn.disabled = true;
             startBackBtn.disabled = true;
@@ -72,13 +72,13 @@ async function initializeHands() {
 
         hands.onResults(onHandsResults);
         await hands.initialize();
-        
+
         isHandsReady = true;
         updateStatus('準備完了 - カメラを選択してください', 'ready');
         updateUIState('ready');
-        
+
         console.log('MediaPipe Hands initialized successfully');
-        
+
     } catch (error) {
         console.error('MediaPipe Hands初期化エラー:', error);
         updateStatus(`初期化エラー: ${error.message}`, 'error');
@@ -87,23 +87,27 @@ async function initializeHands() {
 
 // 手のランドマーク処理結果
 function onHandsResults(results) {
+    if (!videoElement.videoWidth || !videoElement.videoHeight) {
+        return;
+    }
+
     const videoRect = videoElement.getBoundingClientRect();
     canvasElement.width = videoRect.width;
     canvasElement.height = videoRect.height;
-    
+
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
     if (results.multiHandLandmarks) {
         for (const landmarks of results.multiHandLandmarks) {
-            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { 
-                color: '#00FF00', 
+            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+                color: '#00FF00',
                 lineWidth: Math.max(2, canvasElement.width / 320)
             });
-            
-            drawLandmarks(canvasCtx, landmarks, { 
-                color: '#FF0000', 
+
+            drawLandmarks(canvasCtx, landmarks, {
+                color: '#FF0000',
                 lineWidth: Math.max(1, canvasElement.width / 480),
                 radius: Math.max(2, canvasElement.width / 320)
             });
@@ -114,7 +118,7 @@ function onHandsResults(results) {
             dataChannel.send(handData);
         }
     }
-    
+
     canvasCtx.restore();
 }
 
@@ -168,7 +172,7 @@ async function startCamera(facingMode = 'environment') {
 async function stopCamera(updateUI = true) {
     try {
         isRunning = false;
-        
+
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
             animationFrameId = null;
@@ -181,15 +185,15 @@ async function stopCamera(updateUI = true) {
             });
             currentStream = null;
         }
-        
+
         videoElement.srcObject = null;
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        
+
         if (updateUI) {
             updateStatus('準備完了 - カメラを選択してください', 'ready');
             updateUIState('ready');
         }
-        
+
     } catch (error) {
         console.error('カメラ停止エラー:', error);
     }
@@ -212,14 +216,13 @@ function setupEventListeners() {
     });
     stopBtn.addEventListener('click', () => {
         stopCamera();
-        // WebRTC接続もクリーンアップ
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
         }
         dataChannel = null;
     });
-    
+
     window.addEventListener('resize', handleResize);
     window.addEventListener('beforeunload', () => stopCamera(false));
     document.addEventListener('visibilitychange', () => {
@@ -258,21 +261,21 @@ function initializeWebRTC() {
             { urls: 'stun:stun.voip.blackberry.com:3478' }
         ]
     });
-    
+
     dataChannel = peerConnection.createDataChannel('handData', {
         ordered: false,
         maxRetransmits: 0
     });
-    
+
     dataChannel.onopen = () => {
         console.log('Data Channel is open!');
         updateStatus('UnityとWebRTC接続完了', 'success');
     };
-    
+
     dataChannel.onclose = () => {
         console.log('Data Channel closed');
     };
-    
+
     dataChannel.onerror = (error) => {
         console.error('Data Channel error:', error);
     };
@@ -283,7 +286,7 @@ function initializeWebRTC() {
             socket.emit('candidate', e.candidate);
         }
     };
-    
+
     peerConnection.onnegotiationneeded = async () => {
         if (isNegotiating) return;
         isNegotiating = true;
@@ -316,10 +319,10 @@ function initializeWebRTC() {
         console.log('Received answer from Unity client.');
         console.log('💙 UnityからAnswerを受信しました。');
         if (!peerConnection || peerConnection.signalingState === 'closed') return;
-        
+
         try {
             let parsedAnswer = typeof answer === 'string' ? JSON.parse(answer) : answer;
-            
+
             if (parsedAnswer.type === 2) {
                 parsedAnswer.type = 'answer';
             } else if (parsedAnswer.type === 1) {
@@ -331,7 +334,7 @@ function initializeWebRTC() {
                 isDescriptionSet = true;
                 console.log('WebRTC answer received and set.');
                 console.log('💙 Answerをリモート記述に設定しました。');
-                
+
                 console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates.`);
                 for (const candidate of iceCandidateBuffer) {
                     try {
@@ -368,25 +371,29 @@ function initializeWebRTC() {
             return;
         }
 
-        // candidate文字列の有無と形式を厳密にチェック
+        // candidateの型を厳密にチェックし、不正な形式をスキップ
         if (!parsed.candidate || typeof parsed.candidate !== 'string' || !parsed.candidate.trim()) {
-            console.warn('Skipping invalid candidate:', parsed);
-            return;
-        }
-        
-        // 'a=' プレフィックスを削除する
-        if (parsed.candidate.startsWith('a=')) {
-            console.log("Trimming 'a=' prefix from candidate string.");
-            parsed.candidate = parsed.candidate.substring(2);
+            // UnityからのCandidateはオブジェクト形式の場合があるため、ここでのチェックは慎重に行う
+            // 例: { candidate: "...", sdpMid: "...", sdpMLineIndex: 0 }
+            if (typeof parsed === 'object' && parsed.candidate) {
+                // オブジェクト形式でcandidateが存在する場合は、後続処理へ進む
+            } else {
+                 console.warn('Skipping invalid candidate:', parsed);
+                 return;
+            }
         }
 
-        // sdpMidとsdpMLineIndexがnullやundefinedの場合、適切なデフォルト値を設定
         const finalCandidate = {
-            candidate: parsed.candidate,
+            candidate: parsed.candidate || parsed, // Unityの形式によっては candidate プロパティがない場合がある
             sdpMid: parsed.sdpMid !== undefined && parsed.sdpMid !== null ? parsed.sdpMid : '',
             sdpMLineIndex: parsed.sdpMLineIndex !== undefined && parsed.sdpMLineIndex !== null ? parsed.sdpMLineIndex : 0
         };
-        
+
+        // 'a=' プレフィックスを削除する
+        if (typeof finalCandidate.candidate === 'string' && finalCandidate.candidate.startsWith('a=')) {
+            finalCandidate.candidate = finalCandidate.candidate.substring(2);
+        }
+
         if (isDescriptionSet && peerConnection.signalingState === 'stable') {
             try {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(finalCandidate));
@@ -405,7 +412,6 @@ function initializeWebRTC() {
 // Socket.IO接続イベント
 socket.on('connect', () => {
     console.log('Socket connected.');
-    // PWAの役割をサーバーに通知
     socket.emit('register_role', 'staff');
     updateStatus('Unityクライアントを待機中...', 'loading');
 });
@@ -413,7 +419,7 @@ socket.on('connect', () => {
 // サーバーからWebRTC接続開始の指示を受け取るイベント
 socket.on('start_webrtc', async () => {
     console.log('Received start_webrtc event from server. Initializing WebRTC.');
-    // カメラが起動していなければ、デフォルトで背面カメラを起動
+    // カメラが起動していなければ、意図せず起動する際は背面カメラを起動する
     if (!isRunning) {
         await startCamera('environment');
     }
