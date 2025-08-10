@@ -32,7 +32,7 @@ function setRoleSocket(role, socket) {
   }
   roleSockets[role] = { socket, id: socket.id };
   console.log(`${role} registered (${socket.id})`);
-}}
+}
 
 function getSocket(role) {
     if (!roleSockets[role]) return null;
