@@ -8,7 +8,25 @@ using Unity.WebRTC;
 using System.Collections;
 using System.Text;
 using System.Collections.Generic;
-using System.Threading; // 追加：SynchronizationContextを使用
+using System.Threading;
+
+// PWAから送信されるOfferのJSON形式に対応するクラス
+[System.Serializable]
+public class SdpMessage
+{
+    public string sdp;
+    public string type;
+}
+
+// PWAから送信されるCandidateのJSON形式に対応するクラス
+[System.Serializable]
+public class SdpCandidate
+{
+    public string candidate;
+    public string sdpMid;
+    public int sdpMLineIndex;
+    public string usernameFragment;
+}
 
 [System.Serializable]
 public class Landmark
@@ -34,12 +52,10 @@ public class HandClient : MonoBehaviour
 
     public static event Action<List<List<Landmark>>> OnLandmarksReceived;
 
-    // メインスレッドのSynchronizationContext
     private SynchronizationContext unityContext;
 
     void Awake()
     {
-        // AwakeでUnityメインスレッドのコンテキストを取得
         unityContext = SynchronizationContext.Current;
     }
 
@@ -68,21 +84,31 @@ public class HandClient : MonoBehaviour
             ConnectionTimeout = TimeSpan.FromSeconds(20)
         });
 
-        // イベントハンドラ：必ずメインスレッドに渡す
         socket.On("offer", response => {
-            unityContext.Post(_ => StartCoroutine(HandleOfferCoroutine(response)), null);
+            // オブジェクトが有効な場合のみコルーチンを起動
+            if (this != null)
+            {
+                unityContext.Post(_ => StartCoroutine(HandleOfferCoroutine(response)), null);
+            }
         });
 
         socket.On("candidate", response => {
-            unityContext.Post(_ => StartCoroutine(HandleCandidateCoroutine(response)), null);
+            // オブジェクトが有効な場合のみコルーチンを起動
+            if (this != null)
+            {
+                unityContext.Post(_ => StartCoroutine(HandleCandidateCoroutine(response)), null);
+            }
         });
 
         socket.On("webrtc_close", response =>
         {
-            unityContext.Post(_ => {
-                Debug.Log("Received webrtc_close event from server.");
-                CloseWebRTCConnection();
-            }, null);
+            if (this != null)
+            {
+                unityContext.Post(_ => {
+                    Debug.Log("Received webrtc_close event from server.");
+                    CloseWebRTCConnection();
+                }, null);
+            }
         });
 
         socket.OnConnected += async (sender, e) =>
@@ -90,17 +116,22 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected!");
             await socket.EmitAsync("register_role", "unity");
             Debug.Log("Registered as 'unity' client.");
-            unityContext.Post(_ => InitializeWebRTC(), null);
+            if (this != null)
+            {
+                unityContext.Post(_ => InitializeWebRTC(), null);
+            }
         };
 
         socket.OnDisconnected += async (sender, e) =>
         {
-            unityContext.Post(_ => {
-                Debug.Log($"Socket.IO Disconnected! Reason: {e}");
-                CloseWebRTCConnection();
-                Debug.Log("Attempting to reconnect in 3 seconds...");
-            }, null);
-
+            if (this != null)
+            {
+                unityContext.Post(_ => {
+                    Debug.Log($"Socket.IO Disconnected! Reason: {e}");
+                    CloseWebRTCConnection();
+                    Debug.Log("Attempting to reconnect in 3 seconds...");
+                }, null);
+            }
             await Task.Delay(3000);
             await ConnectSocketAsync();
         };
@@ -174,7 +205,6 @@ public class HandClient : MonoBehaviour
         };
     }
 
-    // メインスレッドで動くOffer処理
     private IEnumerator HandleOfferCoroutine(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからOfferを受信しました。");
@@ -185,19 +215,32 @@ public class HandClient : MonoBehaviour
             yield break;
         }
 
-        string offerJson;
+        RTCSessionDescription sdp = default;
+
         try
         {
-            offerJson = response.GetValue<string>();
-            Debug.Log($"=== Offer JSON start ===\n{offerJson}\n=== Offer JSON end ===");
+            string offerJson = response.GetValue<string>();
+            Debug.Log($"Offer JSON string received: {offerJson}");
+
+            SdpMessage offerMsg = JsonUtility.FromJson<SdpMessage>(offerJson);
+            
+            if (string.IsNullOrEmpty(offerMsg?.sdp))
+            {
+                 Debug.LogError("Offer SDP is null or empty after parsing.");
+                 yield break;
+            }
+
+            sdp = new RTCSessionDescription
+            {
+                type = RTCSdpType.Offer,
+                sdp = offerMsg.sdp
+            };
         }
         catch (Exception ex)
         {
             Debug.LogError($"Offer JSON parse exception: {ex.Message}");
             yield break;
         }
-
-        var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
 
         var op1 = _peerConnection.SetRemoteDescription(ref sdp);
         yield return op1;
@@ -244,7 +287,6 @@ public class HandClient : MonoBehaviour
         Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
 
-    // メインスレッドで動くCandidate処理
     private IEnumerator HandleCandidateCoroutine(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからCandidateを受信しました。");
@@ -253,14 +295,20 @@ public class HandClient : MonoBehaviour
             Debug.LogWarning("PeerConnection is not initialized yet. Discarding ICE candidate.");
             yield break;
         }
-
+        
         try
         {
-            var candidateJson = response.GetValue<string>();
-            var iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
-
-            if (iceCandidateInit != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
+            string candidateJson = response.GetValue<string>();
+            SdpCandidate candidateMsg = JsonUtility.FromJson<SdpCandidate>(candidateJson);
+            
+            if (candidateMsg != null && !string.IsNullOrEmpty(candidateMsg.candidate))
             {
+                var iceCandidateInit = new RTCIceCandidateInit
+                {
+                    candidate = candidateMsg.candidate,
+                    sdpMid = candidateMsg.sdpMid,
+                    sdpMLineIndex = candidateMsg.sdpMLineIndex
+                };
                 var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
                 if (!_peerConnection.AddIceCandidate(rtcIceCandidate))
                 {
