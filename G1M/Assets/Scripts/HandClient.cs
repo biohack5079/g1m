@@ -62,14 +62,7 @@ public class HandClient : MonoBehaviour
             ConnectionTimeout = new TimeSpan(0, 0, 20)
         });
 
-        socket.OnConnected += async (sender, e) =>
-        {
-            Debug.Log("Socket.IO Connected!");
-            await socket.EmitAsync("register_role", "unity");
-            Debug.Log("Registered as 'unity' client.");
-            InitializeWebRTC();
-        };
-
+        // Socket.IOイベントハンドラーをConnectAsyncの前に登録
         // PWAからOfferが届いたときに処理を開始
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
         
@@ -82,6 +75,14 @@ public class HandClient : MonoBehaviour
             Debug.Log("Received webrtc_close event from server.");
             CloseWebRTCConnection();
         });
+
+        socket.OnConnected += async (sender, e) =>
+        {
+            Debug.Log("Socket.IO Connected!");
+            await socket.EmitAsync("register_role", "unity");
+            Debug.Log("Registered as 'unity' client.");
+            InitializeWebRTC();
+        };
 
         socket.OnDisconnected += async (sender, e) => 
         {
@@ -119,18 +120,20 @@ public class HandClient : MonoBehaviour
             _dataChannel.OnMessage += bytes => 
             {
                 string handData = Encoding.UTF8.GetString(bytes);
-                Debug.Log($"Received raw hand data: {handData}");
+                // Debug.Log($"Received raw hand data: {handData}"); // JSONデータが多すぎる場合はコメントアウト
+
                 try
                 {
+                    // JSONUtilityでパース可能な形式に変換
                     var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
-                    if (parsedData != null)
+                    if (parsedData != null && parsedData.multiHandLandmarks != null)
                     {
                         OnLandmarksReceived?.Invoke(parsedData.multiHandLandmarks);
                     }
                 }
                 catch (System.Exception ex)
                 {
-                    Debug.LogError($"JSON parse error: {ex.Message} -> Received data was: {handData}");
+                    Debug.LogError($"JSON parse error: {ex.Message} -> Received data was: {handData.Substring(0, Math.Min(200, handData.Length))}..."); // エラーログを短縮
                 }
             };
         };
@@ -145,7 +148,7 @@ public class HandClient : MonoBehaviour
                     sdpMLineIndex = candidate.SdpMLineIndex
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
-                Debug.Log("Sending ICE candidate.");
+                // Debug.Log("Sending ICE candidate."); // 頻繁すぎるためログを調整
                 socket.EmitAsync("candidate", candidateJson);
             }
         };
@@ -155,10 +158,8 @@ public class HandClient : MonoBehaviour
             Debug.Log($"WebRTC connection state: {state}");
             if (state == RTCPeerConnectionState.Disconnected || state == RTCPeerConnectionState.Failed)
             {
-                Debug.LogWarning("WebRTC connection failed or disconnected. Attempting to restart.");
+                Debug.LogWarning("WebRTC connection failed or disconnected. Closing connection.");
                 CloseWebRTCConnection();
-                if (socket != null && socket.Connected) {
-                }
             }
         };
     }
@@ -229,7 +230,7 @@ public class HandClient : MonoBehaviour
             
             if (success)
             {
-                Debug.Log("Successfully added ICE candidate.");
+                // Debug.Log("Successfully added ICE candidate."); // 頻繁すぎるためログを調整
             }
             else
             {
