@@ -8,92 +8,91 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-    cors: { origin: "*" },
-    pingTimeout: 60000,
-    pingInterval: 25000
+    cors: {
+        origin: "*",
+    },
+    pingTimeout: 60000, 
+    pingInterval: 25000 
 });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 静的ファイルの提供（publicディレクトリ）
 app.use(express.static(path.join(__dirname, 'public')));
 
-// SocketIDで管理
-const roleSockets = {
-    staff: null, // 例: { socket, id }
-    unity: null
-};
-
-function setRoleSocket(role, socket) {
-    // 上書き（新しい方を正、古いソケットがまだ生きてたら即切断する）
-    if (roleSockets[role] && roleSockets[role].id !== socket.id) {
-        roleSockets[role].socket.disconnect();
-        console.log(`Disconnected previous ${role} socket: ${roleSockets[role].id}`);
-    }
-    roleSockets[role] = { socket, id: socket.id };
-    console.log(`${role} registered (${socket.id})`);
-}
-
-function getSocket(role) {
-    if (!roleSockets[role]) return null;
-    return roleSockets[role].socket.connected ? roleSockets[role].socket : null;
-}
+let staffSocket = null;
+let unitySocket = null;
 
 io.on('connection', socket => {
     console.log(`🔗 Socket connected: ${socket.id}`);
 
     socket.on('register_role', (role) => {
-        if (role !== "staff" && role !== "unity") {
-            console.log(`Reject unknown role: ${role}`);
+        if (role === 'staff' && !staffSocket) {
+            staffSocket = socket;
+            console.log('Staff client registered.');
+        } else if (role === 'unity' && !unitySocket) {
+            unitySocket = socket;
+            console.log('Unity client registered.');
+        } else {
+            console.log(`Connection refused: Role '${role}' is already taken or invalid.`);
             socket.disconnect();
             return;
         }
-        setRoleSocket(role, socket);
 
-        // 両者準備OK
-        if (getSocket("staff") && getSocket("unity")) {
+        // 両方のクライアントが接続・登録されたら、PWAに接続開始を通知
+        if (staffSocket && unitySocket) {
             console.log('Both clients are ready. Notifying Staff to start WebRTC.');
-            getSocket("staff")?.emit('start_webrtc');
+            // PWAにWebRTC接続開始を指示するイベントを送信
+            staffSocket.emit('start_webrtc'); 
         }
     });
 
     socket.on('offer', (offer) => {
-        if (socket === getSocket('staff') && getSocket('unity')) {
-            console.log(`Forwarding offer to Unity client: ${getSocket('unity').id}`);
-            getSocket('unity').emit('offer', offer);
+        console.log(`Offer received from Staff client (${socket.id}).`);
+        if (socket === staffSocket && unitySocket) {
+            console.log('Forwarding offer to Unity client.');
+            unitySocket.emit('offer', offer);
         } else {
-            console.warn('Offer received from unexpected client or Unity not ready. Ignored.');
+            console.log('Offer received from an unexpected client or Unity is not connected. Ignoring.');
         }
     });
 
     socket.on('answer', (answer) => {
-        if (socket === getSocket('unity') && getSocket('staff')) {
-            console.log(`Forwarding answer to Staff client: ${getSocket('staff').id}`);
-            getSocket('staff').emit('answer', answer);
+        console.log(`Answer received from Unity client (${socket.id}).`);
+        if (socket === unitySocket && staffSocket) {
+            console.log('Forwarding answer to Staff client.');
+            staffSocket.emit('answer', answer);
         } else {
-            console.warn('Answer received from unexpected client or Staff not ready. Ignored.');
+            console.log('Answer received from an unexpected client or Staff is not connected. Ignoring.');
         }
     });
 
     socket.on('candidate', (candidate) => {
-        if (socket === getSocket('staff') && getSocket('unity')) {
-            getSocket('unity').emit('candidate', candidate);
-        } else if (socket === getSocket('unity') && getSocket('staff')) {
-            getSocket('staff').emit('candidate', candidate);
+        console.log(`Candidate received from ${socket.id}`);
+        if (socket === staffSocket && unitySocket) {
+            console.log('Forwarding candidate from Staff to Unity.');
+            unitySocket.emit('candidate', candidate);
+        } else if (socket === unitySocket && staffSocket) {
+            console.log('Forwarding candidate from Unity to Staff.');
+            staffSocket.emit('candidate', candidate);
         }
     });
 
     socket.on('disconnect', () => {
-        for (const role of ["staff", "unity"]) {
-            if (roleSockets[role]?.id === socket.id) {
-                roleSockets[role] = null;
-                console.log(`${role} disconnected.`);
-            }
+        console.log(`Socket disconnected: ${socket.id}`);
+        if (socket === staffSocket) {
+            staffSocket = null;
+            console.log('Staff disconnected.');
+        } else if (socket === unitySocket) {
+            unitySocket = null;
+            console.log('Unity client disconnected.');
         }
-        // 相手への通知
-        if (getSocket("staff")) getSocket("staff").emit("webrtc_close");
-        if (getSocket("unity")) getSocket("unity").emit("webrtc_close");
+        if (staffSocket) {
+            staffSocket.emit('webrtc_close');
+        }
+        if (unitySocket) {
+            unitySocket.emit('webrtc_close');
+        }
     });
 });
 
