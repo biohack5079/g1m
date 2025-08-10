@@ -302,6 +302,7 @@ function initializeWebRTC() {
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             socket.emit('offer', peerConnection.localDescription);
+            console.log('💙 Offerを作成し、サーバーに送信しました。');
             isDescriptionSet = true;
             console.log('Offer sent to server.');
         } catch (e) {
@@ -326,10 +327,12 @@ function initializeWebRTC() {
     // UnityからのAnswerを受信した時の処理
     socket.on('answer', async (answer) => {
         console.log('Received answer from Unity client.');
+        console.log('💙 UnityからAnswerを受信しました。');
         if (peerConnection && peerConnection.signalingState !== 'closed') {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
             isDescriptionSet = true;
             console.log('WebRTC answer received and set.');
+            console.log('💙 Answerをリモート記述に設定しました。');
             
             // バッファ中のICE候補をここで追加
             console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates.`);
@@ -343,6 +346,7 @@ function initializeWebRTC() {
     // UnityからのICE Candidateを受信した時の処理 (バッファリング対応)
     socket.on('candidate', async (candidate) => {
         console.log('Received ICE candidate from Unity client.');
+        console.log('💙 UnityからCandidateを受信しました。');
         if (candidate) {
             if (isDescriptionSet) {
                 try {

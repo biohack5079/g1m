@@ -115,7 +115,7 @@ public class HandClient : MonoBehaviour
         _peerConnection.OnDataChannel += channel => 
         {
             _dataChannel = channel;
-            _dataChannel.OnOpen += () => Debug.Log("WebRTC DataChannel is now open! (Received from PWA)");
+            _dataChannel.OnOpen += () => Debug.Log("WebRTC DataChannel is now open! (Received from PWA) ❤️ DataChannelが開通しました！");
             _dataChannel.OnClose += () => Debug.Log("WebRTC DataChannel is closed.");
             _dataChannel.OnMessage += bytes => 
             {
@@ -166,8 +166,9 @@ public class HandClient : MonoBehaviour
 
     private IEnumerator HandleOfferAsync(SocketIOResponse response)
     {
+        Debug.Log("❤️ PWAからOfferを受信しました。");
         Debug.Log("HandleOfferAsync started.");
-        
+
         if (_peerConnection == null)
         {
             Debug.LogError("PeerConnection is not initialized. Cannot handle offer.");
@@ -205,15 +206,17 @@ public class HandClient : MonoBehaviour
             yield break;
         }
         Debug.Log("SetLocalDescription succeeded.");
-        
+
         var answerJson = JsonUtility.ToJson(answer);
         Debug.Log($"Sending answer JSON: {answerJson}");
         socket.EmitAsync("answer", answerJson);
         Debug.Log("Answer sent to signaling server.");
+        Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
     
     private IEnumerator HandleCandidateAsync(SocketIOResponse response)
     {
+        Debug.Log("❤️ PWAからCandidateを受信しました。");
         if (_peerConnection == null)
         {
             Debug.LogWarning("PeerConnection is not initialized yet. Discarding ICE candidate.");

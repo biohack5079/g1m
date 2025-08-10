@@ -61,6 +61,7 @@ io.on('connection', socket => {
     socket.on('offer', (offer) => {
         if (socket === getSocket('staff') && getSocket('unity')) {
             console.log(`Forwarding offer to Unity client: ${getSocket('unity').id}`);
+            console.log('💚 PWAからOfferを受信しました。Unityに転送します。');
             getSocket('unity').emit('offer', offer);
         } else {
             console.warn('Offer received from unexpected client or Unity not ready. Ignored.');
@@ -70,6 +71,7 @@ io.on('connection', socket => {
     socket.on('answer', (answer) => {
         if (socket === getSocket('unity') && getSocket('staff')) {
             console.log(`Forwarding answer to Staff client: ${getSocket('staff').id}`);
+            console.log('💚 UnityからAnswerを受信しました。PWAに転送します。');
             getSocket('staff').emit('answer', answer);
         } else {
             console.warn('Answer received from unexpected client or Staff not ready. Ignored.');
@@ -79,8 +81,10 @@ io.on('connection', socket => {
     socket.on('candidate', (candidate) => {
         if (socket === getSocket('staff') && getSocket('unity')) {
             getSocket('unity').emit('candidate', candidate);
+            console.log('💚 PWAからCandidateを受信しました。Unityに転送します。');
         } else if (socket === getSocket('unity') && getSocket('staff')) {
             getSocket('staff').emit('candidate', candidate);
+            console.log('💚 UnityからCandidateを受信しました。PWAに転送します。');
         }
     });
 
