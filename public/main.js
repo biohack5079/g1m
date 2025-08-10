@@ -136,11 +136,11 @@ async function startCamera(facingMode = 'environment') {
         await stopCamera(false);
 
         const constraints = {
-            video: { 
-                facingMode: facingMode,
+            video: {
+                facingMode: facingMode, // ここで引数として渡された facingMode を使用
                 width: { ideal: 1280, max: 1920 },
                 height: { ideal: 720, max: 1080 },
-                frameRate: { ideal: 30, max: 60 },
+                frameRate: { ideal: 30, max: 60 }
             }
         };
 
