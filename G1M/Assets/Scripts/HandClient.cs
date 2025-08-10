@@ -9,7 +9,6 @@ using System.Collections;
 using System.Text;
 using System.Collections.Generic;
 
-// JSONデータを格納するためのクラス
 [System.Serializable]
 public class Landmark
 {
@@ -18,7 +17,6 @@ public class Landmark
     public float z;
 }
 
-// JSONデータ全体をパースするためのヘルパークラス
 [System.Serializable]
 public class HandLandmarksListWrapper
 {
@@ -45,15 +43,13 @@ public class HandClient : MonoBehaviour
         WebRTC.Update();
     }
 
-    // 修正箇所：asyncキーワードを追加し、async void に変更
     async void InitializeSocketIO()
     {
-        // 既存の接続があればクリーンアップ
         if (socket != null && socket.Connected)
         {
             await socket.DisconnectAsync();
         }
-        
+
         var uri = new Uri(ServerUrl);
         socket = new SocketIOClient.SocketIO(uri, new SocketIOOptions
         {
@@ -62,14 +58,9 @@ public class HandClient : MonoBehaviour
             ConnectionTimeout = new TimeSpan(0, 0, 20)
         });
 
-        // Socket.IOイベントハンドラーをConnectAsyncの前に登録
-        // PWAからOfferが届いたときに処理を開始
+        // Connect前にイベント登録
         socket.On("offer", response => StartCoroutine(HandleOfferAsync(response)));
-        
-        // PWAからICE candidateが届いたときに処理
         socket.On("candidate", response => StartCoroutine(HandleCandidateAsync(response)));
-        
-        // サーバーから切断を促すイベントを受け取った場合の処理
         socket.On("webrtc_close", response =>
         {
             Debug.Log("Received webrtc_close event from server.");
@@ -84,7 +75,7 @@ public class HandClient : MonoBehaviour
             InitializeWebRTC();
         };
 
-        socket.OnDisconnected += async (sender, e) => 
+        socket.OnDisconnected += async (sender, e) =>
         {
             Debug.Log($"Socket.IO Disconnected! Reason: {e}");
             CloseWebRTCConnection();
@@ -92,10 +83,9 @@ public class HandClient : MonoBehaviour
             await Task.Delay(3000);
             await ConnectSocketAsync();
         };
-        
+
         socket.OnError += (sender, e) => Debug.LogError($"Socket.IO Error: {e}");
-        
-        // 修正箇所: async void内でConnectSocketAsync()をawaitで呼び出す
+
         await ConnectSocketAsync();
     }
 
@@ -111,21 +101,19 @@ public class HandClient : MonoBehaviour
             }
         };
         _peerConnection = new RTCPeerConnection(ref configuration);
-        
-        _peerConnection.OnDataChannel += channel => 
+
+        _peerConnection.OnDataChannel += channel =>
         {
             _dataChannel = channel;
             _dataChannel.OnOpen += () => Debug.Log("WebRTC DataChannel is now open! (Received from PWA) ❤️ DataChannelが開通しました！");
             _dataChannel.OnClose += () => Debug.Log("WebRTC DataChannel is closed.");
-            _dataChannel.OnMessage += bytes => 
+            _dataChannel.OnMessage += bytes =>
             {
                 string handData = Encoding.UTF8.GetString(bytes);
-                // Debug.Log($"Received raw hand data: {handData}"); // JSONデータが多すぎる場合はコメントアウト
-
                 try
                 {
-                    // JSONUtilityでパース可能な形式に変換
-                    var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>("{\"multiHandLandmarks\":" + handData + "}");
+                    var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>(
+                        "{\"multiHandLandmarks\":" + handData + "}");
                     if (parsedData != null && parsedData.multiHandLandmarks != null)
                     {
                         OnLandmarksReceived?.Invoke(parsedData.multiHandLandmarks);
@@ -133,7 +121,8 @@ public class HandClient : MonoBehaviour
                 }
                 catch (System.Exception ex)
                 {
-                    Debug.LogError($"JSON parse error: {ex.Message} -> Received data was: {handData.Substring(0, Math.Min(200, handData.Length))}..."); // エラーログを短縮
+                    string snippet = handData.Length > 200 ? handData.Substring(0, 200) : handData;
+                    Debug.LogError($"JSON parse error: {ex.Message} -> Received data was: {snippet}...");
                 }
             };
         };
@@ -142,17 +131,17 @@ public class HandClient : MonoBehaviour
         {
             if (candidate != null && socket.Connected)
             {
-                var candidateObj = new {
+                var candidateObj = new
+                {
                     candidate = candidate.Candidate,
                     sdpMid = candidate.SdpMid,
                     sdpMLineIndex = candidate.SdpMLineIndex
                 };
                 var candidateJson = JsonUtility.ToJson(candidateObj);
-                // Debug.Log("Sending ICE candidate."); // 頻繁すぎるためログを調整
                 socket.EmitAsync("candidate", candidateJson);
             }
         };
-        
+
         _peerConnection.OnConnectionStateChange += state =>
         {
             Debug.Log($"WebRTC connection state: {state}");
@@ -164,6 +153,7 @@ public class HandClient : MonoBehaviour
         };
     }
 
+    // CS1626回避版 HandleOfferAsync
     private IEnumerator HandleOfferAsync(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからOfferを受信しました。");
@@ -175,10 +165,22 @@ public class HandClient : MonoBehaviour
             yield break;
         }
 
-        var offerJson = response.GetValue<string>();
-        Debug.Log($"Offer JSON received: {offerJson}");
+        RTCSessionDescription sdp = default;
 
-        var sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
+        // ---- JSONパース（yieldなし）----
+        try
+        {
+            var offerJson = response.GetValue<string>();
+            Debug.Log($"Offer JSON received: {offerJson}");
+            sdp = JsonUtility.FromJson<RTCSessionDescription>(offerJson);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Offer JSON parse exception: {ex.Message}");
+            yield break;
+        }
+
+        // ---- SetRemoteDescription ----
         var op1 = _peerConnection.SetRemoteDescription(ref sdp);
         yield return op1;
         if (op1.IsError)
@@ -188,6 +190,7 @@ public class HandClient : MonoBehaviour
         }
         Debug.Log("SetRemoteDescription succeeded.");
 
+        // ---- CreateAnswer ----
         var op2 = _peerConnection.CreateAnswer();
         yield return op2;
         if (op2.IsError)
@@ -196,8 +199,9 @@ public class HandClient : MonoBehaviour
             yield break;
         }
         Debug.Log("CreateAnswer succeeded.");
-
         var answer = op2.Desc;
+
+        // ---- SetLocalDescription ----
         var op3 = _peerConnection.SetLocalDescription(ref answer);
         yield return op3;
         if (op3.IsError)
@@ -207,13 +211,49 @@ public class HandClient : MonoBehaviour
         }
         Debug.Log("SetLocalDescription succeeded.");
 
-        var answerJson = JsonUtility.ToJson(answer);
+        // ---- Answer の JSON 変換（yieldなし）----
+        string answerJson;
+        try
+        {
+            answerJson = JsonUtility.ToJson(answer);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Answer JSON serialization failed: {ex.Message}");
+            yield break;
+        }
         Debug.Log($"Sending answer JSON: {answerJson}");
-        socket.EmitAsync("answer", answerJson);
+
+        // ---- EmitAsync 開始だけtryで包む（yieldなし）----
+        Task emitTask;
+        try
+        {
+            emitTask = socket.EmitAsync("answer", answerJson);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"EmitAsync start exception: {ex.Message}");
+            yield break;
+        }
+
+        // ---- 完了待ちは try の外で行う（CS1626回避）----
+        while (!emitTask.IsCompleted)
+        {
+            yield return null;
+        }
+
+        if (emitTask.IsFaulted)
+        {
+            Debug.LogError($"Failed to send answer: {emitTask.Exception?.GetBaseException().Message}");
+            yield break;
+        }
+
         Debug.Log("Answer sent to signaling server.");
         Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
-    
+
+
+    // CS1626対応 + 重複削除済み HandleCandidateAsync
     private IEnumerator HandleCandidateAsync(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからCandidateを受信しました。");
@@ -223,27 +263,33 @@ public class HandClient : MonoBehaviour
             yield break;
         }
 
-        var candidateJson = response.GetValue<string>();
-        var iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
-
-        if (iceCandidateInit != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
+        bool errorHappened = false;
+        try
         {
-            var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
-            bool success = _peerConnection.AddIceCandidate(rtcIceCandidate);
-            
-            if (success)
+            var candidateJson = response.GetValue<string>();
+            var iceCandidateInit = JsonUtility.FromJson<RTCIceCandidateInit>(candidateJson);
+
+            if (iceCandidateInit != null && !string.IsNullOrEmpty(iceCandidateInit.candidate))
             {
-                // Debug.Log("Successfully added ICE candidate."); // 頻繁すぎるためログを調整
+                var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
+                bool success = _peerConnection.AddIceCandidate(rtcIceCandidate);
+                if (!success)
+                {
+                    Debug.LogError("Failed to add ICE candidate: candidate is invalid.");
+                }
             }
             else
             {
-                Debug.LogError("Failed to add ICE candidate: candidate is invalid.");
+                Debug.LogWarning("Received invalid ICE candidate JSON.");
             }
         }
-        else
+        catch (Exception ex)
         {
-            Debug.LogWarning("Received invalid ICE candidate JSON.");
+            Debug.LogError($"[HandleCandidateAsync] 例外: {ex.Message}\n{ex.StackTrace}");
+            errorHappened = true;
         }
+
+        if (errorHappened) yield break;
         yield break;
     }
 
@@ -275,7 +321,7 @@ public class HandClient : MonoBehaviour
         }
         _dataChannel = null;
     }
-    
+
     void OnDestroy()
     {
         CloseWebRTCConnection();
