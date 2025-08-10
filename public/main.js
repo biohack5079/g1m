@@ -406,9 +406,6 @@ function initializeWebRTC() {
         }
     });
 
-
-
-
 }
 
 
