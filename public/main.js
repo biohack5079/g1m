@@ -153,7 +153,7 @@ async function startCamera(facingMode = 'environment') {
             console.log('Video stream loaded.');
             videoElement.play();
             sendToMediaPipe();
-            updateStatus(`${cameraType}カメラで動作中`, 'ready');
+            updateStatus(`${cameraType}カメラで動作中`, 'running');
             updateUIState('running');
         };
 
@@ -209,11 +209,11 @@ function handleResize() {
 function setupEventListeners() {
     startFrontBtn.addEventListener('click', async () => {
         await startCamera('user');
-        // WebRTC接続は、'start_webrtc'イベントをUnityから受け取った後に開始
+        await initializeWebRTC();
     });
     startBackBtn.addEventListener('click', async () => {
         await startCamera('environment');
-        // WebRTC接続は、'start_webrtc'イベントをUnityから受け取った後に開始
+        await initializeWebRTC();
     });
     stopBtn.addEventListener('click', () => {
         stopCamera();
@@ -308,7 +308,6 @@ async function initializeWebRTC() {
 
     peerConnection.onnegotiationneeded = async () => {
         // PWAが主導して接続を開始するため、ここではOffer作成は行わない。
-        // Offerは'start_webrtc'イベント受信時に手動で作成する。
         console.log('Negotiation needed event fired.');
     };
 
@@ -338,11 +337,10 @@ async function initializeWebRTC() {
             }
         }
         
-        console.log('✅ 接続成功時のAnswer JSON:', answerObj);
+        console.log('✅ 受信したAnswer JSON:', answerObj);
         
-        // ★ 修正箇所: setRemoteDescriptionを呼び出す前に状態を確認
         if (peerConnection && peerConnection.signalingState === 'have-local-offer' &&
-            answerObj && answerObj.sdp && answerObj.type) {
+            answerObj && answerObj.sdp && answerObj.type === 'answer') {
             try {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(answerObj));
                 isDescriptionSet = true;
@@ -350,11 +348,12 @@ async function initializeWebRTC() {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                 }
                 iceCandidateBuffer = [];
+                console.log('Successfully set remote description and added buffered candidates.');
             } catch (e) {
                 console.error('Error setting remote description for answer:', e);
             }
         } else {
-            console.error('Invalid state or answer object:', peerConnection.signalingState, answerObj);
+            console.error('Invalid state or answer object:', peerConnection?.signalingState, answerObj);
         }
     });
 
@@ -372,17 +371,19 @@ async function initializeWebRTC() {
             }
         }
         
-        console.log('✅ 接続成功時のCandidate JSON:', candidateObj);
+        console.log('✅ 受信したCandidate JSON:', candidateObj);
 
         if (candidateObj && candidateObj.candidate) {
             if (isDescriptionSet) {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(candidateObj));
+                    console.log('ICE candidate added immediately.');
                 } catch (e) {
                     console.error('Error adding received ICE candidate immediately:', e);
                 }
             } else {
                 iceCandidateBuffer.push(candidateObj);
+                console.log('ICE candidate buffered.');
             }
         } else {
             console.error('Received invalid ICE candidate object:', candidateObj);
@@ -405,15 +406,6 @@ async function initializeWebRTC() {
 socket.on('connect', () => {
     socket.emit('register_role', 'staff');
     updateStatus('Unityクライアントを待機中...', 'loading');
-});
-
-// UnityからWebRTC接続開始指示を受け取った場合
-socket.on('start_webrtc', async () => {
-    console.log('Received start_webrtc from server. Initializing WebRTC...');
-    if (!isRunning) {
-        await startCamera('user');
-    }
-    await initializeWebRTC();
 });
 
 socket.on('webrtc_close', () => {
