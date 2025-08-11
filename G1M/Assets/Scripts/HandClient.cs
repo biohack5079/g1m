@@ -118,7 +118,7 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected! ");
             await socket.EmitAsync("register_role", "unity");
             Debug.Log("Registered as 'unity' client.");
-            // ★ 修正点: Socket.IO接続成功後、即座にWebRTCを初期化
+            // 修正点: Socket.IO接続成功後、即座にWebRTCを初期化
             if (this != null && unityContext != null)
             {
                 unityContext.Post(_ => InitializeWebRTC(), null);
@@ -221,7 +221,6 @@ public class HandClient : MonoBehaviour
     private IEnumerator HandleOfferCoroutine(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからOfferを受信しました。");
-        // ここでは_peerConnectionは既に初期化済み
         if (_peerConnection == null)
         {
             Debug.LogError("PeerConnection is not initialized. Cannot handle offer.");
@@ -229,9 +228,11 @@ public class HandClient : MonoBehaviour
         }
 
         RTCSessionDescription sdp = default;
+        // 修正点: try-catchブロックからコルーチンを分離
+        string offerJson;
         try
         {
-            string offerJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
+            offerJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
             Debug.Log($"Offer JSON string received: {offerJson}");
             SdpMessage offerMsg = JsonUtility.FromJson<SdpMessage>(offerJson);
             
@@ -262,7 +263,7 @@ public class HandClient : MonoBehaviour
         }
         Debug.Log("SetRemoteDescription succeeded.");
 
-        // ★ 修正点: SetRemoteDescription完了後、バッファリングされたCandidateを全て追加
+        // 修正点: SetRemoteDescription完了後、バッファリングされたCandidateを全て追加
         while (_iceCandidateBuffer.Count > 0)
         {
             SdpCandidate candidateMsg = _iceCandidateBuffer.Dequeue();
@@ -306,38 +307,37 @@ public class HandClient : MonoBehaviour
     {
         Debug.Log("❤️ PWAからCandidateを受信しました。");
         
+        SdpCandidate candidateMsg;
         try
         {
-            SdpCandidate candidateMsg = response.GetValue<SdpCandidate>(0);
-            
+            candidateMsg = response.GetValue<SdpCandidate>(0);
             if (candidateMsg == null || string.IsNullOrEmpty(candidateMsg.candidate))
             {
                 Debug.LogWarning("Received invalid ICE candidate JSON.");
                 yield break;
             }
-
-            if (_peerConnection == null || _peerConnection.RemoteDescription == null)
-            {
-                // ★ 修正点: Offerがまだ届いていない場合はバッファに格納
-                _iceCandidateBuffer.Enqueue(candidateMsg);
-                Debug.LogWarning($"PeerConnection remote description is not set yet. Candidate buffered. Current buffer size: {_iceCandidateBuffer.Count}");
-            }
-            else
-            {
-                // Offerが既に届いている場合は即座に追加
-                yield return AddCandidate(candidateMsg);
-            }
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[HandleCandidateCoroutine] Exception: {ex.Message}");
+            Debug.LogError($"[HandleCandidateCoroutine] Exception during JSON parsing: {ex.Message}");
+            yield break;
+        }
+
+        // 修正点: RemoteDescriptionのsdp文字列がセットされているかをチェック
+        if (_peerConnection == null || string.IsNullOrEmpty(_peerConnection.RemoteDescription.sdp))
+        {
+            _iceCandidateBuffer.Enqueue(candidateMsg);
+            Debug.LogWarning($"PeerConnection remote description is not set yet. Candidate buffered. Current buffer size: {_iceCandidateBuffer.Count}");
+        }
+        else
+        {
+            yield return AddCandidate(candidateMsg);
         }
     }
 
     private IEnumerator AddCandidate(SdpCandidate candidateMsg)
     {
         string candidateStr = candidateMsg.candidate;
-        // PWAから受信するCandidateがufragやnetwork-idを持っている場合、それらを削除して渡す
         if (candidateStr.Contains("ufrag"))
         {
             candidateStr = Regex.Replace(candidateStr, @"\sufrag\s\S+", "");
