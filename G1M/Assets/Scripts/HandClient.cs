@@ -27,8 +27,9 @@ public class SdpCandidate
     public string candidate;
     public string sdpMid;
     public int? sdpMLineIndex;
-    public string ufrag; // PWAからの候補に含まれる可能性あり
-    public string networkId; // PWAからの候補に含まれる可能性あり
+    // PWAからの候補に含まれる可能性あり
+    public string ufrag;
+    public string networkId;
 }
 
 [System.Serializable]
@@ -118,7 +119,7 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected! ");
             await socket.EmitAsync("register_role", "unity");
             Debug.Log("Registered as 'unity' client.");
-            // 修正点: Socket.IO接続成功後、即座にWebRTCを初期化
+            // ★ 修正点: Socket.IO接続成功後、即座にWebRTCを初期化
             if (this != null && unityContext != null)
             {
                 unityContext.Post(_ => InitializeWebRTC(), null);
@@ -322,7 +323,7 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"[HandleCandidateCoroutine] Exception during JSON parsing: {ex.Message}");
             yield break;
         }
-
+        
         // 修正点: RemoteDescriptionのsdp文字列がセットされているかをチェック
         if (_peerConnection == null || string.IsNullOrEmpty(_peerConnection.RemoteDescription.sdp))
         {
@@ -338,15 +339,20 @@ public class HandClient : MonoBehaviour
     private IEnumerator AddCandidate(SdpCandidate candidateMsg)
     {
         string candidateStr = candidateMsg.candidate;
-        if (candidateStr.Contains("ufrag"))
+        // ufrag と network-id 部分を文字列から削除（強化版）
+        if (!string.IsNullOrEmpty(candidateStr))
         {
-            candidateStr = Regex.Replace(candidateStr, @"\sufrag\s\S+", "");
-        }
-        if (candidateStr.Contains("network-id"))
-        {
-            candidateStr = Regex.Replace(candidateStr, @"\snetwork-id\s\S+", "");
+            candidateStr = Regex.Replace(candidateStr, @"\sufrag[=]?\S+", "", RegexOptions.IgnoreCase);
+            candidateStr = Regex.Replace(candidateStr, @"\snetwork-id[=]?\S+", "", RegexOptions.IgnoreCase);
+            candidateStr = candidateStr.Trim();
         }
 
+        if (string.IsNullOrEmpty(candidateStr))
+        {
+            Debug.LogWarning("Candidate string is empty after cleaning, skipping.");
+            yield break;
+        }
+        
         var iceCandidateInit = new RTCIceCandidateInit
         {
             candidate = candidateStr,
