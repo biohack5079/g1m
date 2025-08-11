@@ -19,7 +19,7 @@ let hands = null;
 let currentStream = null;
 let isHandsReady = false;
 let isRunning = false;
-let animationFrameId = null; 
+let animationFrameId = null;
 
 // WebRTCの追加変数
 let iceCandidateBuffer = [];
@@ -73,13 +73,13 @@ async function initializeHands() {
 
         hands.onResults(onHandsResults);
         await hands.initialize();
-        
+
         isHandsReady = true;
         updateStatus('準備完了 - カメラを選択してください', 'ready');
         updateUIState('ready');
-        
+
         console.log('MediaPipe Hands initialized successfully');
-        
+
     } catch (error) {
         console.error('MediaPipe Hands初期化エラー:', error);
         updateStatus(`初期化エラー: ${error.message}`, 'error');
@@ -91,20 +91,20 @@ function onHandsResults(results) {
     const videoRect = videoElement.getBoundingClientRect();
     canvasElement.width = videoRect.width;
     canvasElement.height = videoRect.height;
-    
+
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
     if (results.multiHandLandmarks) {
         for (const landmarks of results.multiHandLandmarks) {
-            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { 
-                color: '#00FF00', 
+            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+                color: '#00FF00',
                 lineWidth: Math.max(2, canvasElement.width / 320)
             });
-            
-            drawLandmarks(canvasCtx, landmarks, { 
-                color: '#FF0000', 
+
+            drawLandmarks(canvasCtx, landmarks, {
+                color: '#FF0000',
                 lineWidth: Math.max(1, canvasElement.width / 480),
                 radius: Math.max(2, canvasElement.width / 320)
             });
@@ -115,7 +115,7 @@ function onHandsResults(results) {
             dataChannel.send(handData);
         }
     }
-    
+
     canvasCtx.restore();
 }
 
@@ -137,7 +137,7 @@ async function startCamera(facingMode = 'environment') {
 
         const constraints = {
             video: {
-                facingMode: facingMode, // ここで引数として渡された facingMode を使用
+                facingMode: facingMode,
                 width: { ideal: 1280, max: 1920 },
                 height: { ideal: 720, max: 1080 },
                 frameRate: { ideal: 30, max: 60 }
@@ -169,7 +169,7 @@ async function startCamera(facingMode = 'environment') {
 async function stopCamera(updateUI = true) {
     try {
         isRunning = false;
-        
+
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
             animationFrameId = null;
@@ -182,17 +182,17 @@ async function stopCamera(updateUI = true) {
             });
             currentStream = null;
         }
-        
+
         videoElement.srcObject = null;
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        
+
         if (updateUI) {
             updateStatus('準備完了 - カメラを選択してください', 'ready');
             updateUIState('ready');
         }
-        
+
         console.log('Camera stopped successfully');
-        
+
     } catch (error) {
         console.error('カメラ停止エラー:', error);
     }
@@ -222,7 +222,7 @@ function setupEventListeners() {
         }
         dataChannel = null;
     });
-    
+
     window.addEventListener('resize', handleResize);
     window.addEventListener('beforeunload', () => stopCamera(false));
     document.addEventListener('visibilitychange', () => {
@@ -251,7 +251,7 @@ function initializeWebRTC() {
         dataChannel.close();
         dataChannel = null;
     }
-    
+
     iceCandidateBuffer = [];
     isDescriptionSet = false;
 
@@ -266,22 +266,22 @@ function initializeWebRTC() {
             { urls: 'stun:stun.voip.blackberry.com:3478' }
         ]
     });
-    
+
     // DataChannelをPWAが作成
     dataChannel = peerConnection.createDataChannel('handData', {
         ordered: false,
         maxRetransmits: 0
     });
-    
+
     dataChannel.onopen = () => {
         console.log('Data Channel is open!');
         updateStatus('UnityとWebRTC接続完了', 'success');
     };
-    
+
     dataChannel.onclose = () => {
         console.log('Data Channel closed');
     };
-    
+
     dataChannel.onerror = (error) => {
         console.error('Data Channel error:', error);
     };
@@ -292,7 +292,7 @@ function initializeWebRTC() {
             socket.emit('candidate', e.candidate);
         }
     };
-    
+
     // NegotiationNeededイベントでOfferを作成・送信
     peerConnection.onnegotiationneeded = async () => {
         try {
@@ -326,18 +326,40 @@ function initializeWebRTC() {
     socket.on('answer', async (answer) => {
         console.log('Received answer from Unity client.');
         console.log('💙 UnityからAnswerを受信しました。');
-        if (peerConnection && peerConnection.signalingState !== 'closed') {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            isDescriptionSet = true;
-            console.log('WebRTC answer received and set.');
-            console.log('💙 Answerをリモート記述に設定しました。');
-            
-            // バッファ中のICE候補をここで追加
-            console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates.`);
-            for (const candidate of iceCandidateBuffer) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+
+        let answerObj = answer;
+        // 受信したデータが文字列ならJSON.parseを試みる
+        if (typeof answer === 'string') {
+            try {
+                answerObj = JSON.parse(answer);
+                console.log('Parsed answer JSON from string:', answerObj);
+            } catch (e) {
+                console.error('Error parsing answer JSON:', e);
+                return;
             }
-            iceCandidateBuffer = [];
+        }
+
+        // 受信したオブジェクトの中身をデバッグログで確認
+        console.log('Answer object received:', answerObj);
+
+        if (peerConnection && peerConnection.signalingState !== 'closed' && answerObj && answerObj.sdp && answerObj.type) {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answerObj));
+                isDescriptionSet = true;
+                console.log('WebRTC answer received and set.');
+                console.log('💙 Answerをリモート記述に設定しました。');
+
+                // バッファ中のICE候補をここで追加
+                console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates.`);
+                for (const candidate of iceCandidateBuffer) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+                iceCandidateBuffer = [];
+            } catch (e) {
+                console.error('Error setting remote description for answer:', e);
+            }
+        } else {
+            console.error('Invalid answer object received or peer connection not ready:', answerObj);
         }
     });
 
@@ -345,18 +367,36 @@ function initializeWebRTC() {
     socket.on('candidate', async (candidate) => {
         console.log('Received ICE candidate from Unity client.');
         console.log('💙 UnityからCandidateを受信しました。');
-        if (candidate) {
+
+        let candidateObj = candidate;
+        // 受信したデータが文字列ならJSON.parseを試みる
+        if (typeof candidate === 'string') {
+            try {
+                candidateObj = JSON.parse(candidate);
+                console.log('Parsed candidate JSON from string:', candidateObj);
+            } catch (e) {
+                console.error('Error parsing candidate JSON:', e);
+                return;
+            }
+        }
+
+        // 受信したオブジェクトの中身をデバッグログで確認
+        console.log('Candidate object received:', candidateObj);
+
+        if (candidateObj && candidateObj.candidate) {
             if (isDescriptionSet) {
                 try {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidateObj));
                     console.log('ICE candidate added immediately.');
                 } catch (e) {
                     console.error('Error adding received ICE candidate immediately:', e);
                 }
             } else {
-                iceCandidateBuffer.push(candidate);
+                iceCandidateBuffer.push(candidateObj);
                 console.log('ICE candidate buffered.');
             }
+        } else {
+            console.error('Received invalid or empty ICE candidate object:', candidateObj);
         }
     });
 }
