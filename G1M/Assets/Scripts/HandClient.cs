@@ -26,8 +26,6 @@ public class SdpCandidate
     public string candidate;
     public string sdpMid;
     public int? sdpMLineIndex;
-    // PWAから送られてくるがUnityでは不要なフィールド
-    // public string usernameFragment;
 }
 
 [System.Serializable]
@@ -194,7 +192,11 @@ public class HandClient : MonoBehaviour
                     sdpMid = string.IsNullOrEmpty(cand.SdpMid) ? "" : cand.SdpMid,
                     sdpMLineIndex = cand.SdpMLineIndex.HasValue && cand.SdpMLineIndex.Value >= 0 ? cand.SdpMLineIndex.Value : 0
                 };
-                
+
+                string json = JsonSerializer.Serialize(obj);
+                // ★ Candidate送信時のログ
+                Debug.Log($"✅ 送信するCandidate JSON: {json}");
+
                 socket.EmitAsync("candidate", obj);
             }
         };
@@ -225,8 +227,11 @@ public class HandClient : MonoBehaviour
         {
             string offerJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
             Debug.Log($"Offer JSON string received: {offerJson}");
+            // ★ Offer受信時のログ
+            Debug.Log($"✅ 接続成功時のOffer JSON: {offerJson}");
+
             SdpMessage offerMsg = JsonUtility.FromJson<SdpMessage>(offerJson);
-            
+
             if (string.IsNullOrEmpty(offerMsg?.sdp))
             {
                 Debug.LogError("Offer SDP is null or empty after parsing.");
@@ -273,9 +278,8 @@ public class HandClient : MonoBehaviour
         }
         Debug.Log("SetLocalDescription succeeded.");
 
-        // UnityのTaskを待つためにコルーチンをyield
         yield return _SendAnswerAsync(answer);
-        
+
         Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
 
@@ -286,6 +290,9 @@ public class HandClient : MonoBehaviour
             type = "answer",
             sdp = answer.sdp
         };
+        // ★ Answer送信時のログ
+        Debug.Log($"✅ 送信するAnswer JSON: {System.Text.Json.JsonSerializer.Serialize(answerObj)}");
+
         await socket.EmitAsync("answer", answerObj);
     }
 
@@ -297,13 +304,14 @@ public class HandClient : MonoBehaviour
             Debug.LogWarning("PeerConnection is not initialized yet. Discarding ICE candidate.");
             yield break;
         }
-        
+
         try
         {
-            // PWAから送信されるCandidateにはusernameFragmentが含まれる場合があるが、
-            // Unity.WebRTCのRTCIceCandidateInitでは不要なため、無視してデシリアライズ
-            // SocketIOClient.NETはデフォルトで大文字小文字を区別し、一致しないプロパティを無視するため、SdpCandidateクラスからusernameFragmentを削除するだけで対応可能
             SdpCandidate candidateMsg = response.GetValue<SdpCandidate>(0);
+
+            string candidateJson = JsonSerializer.Serialize(candidateMsg);
+            // ★ Candidate受信時のログ
+            Debug.Log($"✅ 接続成功時のCandidate JSON: {candidateJson}");
 
             if (candidateMsg != null && !string.IsNullOrEmpty(candidateMsg.candidate))
             {

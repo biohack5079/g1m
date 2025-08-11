@@ -215,7 +215,6 @@ function setupEventListeners() {
     });
     stopBtn.addEventListener('click', () => {
         stopCamera();
-        // WebRTC接続もクリーンアップ
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
@@ -240,8 +239,6 @@ window.addEventListener('DOMContentLoaded', async (event) => {
     await initializeHands();
 });
 
-// PWAがOffererとなり、WebRTC接続プロセスを開始する関数
-// サーバーからのstart_webrtcイベントを受信したときに呼び出される
 function initializeWebRTC() {
     if (peerConnection) {
         peerConnection.close();
@@ -254,7 +251,6 @@ function initializeWebRTC() {
 
     iceCandidateBuffer = [];
     isDescriptionSet = false;
-
     console.log('Initializing WebRTC.');
 
     peerConnection = new RTCPeerConnection({
@@ -267,7 +263,6 @@ function initializeWebRTC() {
         ]
     });
 
-    // DataChannelをPWAが作成
     dataChannel = peerConnection.createDataChannel('handData', {
         ordered: false,
         maxRetransmits: 0
@@ -293,25 +288,19 @@ function initializeWebRTC() {
         }
     };
 
-    // NegotiationNeededイベントでOfferを作成・送信
     peerConnection.onnegotiationneeded = async () => {
         try {
-            console.log('onnegotiationneeded triggered. Creating offer...');
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             socket.emit('offer', peerConnection.localDescription);
-            console.log('💙 Offerを作成し、サーバーに送信しました。');
             isDescriptionSet = true;
-            console.log('Offer sent to server.');
         } catch (e) {
             console.error('Error creating offer:', e);
         }
     };
 
     peerConnection.onconnectionstatechange = () => {
-        console.log('WebRTC connection state:', peerConnection.connectionState);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-            console.warn('WebRTC connection failed. Closing connection.');
             stopCamera();
             if (peerConnection) {
                 peerConnection.close();
@@ -322,23 +311,27 @@ function initializeWebRTC() {
         }
     };
 
-    // UnityからのAnswerを受信した時の処理
+    // Answer受信時
     socket.on('answer', async (answer) => {
-        console.log('Received answer from Unity client.');
         console.log('💙 UnityからAnswerを受信しました。');
 
-        // Unity側でオブジェクトとして送信されるため、JSON.parse()は不要
-        const answerObj = answer;
+        let answerObj = answer;
+        if (typeof answer === 'string') {
+            try {
+                answerObj = JSON.parse(answer);
+            } catch (e) {
+                console.error('Error parsing answer JSON:', e);
+                return;
+            }
+        }
 
-        if (peerConnection && peerConnection.signalingState !== 'closed' && answerObj && answerObj.sdp && answerObj.type) {
+        console.log('✅ 接続成功時のAnswer JSON:', answerObj);
+
+        if (peerConnection && peerConnection.signalingState !== 'closed' &&
+            answerObj && answerObj.sdp && answerObj.type) {
             try {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(answerObj));
                 isDescriptionSet = true;
-                console.log('WebRTC answer received and set.');
-                console.log('💙 Answerをリモート記述に設定しました。');
-
-                // バッファ中のICE候補をここで追加
-                console.log(`Adding ${iceCandidateBuffer.length} buffered ICE candidates.`);
                 for (const candidate of iceCandidateBuffer) {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                 }
@@ -347,59 +340,56 @@ function initializeWebRTC() {
                 console.error('Error setting remote description for answer:', e);
             }
         } else {
-            console.error('Invalid answer object received or peer connection not ready:', answerObj);
+            console.error('Invalid answer object:', answerObj);
         }
     });
 
-    // UnityからのICE Candidateを受信した時の処理 (バッファリング対応)
+    // Candidate受信時
     socket.on('candidate', async (candidate) => {
-        console.log('Received ICE candidate from Unity client.');
         console.log('💙 UnityからCandidateを受信しました。');
 
-        // Unity側でオブジェクトとして送信されるため、JSON.parse()は不要
-        const candidateObj = candidate;
+        let candidateObj = candidate;
+        if (typeof candidate === 'string') {
+            try {
+                candidateObj = JSON.parse(candidate);
+            } catch (e) {
+                console.error('Error parsing candidate JSON:', e);
+                return;
+            }
+        }
+
+        console.log('✅ 接続成功時のCandidate JSON:', candidateObj);
 
         if (candidateObj && candidateObj.candidate) {
             if (isDescriptionSet) {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(candidateObj));
-                    console.log('ICE candidate added immediately.');
                 } catch (e) {
                     console.error('Error adding received ICE candidate immediately:', e);
                 }
             } else {
                 iceCandidateBuffer.push(candidateObj);
-                console.log('ICE candidate buffered.');
             }
         } else {
-            console.error('Received invalid or empty ICE candidate object:', candidateObj);
+            console.error('Received invalid ICE candidate object:', candidateObj);
         }
     });
 }
 
-
 // Socket.IO接続イベント
 socket.on('connect', () => {
-    console.log('Socket connected.');
-    // PWAの役割をサーバーに通知
     socket.emit('register_role', 'staff');
     updateStatus('Unityクライアントを待機中...', 'loading');
 });
 
-// サーバーからWebRTC接続開始の指示を受け取るイベント
 socket.on('start_webrtc', async () => {
-    console.log('Received start_webrtc event from server. Initializing WebRTC.');
-    // カメラが起動していなければ、デフォルトで前面カメラを起動
     if (!isRunning) {
         await startCamera('user');
     }
     initializeWebRTC();
 });
 
-
-// サーバーから切断通知を受け取った時の処理
 socket.on('webrtc_close', () => {
-    console.log('Received webrtc_close event. Stopping camera and closing peer connection.');
     stopCamera();
     if (peerConnection) {
         peerConnection.close();
@@ -409,14 +399,11 @@ socket.on('webrtc_close', () => {
     updateStatus('WebRTC接続が切断されました', 'error');
 });
 
-// エラーハンドリング
 socket.on('connect_error', (error) => {
-    console.error('Socket connection error:', error);
     updateStatus('サーバー接続エラー', 'error');
 });
 
 socket.on('disconnect', (reason) => {
-    console.log('Socket disconnected:', reason);
     updateStatus('サーバー切断', 'error');
     if (peerConnection) {
         peerConnection.close();
