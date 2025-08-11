@@ -9,7 +9,6 @@ using System.Collections;
 using System.Text;
 using System.Collections.Generic;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 
 // PWAから送信されるOfferのJSON形式に対応するクラス
@@ -27,6 +26,8 @@ public class SdpCandidate
     public string candidate;
     public string sdpMid;
     public int? sdpMLineIndex;
+    // PWAから送られてくるがUnityでは不要なフィールド
+    // public string usernameFragment;
 }
 
 [System.Serializable]
@@ -52,12 +53,12 @@ public class HandClient : MonoBehaviour
     private RTCDataChannel _dataChannel;
 
     public static event Action<List<List<Landmark>>> OnLandmarksReceived;
-    
-    // Unityのメインスレッドにアクセスするために使用
+
     private SynchronizationContext unityContext;
 
     void Awake()
     {
+        // UnityのメインスレッドのSynchronizationContextを取得
         unityContext = SynchronizationContext.Current;
     }
 
@@ -68,6 +69,7 @@ public class HandClient : MonoBehaviour
 
     void Update()
     {
+        // Unity WebRTC のアップデート
         WebRTC.Update();
     }
 
@@ -87,19 +89,28 @@ public class HandClient : MonoBehaviour
         });
 
         socket.On("offer", response => {
-            unityContext.Post(_ => StartCoroutine(HandleOfferCoroutine(response)), null);
+            if (this != null && unityContext != null)
+            {
+                unityContext.Post(_ => StartCoroutine(HandleOfferCoroutine(response)), null);
+            }
         });
 
         socket.On("candidate", response => {
-            unityContext.Post(_ => StartCoroutine(HandleCandidateCoroutine(response)), null);
+            if (this != null && unityContext != null)
+            {
+                unityContext.Post(_ => StartCoroutine(HandleCandidateCoroutine(response)), null);
+            }
         });
 
         socket.On("webrtc_close", response =>
         {
-            unityContext.Post(_ => {
-                Debug.Log("Received webrtc_close event from server.");
-                CloseWebRTCConnection();
-            }, null);
+            if (this != null && unityContext != null)
+            {
+                unityContext.Post(_ => {
+                    Debug.Log("Received webrtc_close event from server.");
+                    CloseWebRTCConnection();
+                }, null);
+            }
         });
 
         socket.OnConnected += async (sender, e) =>
@@ -107,15 +118,21 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected! ");
             await socket.EmitAsync("register_role", "unity");
             Debug.Log("Registered as 'unity' client.");
-            unityContext.Post(_ => InitializeWebRTC(), null);
+            if (this != null && unityContext != null)
+            {
+                unityContext.Post(_ => InitializeWebRTC(), null);
+            }
         };
 
         socket.OnDisconnected += async (sender, e) =>
         {
-            unityContext.Post(_ => {
-                Debug.Log($"Socket.IO Disconnected! Reason: {e}");
-                CloseWebRTCConnection();
-            }, null);
+            if (this != null && unityContext != null)
+            {
+                unityContext.Post(_ => {
+                    Debug.Log($"Socket.IO Disconnected! Reason: {e}");
+                    CloseWebRTCConnection();
+                }, null);
+            }
             await Task.Delay(3000);
             await ConnectSocketAsync();
         };
@@ -262,8 +279,6 @@ public class HandClient : MonoBehaviour
         Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
 
-    // Task<IEnumerator>は不要
-    // SendAnswerAsyncを非同期メソッドとして分離
     private async Task _SendAnswerAsync(RTCSessionDescription answer)
     {
         var answerObj = new
@@ -285,6 +300,9 @@ public class HandClient : MonoBehaviour
         
         try
         {
+            // PWAから送信されるCandidateにはusernameFragmentが含まれる場合があるが、
+            // Unity.WebRTCのRTCIceCandidateInitでは不要なため、無視してデシリアライズ
+            // SocketIOClient.NETはデフォルトで大文字小文字を区別し、一致しないプロパティを無視するため、SdpCandidateクラスからusernameFragmentを削除するだけで対応可能
             SdpCandidate candidateMsg = response.GetValue<SdpCandidate>(0);
 
             if (candidateMsg != null && !string.IsNullOrEmpty(candidateMsg.candidate))
