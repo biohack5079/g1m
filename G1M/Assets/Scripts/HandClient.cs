@@ -10,6 +10,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
+using System.Text.RegularExpressions;
 
 // PWAから送信されるOfferのJSON形式に対応するクラス
 [System.Serializable]
@@ -19,13 +20,15 @@ public class SdpMessage
     public string type;
 }
 
-// PWAから送信されるCandidateのJSON形式に対応するクラス
+// ★ PWAから送信されるCandidateのJSON形式に対応するクラスを修正
 [System.Serializable]
 public class SdpCandidate
 {
     public string candidate;
     public string sdpMid;
     public int? sdpMLineIndex;
+    public string usernameFragment; // PWAからの候補に含まれる可能性あり
+    public string networkId;        // PWAからの候補に含まれる可能性あり
 }
 
 [System.Serializable]
@@ -56,7 +59,6 @@ public class HandClient : MonoBehaviour
 
     void Awake()
     {
-        // UnityのメインスレッドのSynchronizationContextを取得
         unityContext = SynchronizationContext.Current;
     }
 
@@ -67,7 +69,6 @@ public class HandClient : MonoBehaviour
 
     void Update()
     {
-        // Unity WebRTC のアップデート
         WebRTC.Update();
     }
 
@@ -185,18 +186,17 @@ public class HandClient : MonoBehaviour
                 var candStr = cand.Candidate;
                 if (!string.IsNullOrEmpty(candStr) && candStr.StartsWith("a="))
                     candStr = candStr.Substring(2);
-
+                
                 var obj = new
                 {
                     candidate = candStr ?? "",
                     sdpMid = string.IsNullOrEmpty(cand.SdpMid) ? "" : cand.SdpMid,
                     sdpMLineIndex = cand.SdpMLineIndex.HasValue && cand.SdpMLineIndex.Value >= 0 ? cand.SdpMLineIndex.Value : 0
                 };
-
+                
                 string json = JsonSerializer.Serialize(obj);
-                // ★ Candidate送信時のログ
                 Debug.Log($"✅ 送信するCandidate JSON: {json}");
-
+                
                 socket.EmitAsync("candidate", obj);
             }
         };
@@ -215,7 +215,6 @@ public class HandClient : MonoBehaviour
     private IEnumerator HandleOfferCoroutine(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからOfferを受信しました。");
-
         if (_peerConnection == null)
         {
             Debug.LogError("PeerConnection is not initialized. Cannot handle offer.");
@@ -227,11 +226,8 @@ public class HandClient : MonoBehaviour
         {
             string offerJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
             Debug.Log($"Offer JSON string received: {offerJson}");
-            // ★ Offer受信時のログ
-            Debug.Log($"✅ 接続成功時のOffer JSON: {offerJson}");
-
             SdpMessage offerMsg = JsonUtility.FromJson<SdpMessage>(offerJson);
-
+            
             if (string.IsNullOrEmpty(offerMsg?.sdp))
             {
                 Debug.LogError("Offer SDP is null or empty after parsing.");
@@ -279,7 +275,6 @@ public class HandClient : MonoBehaviour
         Debug.Log("SetLocalDescription succeeded.");
 
         yield return _SendAnswerAsync(answer);
-
         Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
 
@@ -290,9 +285,6 @@ public class HandClient : MonoBehaviour
             type = "answer",
             sdp = answer.sdp
         };
-        // ★ Answer送信時のログ
-        Debug.Log($"✅ 送信するAnswer JSON: {System.Text.Json.JsonSerializer.Serialize(answerObj)}");
-
         await socket.EmitAsync("answer", answerObj);
     }
 
@@ -304,14 +296,12 @@ public class HandClient : MonoBehaviour
             Debug.LogWarning("PeerConnection is not initialized yet. Discarding ICE candidate.");
             yield break;
         }
-
+        
         try
         {
+            // PWAから送信されるCandidateにはusernameFragmentなどが含まれる可能性があるため、
+            // それらもパースできるようにSdpCandidateクラスを修正済み。
             SdpCandidate candidateMsg = response.GetValue<SdpCandidate>(0);
-
-            string candidateJson = JsonSerializer.Serialize(candidateMsg);
-            // ★ Candidate受信時のログ
-            Debug.Log($"✅ 接続成功時のCandidate JSON: {candidateJson}");
 
             if (candidateMsg != null && !string.IsNullOrEmpty(candidateMsg.candidate))
             {
@@ -346,7 +336,6 @@ public class HandClient : MonoBehaviour
     private async Task ConnectSocketAsync()
     {
         if (socket.Connected) return;
-
         Debug.Log($"Attempting to connect to {ServerUrl}...");
         try
         {
