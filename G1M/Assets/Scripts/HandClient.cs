@@ -119,7 +119,7 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected! ");
             await socket.EmitAsync("register_role", "unity");
             Debug.Log("Registered as 'unity' client.");
-            // ★ 修正点: Socket.IO接続成功後、即座にWebRTCを初期化
+            // 修正点: Socket.IO接続成功後、即座にWebRTCを初期化
             if (this != null && unityContext != null)
             {
                 unityContext.Post(_ => InitializeWebRTC(), null);
@@ -146,9 +146,7 @@ public class HandClient : MonoBehaviour
 
     void InitializeWebRTC()
     {
-        // 既存の接続がある場合は閉じる
         CloseWebRTCConnection();
-        // Candidateバッファをクリア
         _iceCandidateBuffer.Clear();
 
         var configuration = new RTCConfiguration
@@ -229,7 +227,6 @@ public class HandClient : MonoBehaviour
         }
 
         RTCSessionDescription sdp = default;
-        // 修正点: try-catchブロックからコルーチンを分離
         string offerJson;
         try
         {
@@ -264,7 +261,6 @@ public class HandClient : MonoBehaviour
         }
         Debug.Log("SetRemoteDescription succeeded.");
 
-        // 修正点: SetRemoteDescription完了後、バッファリングされたCandidateを全て追加
         while (_iceCandidateBuffer.Count > 0)
         {
             SdpCandidate candidateMsg = _iceCandidateBuffer.Dequeue();
@@ -324,7 +320,6 @@ public class HandClient : MonoBehaviour
             yield break;
         }
         
-        // 修正点: RemoteDescriptionのsdp文字列がセットされているかをチェック
         if (_peerConnection == null || string.IsNullOrEmpty(_peerConnection.RemoteDescription.sdp))
         {
             _iceCandidateBuffer.Enqueue(candidateMsg);
@@ -336,12 +331,13 @@ public class HandClient : MonoBehaviour
         }
     }
 
+    // 修正案のコードを適用
     private IEnumerator AddCandidate(SdpCandidate candidateMsg)
     {
         string candidateStr = candidateMsg.candidate;
-        // ufrag と network-id 部分を文字列から削除（強化版）
         if (!string.IsNullOrEmpty(candidateStr))
         {
+            // ufrag と network-id 部分を文字列から削除（強化版）
             candidateStr = Regex.Replace(candidateStr, @"\sufrag[=]?\S+", "", RegexOptions.IgnoreCase);
             candidateStr = Regex.Replace(candidateStr, @"\snetwork-id[=]?\S+", "", RegexOptions.IgnoreCase);
             candidateStr = candidateStr.Trim();
