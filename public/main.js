@@ -327,20 +327,8 @@ function initializeWebRTC() {
         console.log('Received answer from Unity client.');
         console.log('💙 UnityからAnswerを受信しました。');
 
-        let answerObj = answer;
-        // 受信したデータが文字列ならJSON.parseを試みる
-        if (typeof answer === 'string') {
-            try {
-                answerObj = JSON.parse(answer);
-                console.log('Parsed answer JSON from string:', answerObj);
-            } catch (e) {
-                console.error('Error parsing answer JSON:', e);
-                return;
-            }
-        }
-
-        // 受信したオブジェクトの中身をデバッグログで確認
-        console.log('Answer object received:', answerObj);
+        // Unity側でオブジェクトとして送信されるため、JSON.parse()は不要
+        const answerObj = answer;
 
         if (peerConnection && peerConnection.signalingState !== 'closed' && answerObj && answerObj.sdp && answerObj.type) {
             try {
@@ -368,20 +356,8 @@ function initializeWebRTC() {
         console.log('Received ICE candidate from Unity client.');
         console.log('💙 UnityからCandidateを受信しました。');
 
-        let candidateObj = candidate;
-        // 受信したデータが文字列ならJSON.parseを試みる
-        if (typeof candidate === 'string') {
-            try {
-                candidateObj = JSON.parse(candidate);
-                console.log('Parsed candidate JSON from string:', candidateObj);
-            } catch (e) {
-                console.error('Error parsing candidate JSON:', e);
-                return;
-            }
-        }
-
-        // 受信したオブジェクトの中身をデバッグログで確認
-        console.log('Candidate object received:', candidateObj);
+        // Unity側でオブジェクトとして送信されるため、JSON.parse()は不要
+        const candidateObj = candidate;
 
         if (candidateObj && candidateObj.candidate) {
             if (isDescriptionSet) {
