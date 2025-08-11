@@ -20,15 +20,15 @@ public class SdpMessage
     public string type;
 }
 
-// ★ PWAから送信されるCandidateのJSON形式に対応するクラスを修正
+// PWAから送信されるCandidateのJSON形式に対応するクラス
 [System.Serializable]
 public class SdpCandidate
 {
     public string candidate;
     public string sdpMid;
     public int? sdpMLineIndex;
-    public string usernameFragment; // PWAからの候補に含まれる可能性あり
-    public string networkId;        // PWAからの候補に含まれる可能性あり
+    public string ufrag; // PWAからの候補に含まれる可能性あり
+    public string networkId; // PWAからの候補に含まれる可能性あり
 }
 
 [System.Serializable]
@@ -52,6 +52,7 @@ public class HandClient : MonoBehaviour
 
     private RTCPeerConnection _peerConnection;
     private RTCDataChannel _dataChannel;
+    private Queue<SdpCandidate> _iceCandidateBuffer = new Queue<SdpCandidate>();
 
     public static event Action<List<List<Landmark>>> OnLandmarksReceived;
 
@@ -117,6 +118,7 @@ public class HandClient : MonoBehaviour
             Debug.Log("Socket.IO Connected! ");
             await socket.EmitAsync("register_role", "unity");
             Debug.Log("Registered as 'unity' client.");
+            // ★ 修正点: Socket.IO接続成功後、即座にWebRTCを初期化
             if (this != null && unityContext != null)
             {
                 unityContext.Post(_ => InitializeWebRTC(), null);
@@ -143,7 +145,10 @@ public class HandClient : MonoBehaviour
 
     void InitializeWebRTC()
     {
+        // 既存の接続がある場合は閉じる
         CloseWebRTCConnection();
+        // Candidateバッファをクリア
+        _iceCandidateBuffer.Clear();
 
         var configuration = new RTCConfiguration
         {
@@ -178,15 +183,16 @@ public class HandClient : MonoBehaviour
                 }
             };
         };
-
+        
         _peerConnection.OnIceCandidate = cand =>
         {
             if (cand != null && socket.Connected)
             {
                 var candStr = cand.Candidate;
+
                 if (!string.IsNullOrEmpty(candStr) && candStr.StartsWith("a="))
                     candStr = candStr.Substring(2);
-                
+
                 var obj = new
                 {
                     candidate = candStr ?? "",
@@ -215,6 +221,7 @@ public class HandClient : MonoBehaviour
     private IEnumerator HandleOfferCoroutine(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからOfferを受信しました。");
+        // ここでは_peerConnectionは既に初期化済み
         if (_peerConnection == null)
         {
             Debug.LogError("PeerConnection is not initialized. Cannot handle offer.");
@@ -255,6 +262,13 @@ public class HandClient : MonoBehaviour
         }
         Debug.Log("SetRemoteDescription succeeded.");
 
+        // ★ 修正点: SetRemoteDescription完了後、バッファリングされたCandidateを全て追加
+        while (_iceCandidateBuffer.Count > 0)
+        {
+            SdpCandidate candidateMsg = _iceCandidateBuffer.Dequeue();
+            yield return AddCandidate(candidateMsg);
+        }
+
         var op2 = _peerConnection.CreateAnswer();
         yield return op2;
         if (op2.IsError)
@@ -291,44 +305,63 @@ public class HandClient : MonoBehaviour
     private IEnumerator HandleCandidateCoroutine(SocketIOResponse response)
     {
         Debug.Log("❤️ PWAからCandidateを受信しました。");
-        if (_peerConnection == null)
-        {
-            Debug.LogWarning("PeerConnection is not initialized yet. Discarding ICE candidate.");
-            yield break;
-        }
         
         try
         {
-            // PWAから送信されるCandidateにはusernameFragmentなどが含まれる可能性があるため、
-            // それらもパースできるようにSdpCandidateクラスを修正済み。
             SdpCandidate candidateMsg = response.GetValue<SdpCandidate>(0);
-
-            if (candidateMsg != null && !string.IsNullOrEmpty(candidateMsg.candidate))
+            
+            if (candidateMsg == null || string.IsNullOrEmpty(candidateMsg.candidate))
             {
-                var iceCandidateInit = new RTCIceCandidateInit
-                {
-                    candidate = candidateMsg.candidate,
-                    sdpMid = candidateMsg.sdpMid,
-                    sdpMLineIndex = candidateMsg.sdpMLineIndex.HasValue ? candidateMsg.sdpMLineIndex.Value : (int?)null
-                };
-                var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
-                if (!_peerConnection.AddIceCandidate(rtcIceCandidate))
-                {
-                    Debug.LogError("Failed to add ICE candidate: candidate is invalid.");
-                }
-                else
-                {
-                    Debug.Log("Successfully added ICE candidate.");
-                }
+                Debug.LogWarning("Received invalid ICE candidate JSON.");
+                yield break;
+            }
+
+            if (_peerConnection == null || _peerConnection.RemoteDescription == null)
+            {
+                // ★ 修正点: Offerがまだ届いていない場合はバッファに格納
+                _iceCandidateBuffer.Enqueue(candidateMsg);
+                Debug.LogWarning($"PeerConnection remote description is not set yet. Candidate buffered. Current buffer size: {_iceCandidateBuffer.Count}");
             }
             else
             {
-                Debug.LogWarning("Received invalid ICE candidate JSON.");
+                // Offerが既に届いている場合は即座に追加
+                yield return AddCandidate(candidateMsg);
             }
         }
         catch (Exception ex)
         {
             Debug.LogError($"[HandleCandidateCoroutine] Exception: {ex.Message}");
+        }
+    }
+
+    private IEnumerator AddCandidate(SdpCandidate candidateMsg)
+    {
+        string candidateStr = candidateMsg.candidate;
+        // PWAから受信するCandidateがufragやnetwork-idを持っている場合、それらを削除して渡す
+        if (candidateStr.Contains("ufrag"))
+        {
+            candidateStr = Regex.Replace(candidateStr, @"\sufrag\s\S+", "");
+        }
+        if (candidateStr.Contains("network-id"))
+        {
+            candidateStr = Regex.Replace(candidateStr, @"\snetwork-id\s\S+", "");
+        }
+
+        var iceCandidateInit = new RTCIceCandidateInit
+        {
+            candidate = candidateStr,
+            sdpMid = candidateMsg.sdpMid,
+            sdpMLineIndex = candidateMsg.sdpMLineIndex.HasValue ? candidateMsg.sdpMLineIndex.Value : (int?)null
+        };
+
+        var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
+        if (!_peerConnection.AddIceCandidate(rtcIceCandidate))
+        {
+            Debug.LogError("Failed to add ICE candidate: candidate is invalid.");
+        }
+        else
+        {
+            Debug.Log("Successfully added ICE candidate.");
         }
         yield break;
     }
