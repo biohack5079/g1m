@@ -209,11 +209,13 @@ function handleResize() {
 function setupEventListeners() {
     startFrontBtn.addEventListener('click', async () => {
         await startCamera('user');
-        await initializeWebRTC();
+        // カメラ起動後にWebRTCを初期化
+        initializeWebRTC();
     });
     startBackBtn.addEventListener('click', async () => {
         await startCamera('environment');
-        await initializeWebRTC();
+        // カメラ起動後にWebRTCを初期化
+        initializeWebRTC();
     });
     stopBtn.addEventListener('click', () => {
         stopCamera();
@@ -243,7 +245,7 @@ window.addEventListener('DOMContentLoaded', async (event) => {
 });
 
 // PWAがWebRTC接続を開始するロジック
-async function initializeWebRTC() {
+function initializeWebRTC() {
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
@@ -306,9 +308,25 @@ async function initializeWebRTC() {
         }
     };
 
+    // ★ 修正箇所: onnegotiationneededでOfferを作成・送信する
     peerConnection.onnegotiationneeded = async () => {
-        // PWAが主導して接続を開始するため、ここではOffer作成は行わない。
-        console.log('Negotiation needed event fired.');
+        console.log('Negotiation needed event fired. Creating and sending Offer.');
+        try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            // OfferのSDPをサーバーに送信
+            const offerObj = {
+                type: 'offer',
+                sdp: peerConnection.localDescription.sdp,
+            };
+            socket.emit('offer', offerObj);
+            
+            isDescriptionSet = false; // Answerの受信後にtrueになる
+            console.log('PWA created and sent offer.');
+        } catch (e) {
+            console.error('Error creating and sending offer:', e);
+        }
     };
 
     peerConnection.onconnectionstatechange = () => {
@@ -389,17 +407,6 @@ async function initializeWebRTC() {
             console.error('Received invalid ICE candidate object:', candidateObj);
         }
     });
-
-    // PWAが接続主導者としてOfferを作成し、送信
-    try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        socket.emit('offer', peerConnection.localDescription);
-        isDescriptionSet = false; // setRemoteDescriptionが完了するまでfalseのまま
-        console.log('PWA created and sent offer.');
-    } catch (e) {
-        console.error('Error creating offer:', e);
-    }
 }
 
 // Socket.IO接続イベント
