@@ -111,8 +111,13 @@ function onHandsResults(results) {
         }
 
         if (dataChannel && dataChannel.readyState === 'open') {
-            const handData = JSON.stringify(results.multiHandLandmarks);
+            // ★ 修正箇所: JSON配列をラッパーオブジェクトで囲んでから送信
+            const dataWrapper = {
+                multiHandLandmarks: results.multiHandLandmarks
+            };
+            const handData = JSON.stringify(dataWrapper);
             dataChannel.send(handData);
+            console.log('✅ Sent hand data to Unity via DataChannel.');
         }
     }
 
@@ -209,12 +214,10 @@ function handleResize() {
 function setupEventListeners() {
     startFrontBtn.addEventListener('click', async () => {
         await startCamera('user');
-        // カメラ起動後にWebRTCを初期化
         initializeWebRTC();
     });
     startBackBtn.addEventListener('click', async () => {
         await startCamera('environment');
-        // カメラ起動後にWebRTCを初期化
         initializeWebRTC();
     });
     stopBtn.addEventListener('click', () => {
@@ -287,12 +290,10 @@ function initializeWebRTC() {
         console.error('Data Channel error:', error);
     };
 
-    // ★ 修正箇所: Candidate送信時に不要なフィールドを削除
     peerConnection.onicecandidate = (e) => {
         if (e.candidate) {
             console.log('Found and sending ICE candidate:', JSON.stringify(e.candidate));
 
-            // Candidateの文字列から不要なufragとnetwork-idを削除
             let candidateStr = e.candidate.candidate;
             candidateStr = candidateStr.replace(/\sufrag\s\S+/, '');
             candidateStr = candidateStr.replace(/\snetwork-id\s\S+/, '');
@@ -308,21 +309,19 @@ function initializeWebRTC() {
         }
     };
 
-    // ★ 修正箇所: onnegotiationneededでOfferを作成・送信する
     peerConnection.onnegotiationneeded = async () => {
         console.log('Negotiation needed event fired. Creating and sending Offer.');
         try {
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             
-            // OfferのSDPをサーバーに送信
             const offerObj = {
                 type: 'offer',
                 sdp: peerConnection.localDescription.sdp,
             };
             socket.emit('offer', offerObj);
             
-            isDescriptionSet = false; // Answerの受信後にtrueになる
+            isDescriptionSet = false;
             console.log('PWA created and sent offer.');
         } catch (e) {
             console.error('Error creating and sending offer:', e);
@@ -341,7 +340,6 @@ function initializeWebRTC() {
         }
     };
 
-    // Answer受信時
     socket.on('answer', async (answer) => {
         console.log('💙 UnityからAnswerを受信しました。');
 
@@ -375,7 +373,6 @@ function initializeWebRTC() {
         }
     });
 
-    // Candidate受信時
     socket.on('candidate', async (candidate) => {
         console.log('💙 UnityからCandidateを受信しました。');
 
