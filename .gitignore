@@ -1,5 +1,6 @@
-note.txt
+# --- プロジェクト固有 ---
 G1M/
+!G1M/Assets/Scripts/**
 node_modules/
 
 # --- macOS / Windows共通 ---
@@ -9,6 +10,3 @@ Thumbs.db
 # --- Git自身に関する設定 ---
 *.swp
 *.lock
-
-
-
