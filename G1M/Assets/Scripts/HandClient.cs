@@ -9,57 +9,66 @@ using System.Collections;
 using System.Text;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization; 
 using System.Threading;
 using System.Text.RegularExpressions;
+using UnityEngine.SceneManagement; 
 
-// PWAから送信されるOfferのJSON形式に対応するクラス
-[System.Serializable]
-public class SdpMessage
-{
-    public string sdp;
-    public string type;
-}
+// =========================================================
+// データ構造クラス
+// =========================================================
 
-// PWAから送信されるCandidateのJSON形式に対応するクラス
-[System.Serializable]
-public class SdpCandidate
-{
-    public string candidate;
-    public string sdpMid;
-    public int? sdpMLineIndex;
-    public string ufrag;
-    public string networkId;
-}
+// ICE CandidateとSDPメッセージのクラスはJsonNodeベースのパースに切り替えたため不要
 
+// ハンドランドマークデータ (DataChannel受信用)
 [System.Serializable]
 public class Landmark
 {
+    // [SerializeField] // UnityのJsonUtility互換性を高めるため、必要に応じて付与（現状のSystem.Text.Jsonでは必須ではない）
+    [JsonPropertyName("x")]
     public float x;
+    [JsonPropertyName("y")]
     public float y;
+    [JsonPropertyName("z")]
     public float z;
 }
 
-[System.Serializable]
-public class HandLandmarksListWrapper
-{
-    public List<List<Landmark>> multiHandLandmarks;
-}
-
+// =========================================================
+// メインクラス (HandClient)
+// =========================================================
 public class HandClient : MonoBehaviour
 {
+    public static HandClient Instance { get; private set; }
+    // 外部のスクリプト（SphereControllerなど）が購読するイベント
+    public event Action<List<List<Landmark>>> OnLandmarksReceived; 
+
     private SocketIOClient.SocketIO socket;
     private const string ServerUrl = "wss://g1m-pwa.onrender.com";
-
     private RTCPeerConnection _peerConnection;
     private RTCDataChannel _dataChannel;
-    private Queue<SdpCandidate> _iceCandidateBuffer = new Queue<SdpCandidate>();
-
-    public static event Action<List<List<Landmark>>> OnLandmarksReceived;
-
+    
+    // Candidateのバッファリング用構造体
+    private struct CandidateData
+    {
+        public string candidate;
+        public string sdpMid;
+        public int sdpMLineIndex;
+    }
+    private Queue<CandidateData> _iceCandidateBuffer = new Queue<CandidateData>();
     private SynchronizationContext unityContext;
 
     void Awake()
     {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
         unityContext = SynchronizationContext.Current;
     }
 
@@ -73,6 +82,7 @@ public class HandClient : MonoBehaviour
         WebRTC.Update();
     }
 
+    // Socket.IOの初期化ロジック (変更なし)
     async void InitializeSocketIO()
     {
         if (socket != null && socket.Connected)
@@ -142,6 +152,7 @@ public class HandClient : MonoBehaviour
         await ConnectSocketAsync();
     }
 
+    // WebRTCの初期化ロジック
     void InitializeWebRTC()
     {
         CloseWebRTCConnection();
@@ -159,39 +170,50 @@ public class HandClient : MonoBehaviour
         _peerConnection.OnDataChannel += channel =>
         {
             _dataChannel = channel;
-            _dataChannel.OnOpen += () => Debug.Log("WebRTC DataChannel is now open! ❤️ DataChannel開通");
-            _dataChannel.OnClose += () => Debug.Log("WebRTC DataChannel is closed.");
+            _dataChannel.OnOpen += () => unityContext.Post(_ => Debug.Log("WebRTC DataChannel is now open! ❤️ データチャネル開通"), null);
+            _dataChannel.OnClose += () => unityContext.Post(_ => Debug.Log("WebRTC DataChannel is closed."), null);
+            
+            // ★★★ データ受信ロジックの修正 ★★★
             _dataChannel.OnMessage += bytes =>
             {
-                string handData = Encoding.UTF8.GetString(bytes);
-                
-                // ★ 修正点: 受信したデータのログを追加
-                if (string.IsNullOrEmpty(handData))
+                unityContext.Post(_ =>
                 {
-                    Debug.LogWarning("Received an empty message on the DataChannel.");
-                    return;
-                }
-                Debug.Log($"✅ Received message on DataChannel: {handData.Length} bytes.");
+                    string handData = Encoding.UTF8.GetString(bytes);
+                    if (string.IsNullOrEmpty(handData)) return;
 
-                try
-                {
-                    var parsedData = JsonUtility.FromJson<HandLandmarksListWrapper>(
-                        "{\"multiHandLandmarks\":" + handData + "}");
-                    if (parsedData != null && parsedData.multiHandLandmarks != null)
+                    try
                     {
-                        OnLandmarksReceived?.Invoke(parsedData.multiHandLandmarks);
+                        // PWAから送信される生のJSON配列を、JsonNode経由で確実にList<List<Landmark>>にデシリアライズ
+                        var options = new JsonSerializerOptions 
+                        { 
+                            PropertyNameCaseInsensitive = true,
+                            AllowTrailingCommas = true // 末尾のカンマなどを許容するオプション
+                        };
+
+                        // JsonNode.Parseで生のJSON文字列を一度パース
+                        var jsonNode = JsonNode.Parse(handData);
+                        
+                        // JsonNodeから直接List<List<Landmark>>へのデシリアライズを試みる
+                        var multiHandLandmarks = jsonNode.Deserialize<List<List<Landmark>>>(options);
+
+                        if (multiHandLandmarks != null)
+                        {
+                            Instance.OnLandmarksReceived?.Invoke(multiHandLandmarks);
+                            // Debug.Log($"✅ Hand landmarks received and invoked. Hands count: {multiHandLandmarks.Count}"); // 成功時のログは頻繁なのでコメントアウト
+                        }
+                        else
+                        {
+                            Debug.LogError("🔴 DataChannel JSON parse failed: Deserialized object is null.");
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        Debug.LogWarning("Parsed data is null or hand landmarks list is null. Check JSON format.");
+                        string snippet = handData.Length > 200 ? handData.Substring(0, 200) : handData;
+                        Debug.LogError($"🔴 DataChannel JSON parse exception: {ex.Message}. Snippet: {snippet}...");
                     }
-                }
-                catch (Exception ex)
-                {
-                    string snippet = handData.Length > 200 ? handData.Substring(0, 200) : handData;
-                    Debug.LogError($"JSON parse error: {ex.Message} -> Snippet: {snippet}...");
-                }
+                }, null);
             };
+            // ★★★ 修正終わり ★★★
         };
         
         _peerConnection.OnIceCandidate = cand =>
@@ -202,16 +224,15 @@ public class HandClient : MonoBehaviour
 
                 if (!string.IsNullOrEmpty(candStr) && candStr.StartsWith("a="))
                     candStr = candStr.Substring(2);
+                
+                if (string.IsNullOrEmpty(candStr)) return;
 
                 var obj = new
                 {
-                    candidate = candStr ?? "",
-                    sdpMid = string.IsNullOrEmpty(cand.SdpMid) ? "" : cand.SdpMid,
-                    sdpMLineIndex = cand.SdpMLineIndex.HasValue && cand.SdpMLineIndex.Value >= 0 ? cand.SdpMLineIndex.Value : 0
+                    candidate = candStr, 
+                    sdpMid = string.IsNullOrEmpty(cand.SdpMid) ? "0" : cand.SdpMid,
+                    sdpMLineIndex = cand.SdpMLineIndex.HasValue ? cand.SdpMLineIndex.Value : 0
                 };
-                
-                string json = JsonSerializer.Serialize(obj);
-                Debug.Log($"✅ 送信するCandidate JSON: {json}");
                 
                 socket.EmitAsync("candidate", obj);
             }
@@ -224,12 +245,18 @@ public class HandClient : MonoBehaviour
             {
                 Debug.LogWarning("WebRTC connection failed or disconnected. Closing.");
                 CloseWebRTCConnection();
+                socket.EmitAsync("webrtc_close");
+            }
+            else if (state == RTCPeerConnectionState.Connected)
+            {
+                 Debug.Log("WebRTC connection state: Connected ✅");
             }
         };
     }
 
     private IEnumerator HandleOfferCoroutine(SocketIOResponse response)
     {
+        // ... (Offer受信ロジック: 変更なし) ...
         Debug.Log("❤️ PWAからOfferを受信しました。");
         if (_peerConnection == null)
         {
@@ -238,28 +265,32 @@ public class HandClient : MonoBehaviour
         }
 
         RTCSessionDescription sdp = default;
-        string offerJson;
+        string offerJson = string.Empty;
+        
         try
         {
-            offerJson = response.GetValue<System.Text.Json.Nodes.JsonNode>(0).ToString();
-            Debug.Log($"Offer JSON string received: {offerJson}");
-            SdpMessage offerMsg = JsonUtility.FromJson<SdpMessage>(offerJson);
+            var offerJsonNode = response.GetValue<System.Text.Json.Nodes.JsonNode>(0);
+            offerJson = offerJsonNode.ToJsonString();
             
-            if (string.IsNullOrEmpty(offerMsg?.sdp))
+            var node = JsonNode.Parse(offerJson);
+            
+            if (node?["sdp"]?.GetValue<string>() is string sdpValue && !string.IsNullOrEmpty(sdpValue))
             {
-                Debug.LogError("Offer SDP is null or empty after parsing.");
+                sdp = new RTCSessionDescription
+                {
+                    type = RTCSdpType.Offer,
+                    sdp = sdpValue
+                };
+            }
+            else
+            {
+                Debug.LogError("Offer SDP is null or empty after JsonNode parsing. Raw JSON: " + offerJson);
                 yield break;
             }
-
-            sdp = new RTCSessionDescription
-            {
-                type = RTCSdpType.Offer,
-                sdp = offerMsg.sdp
-            };
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Offer JSON parse exception: {ex.Message}");
+            Debug.LogError($"Offer JSON parse exception: {ex.Message}. Raw JSON: {offerJson}");
             yield break;
         }
 
@@ -270,11 +301,11 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetRemoteDescription failed: {op1.Error.message}");
             yield break;
         }
-        Debug.Log("SetRemoteDescription succeeded.");
 
         while (_iceCandidateBuffer.Count > 0)
         {
-            SdpCandidate candidateMsg = _iceCandidateBuffer.Dequeue();
+            CandidateData candidateMsg = _iceCandidateBuffer.Dequeue();
+            Debug.Log($"Applying buffered candidate. Buffer size remaining: {_iceCandidateBuffer.Count}");
             yield return AddCandidate(candidateMsg);
         }
 
@@ -285,7 +316,6 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"CreateAnswer failed: {op2.Error.message}");
             yield break;
         }
-        Debug.Log("CreateAnswer succeeded.");
         var answer = op2.Desc;
 
         var op3 = _peerConnection.SetLocalDescription(ref answer);
@@ -295,9 +325,8 @@ public class HandClient : MonoBehaviour
             Debug.LogError($"SetLocalDescription failed: {op3.Error.message}");
             yield break;
         }
-        Debug.Log("SetLocalDescription succeeded.");
 
-        yield return _SendAnswerAsync(answer);
+        yield return _SendAnswerAsync(answer).AsCoroutine();
         Debug.Log("❤️ Answerを作成し、サーバーに送信しました。");
     }
 
@@ -313,48 +342,64 @@ public class HandClient : MonoBehaviour
 
     private IEnumerator HandleCandidateCoroutine(SocketIOResponse response)
     {
+        // ... (Candidate受信ロジック: 変更なし) ...
         Debug.Log("❤️ PWAからCandidateを受信しました。");
         
-        SdpCandidate candidateMsg;
+        CandidateData candidateData = new CandidateData();
+        string json = string.Empty;
+        bool dataValid = false;
+
         try
         {
-            candidateMsg = response.GetValue<SdpCandidate>(0);
-            if (candidateMsg == null || string.IsNullOrEmpty(candidateMsg.candidate))
+            var jsonNode = response.GetValue<System.Text.Json.Nodes.JsonNode>(0);
+            json = jsonNode.ToJsonString();
+            
+            var node = JsonNode.Parse(json);
+            
+            if (node?["candidate"]?.GetValue<string>() is string candidateStr && !string.IsNullOrEmpty(candidateStr))
             {
-                Debug.LogWarning("Received invalid ICE candidate JSON.");
-                yield break;
+                candidateData.candidate = candidateStr;
+                candidateData.sdpMid = node?["sdpMid"]?.GetValue<string>() ?? "0";
+                candidateData.sdpMLineIndex = node?["sdpMLineIndex"]?.GetValue<int>() ?? 0;
+                dataValid = true;
             }
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[HandleCandidateCoroutine] Exception during JSON parsing: {ex.Message}");
+            Debug.LogError($"[HandleCandidateCoroutine] JSON parse exception: {ex.Message}. Raw JSON: {json}");
+            yield break; 
+        }
+        
+        if (!dataValid)
+        {
+            Debug.LogError($"⚠️ Received invalid ICE candidate JSON. Missing 'candidate' field or empty value. Raw JSON: {json}");
             yield break;
         }
         
-        if (_peerConnection == null || string.IsNullOrEmpty(_peerConnection.RemoteDescription.sdp))
+        if (_peerConnection == null || _peerConnection.RemoteDescription.sdp == null) 
         {
-            _iceCandidateBuffer.Enqueue(candidateMsg);
+            _iceCandidateBuffer.Enqueue(candidateData);
             Debug.LogWarning($"PeerConnection remote description is not set yet. Candidate buffered. Current buffer size: {_iceCandidateBuffer.Count}");
         }
         else
         {
-            yield return AddCandidate(candidateMsg);
+            yield return AddCandidate(candidateData);
         }
     }
 
-    private IEnumerator AddCandidate(SdpCandidate candidateMsg)
+    private IEnumerator AddCandidate(CandidateData candidateMsg)
     {
+        // ... (Candidate追加ロジック: 変更なし) ...
         string candidateStr = candidateMsg.candidate;
+        
         if (!string.IsNullOrEmpty(candidateStr))
         {
-            candidateStr = Regex.Replace(candidateStr, @"\sufrag[=]?\S+", "", RegexOptions.IgnoreCase);
-            candidateStr = Regex.Replace(candidateStr, @"\snetwork-id[=]?\S+", "", RegexOptions.IgnoreCase);
             candidateStr = candidateStr.Trim();
         }
 
         if (string.IsNullOrEmpty(candidateStr))
         {
-            Debug.LogWarning("Candidate string is empty after cleaning, skipping.");
+            Debug.LogWarning("Candidate string is empty, skipping AddIceCandidate.");
             yield break;
         }
         
@@ -362,17 +407,14 @@ public class HandClient : MonoBehaviour
         {
             candidate = candidateStr,
             sdpMid = candidateMsg.sdpMid,
-            sdpMLineIndex = candidateMsg.sdpMLineIndex.HasValue ? candidateMsg.sdpMLineIndex.Value : (int?)null
+            sdpMLineIndex = candidateMsg.sdpMLineIndex
         };
 
         var rtcIceCandidate = new RTCIceCandidate(iceCandidateInit);
+        
         if (!_peerConnection.AddIceCandidate(rtcIceCandidate))
         {
-            Debug.LogError("Failed to add ICE candidate: candidate is invalid.");
-        }
-        else
-        {
-            Debug.Log("Successfully added ICE candidate.");
+            Debug.LogError($"Failed to add ICE candidate. Candidate: {candidateStr}, SDP Mid: {candidateMsg.sdpMid}");
         }
         yield break;
     }
@@ -411,6 +453,32 @@ public class HandClient : MonoBehaviour
         if (socket != null && socket.Connected)
         {
             socket.DisconnectAsync();
+        }
+    }
+}
+
+// TaskをCoroutineとして実行するための拡張メソッド (変更なし)
+public static class TaskExtensions
+{
+    public static Coroutine AsCoroutine(this Task task)
+    {
+        if (HandClient.Instance == null)
+        {
+            Debug.LogError("Cannot run Task as Coroutine: HandClient.Instance is null.");
+            return null;
+        }
+        return HandClient.Instance.StartCoroutine(RunTask(task));
+    }
+
+    private static IEnumerator RunTask(Task task)
+    {
+        while (!task.IsCompleted)
+        {
+            yield return null;
+        }
+        if (task.IsFaulted)
+        {
+            Debug.LogError("Task failed: " + task.Exception);
         }
     }
 }
