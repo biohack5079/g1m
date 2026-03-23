@@ -1,5 +1,6 @@
 # --- プロジェクト固有 ---
-G1M/
+G1M/*
+!G1M/Assets/
 !G1M/Assets/Scripts/**
 node_modules/
 
