@@ -35,6 +35,9 @@ const sendBtn = document.getElementById('chat-send-btn');
 const labelsContainer = document.getElementById('labels-container');
 const cameraToggle = document.getElementById('camera-toggle');
 const micBtn = document.getElementById('mic-btn');
+const startFrontBtn = document.getElementById('startFrontCamera');
+const startBackBtn = document.getElementById('startBackCamera');
+const stopBtn = document.getElementById('stopCamera');
 
 // Global References from script tags
 const io = window.io;
@@ -248,12 +251,12 @@ function updateParticipantCount() {
 function updateLayout() {
     // Positioning Bot and Local
     if (vrms['bot']) {
-        vrms['bot'].scene.position.set(0, 0, 1.2);
-        vrms['bot'].scene.rotation.y = 0; // Face the center
+        vrms['bot'].scene.position.set(0, 0, -1.2);
+        vrms['bot'].scene.rotation.y = 0; // Face -Z (Local)
     }
     if (vrms['local']) {
         vrms['local'].scene.position.set(0, 0, 0);
-        vrms['local'].scene.rotation.y = Math.PI; // Face the bot
+        vrms['local'].scene.rotation.y = Math.PI; // Face +Z (Bot)
     }
     // Positioning Other Performers
     const performers = Object.keys(vrms).filter(id => id !== 'local' && id !== 'bot');
@@ -321,19 +324,45 @@ function setupDC(id, dc) {
     dc.onclose = () => cleanupPeer(id);
 }
 
-cameraToggle.onclick = async () => {
-    if (isRunning) { isRunning = false; cameraToggle.classList.remove('active'); }
-    else {
-        try {
+
+async function startCamera(mode = 'user') {
+    log(`Camera: Starting ${mode}...`);
+    try {
+        const constraints = { video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } } };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoElement.srcObject = stream;
+        await videoElement.play(); // Ensure playback starts
+        isRunning = true;
+
+        const loop = async () => {
+            if (isRunning) {
+                try { await holistic.send({ image: videoElement }); } catch (e) { }
+                requestAnimationFrame(loop);
+            }
+        };
+        loop();
+        log('Camera: Loop started');
+    } catch (e) {
+        log('Camera Error: ' + e.message, '#f55');
+        // Fallback for some browsers
+        if (e.name === 'OverconstrainedError') {
+            log('Camera: Retrying with simple constraints...');
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             videoElement.srcObject = stream;
-            isRunning = true; cameraToggle.classList.add('active');
-            socket.emit('register_role', 'staff');
-            const loop = async () => { if (isRunning) { try { await holistic.send({ image: videoElement }); } catch (e) { } requestAnimationFrame(loop); } };
-            loop();
-        } catch (e) { log('Camera Initiation Error: ' + e.message, '#f55'); }
+            await videoElement.play();
+            isRunning = true;
+        }
     }
+}
+
+cameraToggle.onclick = () => {
+    if (isRunning) { isRunning = false; cameraToggle.classList.remove('active'); }
+    else { cameraToggle.classList.add('active'); socket.emit('register_role', 'staff'); startCamera('user'); }
 };
+
+if (startFrontBtn) startFrontBtn.onclick = () => startCamera('user');
+if (startBackBtn) startBackBtn.onclick = () => startCamera('environment');
+if (stopBtn) stopBtn.onclick = () => location.reload();
 
 // --- Voice Recognition Restoration ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -345,7 +374,10 @@ if (SpeechRecognition) {
 
     recognition.onstart = () => { isListening = true; micBtn.classList.add('listening'); log('Speech: Listening...'); updateStatus('音声入力中...', 'running'); };
     recognition.onend = () => { isListening = false; micBtn.classList.remove('listening'); log('Speech: Stopped'); updateStatus('G1:M 準備完了', 'ready'); };
-    recognition.onerror = (e) => { log(`Speech Error: ${e.error}`, '#f55'); isListening = false; micBtn.classList.remove('listening'); };
+    recognition.onerror = (e) => {
+        log(`Speech Error DETAILED: ${e.error} ${e.message || ''}`, '#f55');
+        isListening = false; micBtn.classList.remove('listening');
+    };
 
     recognition.onresult = (e) => {
         const text = e.results[0][0].transcript;
