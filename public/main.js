@@ -73,6 +73,51 @@ let mediaRecorder;
 let recordedChunks = [];
 let isRecording = false;
 
+// Reconnection management
+let peerReconnectInfo = {};
+const MAX_PEER_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY_MS = 2000;
+
+function startPeerReconnect(id) {
+    if (peerReconnectInfo[id]?.isReconnecting) return;
+    peerReconnectInfo[id] = { attempts: 0, timerId: null, isReconnecting: true };
+    schedulePeerReconnectAttempt(id);
+}
+
+function schedulePeerReconnectAttempt(id) {
+    const info = peerReconnectInfo[id];
+    if (!info || !info.isReconnecting) return;
+
+    info.attempts++;
+    if (info.attempts > MAX_PEER_RECONNECT_ATTEMPTS) {
+        log(`WebRTC: Max reconnect attempts for ${id.slice(0, 4)} reached`, '#f55');
+        stopPeerReconnect(id);
+        return;
+    }
+
+    const delay = Math.min(RECONNECT_DELAY_MS * Math.pow(2, info.attempts - 1), 30000);
+    log(`WebRTC: Reconnecting to ${id.slice(0, 4)} (attempt ${info.attempts}/${MAX_PEER_RECONNECT_ATTEMPTS}) in ${Math.round(delay / 1000)}s...`, '#ff0');
+
+    if (info.timerId) clearTimeout(info.timerId);
+    info.timerId = setTimeout(async () => {
+        if (!info.isReconnecting) return;
+        log(`WebRTC: Retrying connection with ${id.slice(0, 4)}`);
+        if (peers[id]) {
+            try { peers[id].close(); } catch (e) { }
+            delete peers[id];
+        }
+        createPeer(id, true);
+    }, delay);
+}
+
+function stopPeerReconnect(id) {
+    const info = peerReconnectInfo[id];
+    if (info) {
+        if (info.timerId) clearTimeout(info.timerId);
+        delete peerReconnectInfo[id];
+    }
+}
+
 // Loading management
 let loadingIds = new Set();
 
@@ -655,6 +700,7 @@ function cleanupPeer(id) {
         const l = document.getElementById(`label-${id}`); if (l) l.remove(); delete vrms[id];
     }
     delete peers[id]; delete dataChannels[id];
+    stopPeerReconnect(id);
     updateParticipantCount();
 }
 
@@ -689,6 +735,16 @@ async function createPeer(id, isInitiator) {
 
     pc.onconnectionstatechange = () => {
         log(`WebRTC: ${id.slice(0, 4)} Connection state: ${pc.connectionState}`);
+        if (pc.connectionState === 'connected') {
+            stopPeerReconnect(id);
+        } else if (pc.connectionState === 'failed') {
+            log(`WebRTC Error: Connection to ${id.slice(0, 4)} failed`, '#f55');
+            // Reconnect only if we are the initiator or if the connection was established once
+            startPeerReconnect(id);
+        } else if (pc.connectionState === 'disconnected') {
+            // Disconnected might be temporary, but if it takes too long it turns to failed
+            // We can optionally start a timer here
+        }
     };
 
     return pc;
