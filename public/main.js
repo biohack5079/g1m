@@ -73,6 +73,28 @@ let mediaRecorder;
 let recordedChunks = [];
 let isRecording = false;
 
+// Loading management
+let loadingIds = new Set();
+
+function disposeVRM(vrm) {
+    if (!vrm || !vrm.scene) return;
+    log(`Disposing VRM: ${vrm.name || 'unknown'}`);
+    vrm.scene.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (Array.isArray(obj.material)) {
+                obj.material.forEach(m => {
+                    if (m.map) m.map.dispose();
+                    m.dispose();
+                });
+            } else {
+                if (obj.material.map) obj.material.map.dispose();
+                obj.material.dispose();
+            }
+        }
+    });
+}
+
 // (Declarations moved to top)
 
 // --- 3D Landmark Overlay (Visualizer) ---
@@ -205,6 +227,13 @@ function initThree() {
 }
 
 async function loadAvatar(url, id, name) {
+    if (loadingIds.has(id)) {
+        log(`Loader: Already loading ${id}, skipping...`, '#ff0');
+        return;
+    }
+    if (vrms[id]) return;
+
+    loadingIds.add(id);
     log(`Loader: Fetching ${url} for ${id}...`);
     try {
         const loader = new GLTFLoader();
@@ -243,6 +272,9 @@ async function loadAvatar(url, id, name) {
         log(`Avatar ${vrm.name} added to scene`);
         updateParticipantCount();
     } catch (e) { log(`Loader Failure (${id}): ${e.message}`, '#f55'); }
+    finally {
+        loadingIds.delete(id);
+    }
 }
 
 function animate() {
@@ -550,8 +582,9 @@ function updateLayout() {
 
 let isLoadingBot = false;
 async function spawnBot() {
-    if (isLoadingBot || vrms['bot']) return;
+    if (isLoadingBot || vrms['bot'] || loadingIds.has('bot')) return;
     isLoadingBot = true;
+    loadingIds.add('bot');
 
     if (vrms['local']) {
         log('Loader: Cloning local avatar for G1:M-chan bot');
@@ -584,10 +617,12 @@ async function spawnBot() {
         await loadAvatar('g1_mchan.glb', 'bot', 'G1:Mちゃん (AI)');
     }
     isLoadingBot = false;
+    loadingIds.delete('bot');
 }
 
 function removeBot() {
     if (vrms['bot']) {
+        disposeVRM(vrms['bot']);
         if (mainScene) mainScene.remove(vrms['bot'].scene);
         const label = document.getElementById('label-bot');
         if (label) label.remove();
@@ -613,7 +648,9 @@ if (socket) {
 
 function cleanupPeer(id) {
     if (peers[id]) peers[id].close();
+    loadingIds.delete(id);
     if (vrms[id]) {
+        disposeVRM(vrms[id]);
         if (mainScene) mainScene.remove(vrms[id].scene);
         const l = document.getElementById(`label-${id}`); if (l) l.remove(); delete vrms[id];
     }
