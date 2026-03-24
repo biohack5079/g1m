@@ -68,6 +68,9 @@ let isSpeaking = false;
 let isListening = false;
 let lastResults = null;
 
+// リモート参加者の最新モーションデータを保存（peerId -> payload）
+let lastRemoteData = {};
+
 // Recording State
 let mediaRecorder;
 let recordedChunks = [];
@@ -346,6 +349,14 @@ function animate() {
 
         if (vrm.expressionManager && isSpeaking) {
             vrm.expressionManager.setValue('aa', (Math.sin(Date.now() / 100) + 1) * 0.4);
+        }
+    });
+
+    // リモート参加者のアバターに最新モーションを毎フレーム適用
+    // （onmessageで一度だけ適用するより、ループで毎フレーム維持する方が確実）
+    Object.entries(lastRemoteData).forEach(([id, payload]) => {
+        if (vrms[id]) {
+            mapMotionToVRM(vrms[id], payload);
         }
     });
 
@@ -758,13 +769,21 @@ function setupDC(id, dc) {
         try {
             const data = JSON.parse(e.data);
             if (data.type === 'motion') {
-                if (!vrms[id]) loadAvatar('g1_mchan.glb', id, `参加者 ${id.slice(0, 4)}`);
-                else mapMotionToVRM(vrms[id], data.payload);
+                // 最新のモーションデータを常に保存（animate ループで毎フレーム適用される）
+                // VRMがまだロード中でもデータを保持しておくことで、ロード完了後に即座に反映される
+                lastRemoteData[id] = data.payload;
+                if (!vrms[id] && !loadingIds.has(id)) {
+                    // VRMがなくロード中でもなければアバターをロード開始
+                    loadAvatar('g1_mchan.glb', id, `参加者 ${id.slice(0, 4)}`);
+                }
             }
             if (data.type === 'chat') speak(data.payload, `参加者 ${id.slice(0, 4)}`);
         } catch (err) { console.error('DC Message Error:', err); }
     };
-    dc.onclose = () => cleanupPeer(id);
+    dc.onclose = () => {
+        delete lastRemoteData[id]; // クリーンアップ時に保存データも削除
+        cleanupPeer(id);
+    };
 }
 
 
