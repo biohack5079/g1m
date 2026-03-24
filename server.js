@@ -20,37 +20,13 @@ const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // SocketIDと接続状態を管理
-const roleSockets = {
-    staff: null, 
-    unity: null
-};
+const participants = new Map(); // socket.id -> { socket, role }
 
 /**
- * 新しいソケットを役割に割り当て、既存のソケットを強制的に切断する。
- * @param {string} role - 役割 ("staff" or "unity")
- * @param {Socket} newSocket - 新しく接続したソケット
+ * 送信者以外の全参加者にメッセージをブロードキャストする
  */
-function setRoleSocket(role, newSocket) {
-    if (roleSockets[role] && roleSockets[role].id !== newSocket.id) {
-        console.log(`🔌 Previous ${role} socket (${roleSockets[role].id}) detected. Disconnecting...`);
-        try {
-            roleSockets[role].socket.disconnect();
-        } catch (e) {
-            console.error(`Failed to disconnect previous socket: ${e}`);
-        }
-    }
-    roleSockets[role] = { socket: newSocket, id: newSocket.id };
-    console.log(`✅ ${role} registered with socket ID: ${newSocket.id}`);
-}
-
-/**
- * 指定された役割の有効なソケットを取得する。
- * @param {string} role - 役割 ("staff" or "unity")
- * @returns {Socket|null} - 接続中のソケット、またはnull
- */
-function getSocket(role) {
-    if (!roleSockets[role]) return null;
-    return roleSockets[role].socket.connected ? roleSockets[role].socket : null;
+function broadcast(socket, event, data) {
+    socket.broadcast.emit(event, data);
 }
 
 io.on('connection', socket => {
@@ -62,81 +38,65 @@ io.on('connection', socket => {
             socket.disconnect();
             return;
         }
-        setRoleSocket(role, socket);
 
-        // 両クライアントが登録されたら、PWAにWebRTC接続開始を通知
-        const staffSocket = getSocket("staff");
-        const unitySocket = getSocket("unity");
-        if (staffSocket && unitySocket) {
-            console.log('🎉 Both clients are ready. Notifying Staff to start WebRTC.');
-            staffSocket.emit('start_webrtc');
+        participants.set(socket.id, { socket, role });
+        console.log(`✅ ${role} registered with socket ID: ${socket.id}`);
+
+        // 現在の全参加者リストを新しく入った人に送る
+        const others = Array.from(participants.entries())
+            .filter(([id]) => id !== socket.id)
+            .map(([id, info]) => ({ id, role: info.role }));
+
+        socket.emit('participants_list', others);
+
+        // 他の人に新しい人が入ったことを通知
+        broadcast(socket, 'participant_joined', { id: socket.id, role });
+    });
+
+    socket.on('offer', (data) => {
+        const { targetId, sdp } = data;
+        const target = participants.get(targetId);
+        if (target) {
+            console.log(`➡️ Offer from ${socket.id} to ${targetId}`);
+            target.socket.emit('offer', { from: socket.id, sdp });
         } else {
-            console.log(`⏳ Waiting for ${staffSocket ? 'Unity' : 'Staff'} client...`);
+            console.warn(`⚠️ Target ${targetId} not found for offer from ${socket.id}`);
         }
     });
 
-    socket.on('offer', (offer) => {
-        const staffSocket = getSocket('staff');
-        const unitySocket = getSocket('unity');
-        
-        if (socket.id === staffSocket?.id && unitySocket) {
-            console.log('➡️ PWAからのOfferを受信。Unityへ転送します。');
-            unitySocket.emit('offer', offer);
+    socket.on('answer', (data) => {
+        const { targetId, sdp } = data;
+        const target = participants.get(targetId);
+        if (target) {
+            console.log(`⬅️ Answer from ${socket.id} to ${targetId}`);
+            target.socket.emit('answer', { from: socket.id, sdp });
         } else {
-            console.warn(`⚠️ Offer received from unexpected client (${socket.id}). Ignored.`);
+            console.warn(`⚠️ Target ${targetId} not found for answer from ${socket.id}`);
         }
     });
 
-    socket.on('answer', (answer) => {
-        const staffSocket = getSocket('staff');
-        const unitySocket = getSocket('unity');
-
-        if (socket.id === unitySocket?.id && staffSocket) {
-            console.log('⬅️ UnityからのAnswerを受信。PWAへ転送します。');
-            staffSocket.emit('answer', answer);
+    socket.on('candidate', (data) => {
+        const { targetId, candidate } = data;
+        const target = participants.get(targetId);
+        if (target) {
+            console.log(`➡️ Candidate from ${socket.id} to ${targetId}`);
+            target.socket.emit('candidate', { from: socket.id, candidate });
         } else {
-            console.warn(`⚠️ Answer received from unexpected client (${socket.id}). Ignored.`);
+            console.warn(`⚠️ Target ${targetId} not found for candidate from ${socket.id}`);
         }
     });
 
-    socket.on('candidate', (candidate) => {
-        const staffSocket = getSocket('staff');
-        const unitySocket = getSocket('unity');
-
-        if (socket.id === staffSocket?.id && unitySocket) {
-            console.log('➡️ PWAからのCandidateを受信。Unityへ転送します。');
-            unitySocket.emit('candidate', candidate);
-        } else if (socket.id === unitySocket?.id && staffSocket) {
-            console.log('⬅️ UnityからのCandidateを受信。PWAへ転送します。');
-            staffSocket.emit('candidate', candidate);
-        }
-    });
-
-    // PWAがWebRTC接続完了を通知するイベント
+    // WebRTC接続完了を通知するイベント
     socket.on('webrtc_connected', () => {
-        console.log(`🎉 WebRTC connection confirmed by PWA (${socket.id}).`);
+        console.log(`🎉 WebRTC connection confirmed by ${socket.id}.`);
     });
 
     socket.on('disconnect', () => {
         console.log(`🔌 Socket disconnected: ${socket.id}`);
-        let disconnectedRole = null;
-        for (const role of ["staff", "unity"]) {
-            if (roleSockets[role]?.id === socket.id) {
-                roleSockets[role] = null;
-                disconnectedRole = role;
-                break;
-            }
-        }
-        // 相手のクライアントに切断を通知
-        const staffSocket = getSocket("staff");
-        const unitySocket = getSocket("unity");
-        if (staffSocket) {
-            staffSocket.emit("webrtc_close");
-            console.log(`Notified Staff client of disconnect.`);
-        }
-        if (unitySocket) {
-            unitySocket.emit("webrtc_close");
-            console.log(`Notified Unity client of disconnect.`);
+        if (participants.has(socket.id)) {
+            participants.delete(socket.id);
+            // 他の人に退出を通知
+            broadcast(socket, 'participant_left', { id: socket.id });
         }
     });
 });

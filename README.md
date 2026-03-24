@@ -99,6 +99,20 @@ Database / Auth: Supabase
 
 Client: PWA (mobile-first)
 
+👯 Avatar Meeting (Multi-user Sync Module)
+
+Avatar Meeting is a multi-user communication system where participants interact via 3D avatars.
+
+- Multi-peer VRM synchronization
+- Motion tracking via MediaPipe Holistic
+- Broadcast signaling for seamless entry/exit
+- Extensible protocol for robot control integration
+
+👉 Role in G1:m:
+
+- Virtual meeting space for humans and AI
+- Tele-presence interface for robot operation
+
 ⚖️ Design Principles
 ✔ Local-First Intelligence
 
@@ -199,3 +213,6 @@ Three.js
 MediaPipe
 
 Local LLM (Plower)
+---
+
+For local testing and development using `ngrok`, please refer to [DEVELOPMENT.md](DEVELOPMENT.md).

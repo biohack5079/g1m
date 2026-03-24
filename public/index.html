@@ -1,176 +1,377 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>G1m Staff Client</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>G1:M - アバター会議</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+JP:wght@300;400;700&display=swap"
+    rel="stylesheet">
   <style>
-    body { 
-      margin: 0; 
-      padding: 0; 
-      background-color: black; 
-      color: white; 
-      text-align: center; 
-      font-family: Arial, sans-serif;
-      overflow: hidden;
+    :root {
+      --primary: #00f2ff;
+      --secondary: #7000ff;
+      --bg: #050505;
+      --glass: rgba(255, 255, 255, 0.1);
+      --glass-border: rgba(255, 255, 255, 0.2);
     }
-    
-    h1 {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
+
+    body {
       margin: 0;
-      font-size: 24px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    }
-    
-    .controls {
-      position: absolute;
-      top: 50px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: center;
-      padding: 0 10px;
-    }
-    
-    .control-btn {
-      background-color: rgba(0, 123, 255, 0.9);
+      padding: 0;
+      background-color: var(--bg);
       color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: bold;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-      transition: all 0.2s ease;
-      min-width: 80px;
-    }
-    
-    .control-btn:hover:not(:disabled) {
-      background-color: rgba(0, 86, 179, 1);
-      transform: translateY(-1px);
-    }
-    
-    .control-btn:disabled {
-      background-color: rgba(108, 117, 125, 0.6);
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    .control-btn.stop {
-      background-color: rgba(220, 53, 69, 0.9);
-    }
-    
-    .control-btn.stop:hover:not(:disabled) {
-      background-color: rgba(200, 35, 51, 1);
-    }
-    
-    .status {
-      position: absolute;
-      top: 90px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
-      background-color: rgba(0, 0, 0, 0.8);
-      padding: 6px 12px;
-      border-radius: 15px;
-      font-size: 11px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      max-width: 90%;
-      text-align: center;
-    }
-    
-    .status.ready { 
-      color: #28a745; 
-      border-color: rgba(40, 167, 69, 0.4); 
-    }
-    .status.loading { 
-      color: #ffc107; 
-      border-color: rgba(255, 193, 7, 0.4); 
-    }
-    .status.error { 
-      color: #dc3545; 
-      border-color: rgba(220, 53, 69, 0.4); 
-    }
-    
-    #input_video {
-      width: 100vw;
+      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+      overflow: hidden;
       height: 100vh;
-      object-fit: cover;
-      display: block;
+      width: 100vw;
     }
-    
-    #output_canvas {
+
+    /* 3D Scene */
+    #scene-container {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      pointer-events: none;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
     }
-    
+
+    #three-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* アバター名札コンテナ */
+    #labels-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .avatar-label {
+      position: absolute;
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      border: 1px solid var(--glass-border);
+      transform: translate(-50%, 0);
+      white-space: nowrap;
+      color: white;
+    }
+
+    /* Monitor Overlay (MediaPipe Wireframe) */
+    #output_canvas {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 160px;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      pointer-events: none;
+      z-index: 21;
+      transform: scaleX(-1);
+      opacity: 0.8;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    #input_video {
+      position: absolute;
+      bottom: -1000px;
+      /* 隠す */
+      width: 1px;
+      height: 1px;
+    }
+
+    /* Header */
+    header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 20px;
+      z-index: 20;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 600;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Subtitles */
+    #subtitle-area {
+      position: absolute;
+      top: 25%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 85%;
+      text-align: center;
+      font-size: 26px;
+      font-weight: 700;
+      text-shadow: 0 0 10px rgba(0, 0, 0, 1), 0 0 20px var(--primary);
+      z-index: 15;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    /* Control Bar */
+    .controls-bar {
+      position: absolute;
+      bottom: 25px;
+      left: 20px;
+      right: 20px;
+      z-index: 40;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .btn-control {
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      color: white;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 18px;
+    }
+
+    .btn-control:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .btn-control.active {
+      background: var(--primary);
+      color: black;
+      border-color: var(--primary);
+    }
+
+    .btn-control.danger {
+      background: rgba(255, 50, 50, 0.2);
+    }
+
+    .btn-control.danger:hover {
+      background: #ff3232;
+    }
+
+    .btn-label {
+      font-size: 9px;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    /* Chat / LLM Input */
+    #chat-wrapper {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 500px;
+      z-index: 40;
+      display: flex;
+      gap: 10px;
+    }
+
+    #chat-input {
+      flex-grow: 1;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 25px;
+      color: white;
+      padding: 10px 20px;
+      outline: none;
+    }
+
+    #mic-btn.listening {
+      background: #ff3232;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.1);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* Status */
+    #status {
+      position: absolute;
+      top: 80px;
+      right: 20px;
+      z-index: 20;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #aaa;
+    }
+
+    .status-running .dot {
+      background: #00ff00;
+      box-shadow: 0 0 8px #00ff00;
+    }
+
+    .status-loading .dot {
+      background: #ffcc00;
+    }
+
     .hidden {
       display: none !important;
     }
-    
-    /* モバイル対応 */
-    @media (max-width: 480px) {
-      h1 {
+
+    @media (max-width: 768px) {
+      .controls-bar {
+        padding-bottom: 20px;
+      }
+
+      #subtitle-area {
         font-size: 20px;
-        top: 5px;
       }
-      
-      .controls {
-        top: 35px;
-        gap: 6px;
-      }
-      
-      .control-btn {
-        padding: 6px 10px;
-        font-size: 11px;
-        min-width: 70px;
-      }
-      
-      .status {
-        top: 75px;
-        font-size: 10px;
-        padding: 4px 8px;
+
+      #output_canvas {
+        width: 120px;
+        height: 67.5px;
+        top: 10px;
+        right: 10px;
       }
     }
   </style>
 </head>
+
 <body>
-  <h1>G1M</h1>
-  
-  <div class="status loading" id="status">
-    初期化中...
+  <header>
+    <div class="logo">G1:M</div>
+    <div id="participant-count">参加者: 1</div>
+  </header>
+
+  <div id="status" class="status-loading">
+    <div class="dot"></div>
+    <span id="status-text">初期化中...</span>
   </div>
-  
-  <div class="controls">
-    <button class="control-btn" id="startFrontCamera" disabled>前面カメラ</button>
-    <button class="control-btn" id="startBackCamera" disabled>背面カメラ</button>
-    <button class="control-btn stop hidden" id="stopCamera">停止</button>
+
+  <div id="subtitle-area"></div>
+
+  <div id="scene-container">
+    <canvas id="three-canvas"></canvas>
+    <div id="labels-container"></div>
   </div>
-  
+
+  <div id="chat-wrapper">
+    <input type="text" id="chat-input" placeholder="G1:Mちゃんに話しかける...">
+    <button class="btn-control" id="chat-send-btn" style="width: 44px; height: 44px;"><span
+        class="btn-label">➔</span></button>
+  </div>
+
+  <div class="controls-bar">
+    <button class="btn-control active" id="camera-toggle"><span>📹</span><span class="btn-label">カメラ</span></button>
+    <button class="btn-control active" id="mic-btn"><span>🎤</span><span class="btn-label">マイク</span></button>
+    <button class="btn-control" id="startFrontCamera"><span>🤳</span><span class="btn-label">前面</span></button>
+    <button class="btn-control" id="startBackCamera"><span>📷</span><span class="btn-label">背面</span></button>
+    <button class="btn-control danger" id="stopCamera"><span>🛑</span><span class="btn-label">終了</span></button>
+    <button class="btn-control" id="vmd-load-btn"><span>💃</span><span class="btn-label">モーション</span></button>
+    <input type="file" id="vmd-file-input" accept=".vmd" class="hidden">
+  </div>
+
+  <div id="debug-log"
+    style="position:fixed; bottom:80px; left:10px; right:10px; background:rgba(0,0,0,0.7); color:#0f0; font-family:monospace; font-size:10px; padding:5px; pointer-events:none; z-index:9999; max-height:100px; overflow-y:auto; border-radius:5px;">
+  </div>
+
   <video id="input_video" autoplay playsinline muted></video>
-  <canvas id="output_canvas" width="640" height="480"></canvas>
-  
+  <canvas id="output_canvas"></canvas>
+
+  <!-- Import Map for ESM -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/",
+        "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.0/lib/three-vrm.module.js"
+      }
+    }
+  </script>
+
+  <!-- 先行デバッガ: インポートエラーを捕捉 -->
+  <script>
+    window.addEventListener('error', function (e) {
+      if (e.target.tagName === 'SCRIPT' || e.message === 'Script error.') {
+        const log = document.getElementById('debug-log');
+        if (log) log.innerHTML += `<div style="color:#f55">[初期化失敗] ライブラリ読み込みに失敗しました。URLを確認してください。</div>`;
+      }
+    }, true);
+
+    // Console redirection MUST happen before module loads
+    (function () {
+      const log = document.getElementById('debug-log');
+      const orig = console.error;
+      console.error = function () {
+        if (log) {
+          const div = document.createElement('div');
+          div.style.color = '#f55';
+          div.textContent = Array.from(arguments).join(' ');
+          log.prepend(div);
+        }
+        orig.apply(console, arguments);
+      };
+    })();
+  </script>
+
+  <!-- MediaPipe / Socket.IO (Non-ESM) -->
   <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
 
   <script type="module" src="main.js"></script>
 </body>
+
 </html>
