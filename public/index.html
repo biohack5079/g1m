@@ -324,6 +324,7 @@
   <div class="controls-bar">
     <button class="btn-control active" id="startFrontCamera"><span>💃</span><span class="btn-label">前面</span></button>
     <button class="btn-control" id="startBackCamera"><span>🦾</span><span class="btn-label">背面</span></button>
+    <button class="btn-control" id="mic-btn"><span>🎤</span><span class="btn-label">マイク</span></button>
     <button class="btn-control" id="record-btn"><span id="record-icon">⚪️</span><span
         class="btn-label">録画</span></button>
     <button class="btn-control" id="export-btn"><span>💾</span><span class="btn-label">保存</span></button>
@@ -377,11 +378,13 @@
 
   <!-- MediaPipe / Socket.IO (Non-ESM) -->
   <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5/holistic.js" crossorigin="anonymous"></script>
 
-  <script type="module" src="main.js"></script>
+  <script type="module" src="main.js?v=1.0.3"></script>
 </body>
 
 </html>

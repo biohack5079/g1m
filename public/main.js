@@ -132,7 +132,7 @@ const BONE_MAP = {
 };
 
 // Three.js
-let renderer, scene, camera, controls;
+let renderer, mainScene = new THREE.Scene(), camera, controls;
 let clock = new THREE.Clock();
 
 function updateStatus(message, type = 'loading') {
@@ -145,11 +145,21 @@ async function startApp() {
     log('App: startApp() execution begins');
     try {
         updateStatus('システム起動中...', 'loading');
+
+        log('Init: Starting Three.js...');
         initThree();
+        log('Init: Three.js setup triggered');
+
+        log('Init: Starting Holistic...');
+        updateStatus('AIトラッキング初期化中...', 'loading');
         await initHolistic();
+        log('Init: Holistic ready');
+
         updateStatus('G1:M 準備完了', 'ready');
+        log('Init: All systems go!');
     } catch (e) {
         log(`Fatal Error during startApp: ${e.message}`, '#f55');
+        console.error('Fatal Init Error:', e);
         updateStatus('初期化エラー: ' + e.message, 'error');
     }
 }
@@ -160,20 +170,22 @@ function initThree() {
         renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, alpha: true, antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
+        // Disable shadowMap on mobile for performance and stability
+        if (window.innerWidth > 768) renderer.shadowMap.enabled = true;
 
-        scene = new THREE.Scene();
+        // mainScene is already initialized
+        // mainScene = new THREE.Scene();
         camera = new THREE.PerspectiveCamera(35.0, window.innerWidth / window.innerHeight, 0.1, 1000.0);
         camera.position.set(0.0, 1.4, 4.0);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        mainScene.add(new THREE.AmbientLight(0xffffff, 0.6));
         const light = new THREE.DirectionalLight(0xffffff, 1.5);
         light.position.set(1.0, 2.0, 1.0);
-        scene.add(light);
+        mainScene.add(light);
 
         const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
-        scene.add(grid);
-        scene.add(landmarkGroup); // Add landmarks to scene
+        mainScene.add(grid);
+        if (landmarkGroup) mainScene.add(landmarkGroup); // Add landmarks to scene
 
         // OrbitControls: カメラ操作（回転・拡大）の追加
         controls = new OrbitControls(camera, renderer.domElement);
@@ -213,8 +225,14 @@ async function loadAvatar(url, id, name) {
 
         vrms[id] = vrm;
         vrm.name = name || id;
-        scene.add(vrm.scene);
-        vrm.scene.rotation.y = Math.PI;
+        if (mainScene) {
+            mainScene.add(vrm.scene);
+            // Default VRM faces +Z. Camera is at +Z. 
+            // Setting rotation to 0 to face the user (the camera).
+            vrm.scene.rotation.y = 0;
+        } else {
+            log(`Loader Error: Scene not initialized when adding ${id}`, '#f55');
+        }
 
         const label = document.createElement('div');
         label.id = `label-${id}`;
@@ -267,8 +285,8 @@ function animate() {
         }
     });
 
-    if (renderer && scene && camera) {
-        renderer.render(scene, camera);
+    if (renderer && mainScene && camera) {
+        renderer.render(mainScene, camera);
     }
 }
 
@@ -276,12 +294,24 @@ async function initHolistic() {
     log('Holistic: Starting initiation...');
     if (typeof Holistic === 'undefined') { log('Holistic: MEDIA PIPE NOT LOADED!', '#f55'); return; }
     try {
-        holistic = new Holistic({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}` });
-        holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, refineFaceLandmarks: true, minDetectionConfidence: 0.5 });
+        holistic = new Holistic({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5/${file}`
+        });
+        holistic.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            refineFaceLandmarks: true,
+            minDetectionConfidence: 0.5
+        });
         holistic.onResults(onHolisticResults);
+
+        log('Holistic: Running initialize()...');
         await holistic.initialize();
         log('Holistic: System Initialized');
-    } catch (e) { log(`Holistic Error: ${e.message}`, '#f55'); }
+    } catch (e) {
+        log(`Holistic Error: ${e.message}`, '#f55');
+        throw e;
+    }
 }
 
 function updateLandmarks3D(res) {
@@ -498,27 +528,32 @@ function updateParticipantCount() {
 function updateLayout() {
     if (vrms['local']) {
         vrms['local'].scene.position.set(0, 0, 0);
-        vrms['local'].scene.rotation.y = Math.PI;
+        vrms['local'].scene.rotation.y = 0; // Face the camera (+Z)
     }
 
-    // Positioning Other Performers (including bot) in a circle around local
+    // Positioning Other Performers (including bot) in front of local (negative Z side)
     const others = Object.keys(vrms).filter(id => id !== 'local');
     const radius = 2.5;
     others.forEach((id, index) => {
         const vrm = vrms[id];
-        const angle = (index / others.length) * Math.PI * 2;
+        // Distribute others across the negative Z hemisphere
+        const angle = Math.PI + (index - (others.length - 1) / 2) * (Math.PI / 4);
         vrm.scene.position.set(
             Math.sin(angle) * radius,
             0,
             Math.cos(angle) * radius
         );
-        // Make them face the center
+        // Make them face the center (local avatar)
         vrm.scene.lookAt(0, 0, 0);
     });
 }
 
+let isLoadingBot = false;
 async function spawnBot() {
-    if (vrms['local'] && !vrms['bot']) {
+    if (isLoadingBot || vrms['bot']) return;
+    isLoadingBot = true;
+
+    if (vrms['local']) {
         log('Loader: Cloning local avatar for G1:M-chan bot');
         const botId = 'bot';
         const botName = 'G1:Mちゃん (AI)';
@@ -535,7 +570,8 @@ async function spawnBot() {
         };
 
         vrms[botId] = botVrm;
-        scene.add(clonedScene);
+        if (mainScene) mainScene.add(clonedScene);
+        else log('Loader Error: mainScene missing during bot spawn', '#f55');
 
         const label = document.createElement('div');
         label.id = `label-${botId}`;
@@ -547,8 +583,18 @@ async function spawnBot() {
     } else {
         await loadAvatar('g1_mchan.glb', 'bot', 'G1:Mちゃん (AI)');
     }
+    isLoadingBot = false;
 }
-function removeBot() { if (vrms['bot']) { scene.remove(vrms['bot'].scene); delete vrms['bot']; updateParticipantCount(); } }
+
+function removeBot() {
+    if (vrms['bot']) {
+        if (mainScene) mainScene.remove(vrms['bot'].scene);
+        const label = document.getElementById('label-bot');
+        if (label) label.remove();
+        delete vrms['bot'];
+        updateParticipantCount();
+    }
+}
 
 if (socket) {
     socket.on('connect', () => { log('Socket: Server connection active'); socket.emit('register_role', 'viewer'); });
@@ -567,7 +613,10 @@ if (socket) {
 
 function cleanupPeer(id) {
     if (peers[id]) peers[id].close();
-    if (vrms[id]) { scene.remove(vrms[id].scene); const l = document.getElementById(`label-${id}`); if (l) l.remove(); delete vrms[id]; }
+    if (vrms[id]) {
+        if (mainScene) mainScene.remove(vrms[id].scene);
+        const l = document.getElementById(`label-${id}`); if (l) l.remove(); delete vrms[id];
+    }
     delete peers[id]; delete dataChannels[id];
     updateParticipantCount();
 }
@@ -614,49 +663,73 @@ function setupDC(id, dc) {
 
 
 async function startCamera(mode = 'user') {
-    log(`Camera: Starting ${mode}...`);
+    log(`Camera: Requesting ${mode}...`);
     try {
-        // More robust constraints for PC
+        // Robust Constraints for Mobile/PC
         const constraints = {
             video: {
-                facingMode: mode,
-                width: { ideal: 1280, min: 640 },
-                height: { ideal: 720, min: 480 }
+                facingMode: { ideal: mode },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                frameRate: { ideal: 30 }
             }
         };
+
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
 
         let stream;
         try {
+            log(`Camera: Attempting getUserMedia with ideal constraints...`);
             stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err) {
-            log(`Camera: Ideal constraints failed, trying basic...`, '#ff0');
+            log(`Camera: Ideal constraints failed: ${err.name}. Retrying with basic...`, '#ff0');
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
         }
 
+        currentStream = stream;
         videoElement.srcObject = stream;
-        await videoElement.play();
 
-        // Sync Fix for All Browsers
-        videoElement.width = videoElement.videoWidth || 1280;
-        videoElement.height = videoElement.videoHeight || 720;
-        log(`Universal Sync: Video is ${videoElement.width}x${videoElement.height}`);
-        isRunning = true;
-
-        const loop = async () => {
-            if (isRunning) {
+        // Ensure video is playing for iOS Safari
+        return new Promise((resolve, reject) => {
+            videoElement.onloadedmetadata = async () => {
                 try {
-                    if (videoElement.readyState >= 2) {
-                        await holistic.send({ image: videoElement });
-                    }
-                } catch (e) { }
-                requestAnimationFrame(loop);
-            }
-        };
-        loop();
-        log('Sync: Tracking data started');
+                    await videoElement.play();
+                    log('Camera: Video stream playing');
+
+                    videoElement.width = videoElement.videoWidth;
+                    videoElement.height = videoElement.videoHeight;
+                    log(`Camera: Dimensions ${videoElement.width}x${videoElement.height}`);
+
+                    isRunning = true;
+                    const loop = async () => {
+                        if (isRunning) {
+                            try {
+                                if (videoElement.readyState >= 2) {
+                                    await holistic.send({ image: videoElement });
+                                }
+                            } catch (e) {
+                                // Silent fail for single frame send errors
+                            }
+                            requestAnimationFrame(loop);
+                        }
+                    };
+                    loop();
+                    log('Tracking: Loop started');
+                    resolve();
+                } catch (playErr) {
+                    log(`Camera: Play promise rejected: ${playErr.message}`, '#f55');
+                    reject(playErr);
+                }
+            };
+            videoElement.onerror = (e) => reject(new Error('Video element error'));
+        });
+
     } catch (e) {
         log('Camera Fatal Error: ' + e.message, '#f55');
-        alert('カメラの起動に失敗しました。ブラウザの設定を確認してください。');
+        alert('カメラの起動に失敗しました。ブラウザの設定と権限を確認してください。');
+        throw e;
     }
 }
 
@@ -713,11 +786,13 @@ if (SpeechRecognition) {
         handleChat(text);
     };
 
-    micBtn.onclick = () => {
-        log('Mic clicked');
-        if (isListening) { try { recognition.stop(); } catch (err) { } }
-        else { try { recognition.start(); } catch (err) { log('Speech Start Error: ' + err.message, '#f55'); } }
-    };
+    if (micBtn) {
+        micBtn.onclick = () => {
+            log('Mic clicked');
+            if (isListening) { try { recognition.stop(); } catch (err) { } }
+            else { try { recognition.start(); } catch (err) { log('Speech Start Error: ' + err.message, '#f55'); } }
+        };
+    }
 }
 
 // --- i18n Support ---
