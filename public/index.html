@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>G1:M - アバター会議</title>
+  <title>G1:m Dance Floor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -109,29 +109,37 @@
     }
 
     .logo {
-      font-size: 24px;
-      font-weight: 600;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 1px;
       background: linear-gradient(45deg, var(--primary), var(--secondary));
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
     }
 
-    /* Subtitles */
+    /* Subtitles / Large Chat Overlay */
     #subtitle-area {
       position: absolute;
-      top: 25%;
+      top: 35%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 85%;
+      width: 90%;
+      max-width: 800px;
       text-align: center;
-      font-size: 26px;
-      font-weight: 700;
-      text-shadow: 0 0 10px rgba(0, 0, 0, 1), 0 0 20px var(--primary);
-      z-index: 15;
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1.4;
+      text-shadow: 0 0 15px rgba(0, 0, 0, 1), 0 0 30px var(--primary);
+      z-index: 100;
       pointer-events: none;
       opacity: 0;
-      transition: opacity 0.5s ease;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 20px;
+      backdrop-filter: blur(5px);
     }
 
     /* Control Bar */
@@ -273,7 +281,8 @@
       }
 
       #subtitle-area {
-        font-size: 20px;
+        font-size: 24px;
+        width: 95%;
       }
 
       #output_canvas {
@@ -288,7 +297,7 @@
 
 <body>
   <header>
-    <div class="logo">G1:M</div>
+    <div class="logo" id="main-logo">G1:m Dance Floor</div>
     <div id="participant-count">参加者: 1</div>
   </header>
 
@@ -308,15 +317,18 @@
     <input type="text" id="chat-input" placeholder="G1:Mちゃんに話しかける...">
     <button class="btn-control" id="chat-send-btn" style="width: 44px; height: 44px;"><span
         class="btn-label">➔</span></button>
+    <button class="btn-control" id="translate-send-btn" style="width: 44px; height: 44px;"
+      title="Translate to English & Send"><span class="btn-label">🇺🇸</span></button>
   </div>
 
   <div class="controls-bar">
-    <button class="btn-control active" id="camera-toggle"><span>📹</span><span class="btn-label">カメラ</span></button>
-    <button class="btn-control active" id="mic-btn"><span>🎤</span><span class="btn-label">マイク</span></button>
-    <button class="btn-control" id="startFrontCamera"><span>🤳</span><span class="btn-label">前面</span></button>
-    <button class="btn-control" id="startBackCamera"><span>📷</span><span class="btn-label">背面</span></button>
-    <button class="btn-control danger" id="stopCamera"><span>🛑</span><span class="btn-label">終了</span></button>
-    <button class="btn-control" id="vmd-load-btn"><span>💃</span><span class="btn-label">モーション</span></button>
+    <button class="btn-control active" id="startFrontCamera"><span>💃</span><span class="btn-label">前面</span></button>
+    <button class="btn-control" id="startBackCamera"><span>🦾</span><span class="btn-label">背面</span></button>
+    <button class="btn-control" id="record-btn"><span id="record-icon">⚪️</span><span
+        class="btn-label">録画</span></button>
+    <button class="btn-control" id="export-btn"><span>💾</span><span class="btn-label">保存</span></button>
+    <button class="btn-control danger" id="stopCamera"><span>▢</span><span class="btn-label">終了</span></button>
+    <button class="btn-control" id="vmd-load-btn"><span>🕺</span><span class="btn-label">MMD</span></button>
     <input type="file" id="vmd-file-input" accept=".vmd" class="hidden">
   </div>
 

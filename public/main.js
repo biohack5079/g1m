@@ -4,6 +4,7 @@ import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
 import { MMDAnimationHelper } from 'three/addons/animation/MMDAnimationHelper.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRM, VRMUtils, VRMLoaderPlugin } from '@pixiv/three-vrm';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 // --- Debug Tool ---
 const debugArea = document.getElementById('debug-log');
@@ -33,11 +34,15 @@ const subtitleArea = document.getElementById('subtitle-area');
 const chatInput = document.getElementById('chat-input');
 const sendBtn = document.getElementById('chat-send-btn');
 const labelsContainer = document.getElementById('labels-container');
-const cameraToggle = document.getElementById('camera-toggle');
-const micBtn = document.getElementById('mic-btn');
 const startFrontBtn = document.getElementById('startFrontCamera');
 const startBackBtn = document.getElementById('startBackCamera');
 const stopBtn = document.getElementById('stopCamera');
+const micBtn = document.getElementById('mic-btn');
+const vmdBtn = document.getElementById('vmd-load-btn');
+const recordBtn = document.getElementById('record-btn');
+const recordIcon = document.getElementById('record-icon');
+const exportBtn = document.getElementById('export-btn');
+const translateBtn = document.getElementById('translate-send-btn');
 
 // Global References from script tags
 const io = window.io;
@@ -63,6 +68,13 @@ let isSpeaking = false;
 let isListening = false;
 let lastResults = null;
 
+// Recording State
+let mediaRecorder;
+let recordedChunks = [];
+let isRecording = false;
+
+// (Declarations moved to top)
+
 // --- 3D Landmark Overlay (Visualizer) ---
 let landmarkGroup = new THREE.Group();
 let poseDots = [];
@@ -78,7 +90,36 @@ for (let i = 0; i < 21; i++) {
     landmarkGroup.add(ld); landmarkGroup.add(rd);
     leftHandDots.push(ld); rightHandDots.push(rd);
 }
+let faceDots = [];
+for (let i = 0; i < 468; i += 10) { // Sampling face mesh for performance
+    const fd = new THREE.Mesh(new THREE.SphereGeometry(0.005), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    fd.visible = false; landmarkGroup.add(fd); faceDots.push(fd);
+}
 let mmdHelper = new MMDAnimationHelper();
+
+// Smoothing State
+let smoothedResults = {
+    poseLandmarks: null,
+    leftHandLandmarks: null,
+    rightHandLandmarks: null,
+    faceLandmarks: null
+};
+const SMOOTHING_FACTOR = 0.3; // Lower = smoother, higher = more responsive
+
+function lerpLandmarks(prev, curr, factor) {
+    if (!prev) return curr;
+    if (!curr) return prev;
+    return curr.map((lm, i) => {
+        const p = prev[i];
+        if (!p) return lm;
+        return {
+            x: p.x + (lm.x - p.x) * factor,
+            y: p.y + (lm.y - p.y) * factor,
+            z: p.z + (lm.z - p.z) * factor,
+            visibility: lm.visibility
+        };
+    });
+}
 
 // Bone Mapping
 const BONE_MAP = {
@@ -140,6 +181,10 @@ function initThree() {
         controls.target.set(0, 1.3, 0);
 
         log('Three: Grid & Controls active, starting loop');
+
+        // Initial Pose Setup: Arms down
+        // We'll apply this in loadAvatar and animate loop until tracking takes over
+
         animate();
 
         log('Three: Launching avatar load');
@@ -190,8 +235,19 @@ function animate() {
 
     Object.values(vrms).forEach(vrm => {
         if (vrm.update) vrm.update(delta);
-        // Apply tracking in every frame to ensure it wins over animation
-        if (vrm.name === '自分' && lastResults) mapMotionToVRM(vrm, lastResults);
+
+        // Apply tracking or initial pose
+        if (vrm.name === '自分') {
+            if (lastResults) {
+                mapMotionToVRM(vrm, lastResults);
+            } else {
+                // Initial Pose: Arms down (Naturally)
+                const leftUpper = vrm.humanoid?.getRawBoneNode('leftUpperArm');
+                const rightUpper = vrm.humanoid?.getRawBoneNode('rightUpperArm');
+                if (leftUpper) leftUpper.rotation.z = Math.PI * 0.45;
+                if (rightUpper) rightUpper.rotation.z = -Math.PI * 0.45;
+            }
+        }
 
         if (vrm.expressionManager && isSpeaking) {
             vrm.expressionManager.setValue('aa', (Math.sin(Date.now() / 100) + 1) * 0.4);
@@ -230,40 +286,96 @@ async function initHolistic() {
 
 function updateLandmarks3D(res) {
     if (!vrms['local']) return;
-    const pos = vrms['local'].scene.position;
-    const rot = vrms['local'].scene.rotation.y;
+    const vrm = vrms['local'];
+    const pos = vrm.scene.position;
+    const rot = vrm.scene.rotation.y;
     landmarkGroup.position.copy(pos);
     landmarkGroup.rotation.y = rot;
 
-    const scaleX = 1.0, scaleY = 1.6;
+    // Bone mapping for anchors
+    const bones = {
+        head: vrm.humanoid?.getRawBoneNode('head'),
+        lHand: vrm.humanoid?.getRawBoneNode('leftHand'),
+        rHand: vrm.humanoid?.getRawBoneNode('rightHand'),
+        hips: vrm.humanoid?.getRawBoneNode('hips')
+    };
+
+    const getPos = (bone) => {
+        let v = new THREE.Vector3();
+        if (bone) bone.getWorldPosition(v);
+        return v;
+    };
+
+    const headPos = getPos(bones.head);
+    const lHandPos = getPos(bones.lHand);
+    const rHandPos = getPos(bones.rHand);
+    const hipsPos = getPos(bones.hips);
+
+    // --- Pose (Body) ---
     if (res.poseLandmarks) {
         res.poseLandmarks.forEach((lm, i) => {
             const p = poseDots[i];
             if (p) {
-                p.position.set((lm.x - 0.5) * scaleX, (1.0 - lm.y) * scaleY, 0); // Flat on Z for now
+                // Map relative to hips for the body
+                const offsetX = (lm.x - 0.5) * 1.5;
+                const offsetY = (1.0 - lm.y) * 1.8;
+                p.position.set(hipsPos.x + offsetX, offsetY, hipsPos.z);
                 p.visible = true;
             }
         });
     }
+
+    // --- Face ---
+    if (res.faceLandmarks) {
+        faceDots.forEach((d, index) => {
+            const i = index * 10;
+            const lm = res.faceLandmarks[i];
+            if (lm && d) {
+                // Map relative to head bone
+                const offsetX = (lm.x - 0.5) * 0.25;
+                const offsetY = (0.5 - lm.y) * 0.25;
+                d.position.set(headPos.x + offsetX, headPos.y + offsetY, headPos.z + 0.1);
+                d.visible = true;
+            }
+        });
+    }
+
+    // --- Hands ---
     if (res.leftHandLandmarks) {
         res.leftHandLandmarks.forEach((lm, i) => {
             const d = leftHandDots[i];
-            if (d) { d.position.set((lm.x - 0.5) * scaleX, (1.0 - lm.y) * scaleY, 0); d.visible = true; }
+            if (d) {
+                const offsetX = (lm.x - res.leftHandLandmarks[0].x) * 0.4;
+                const offsetY = -(lm.y - res.leftHandLandmarks[0].y) * 0.4;
+                d.position.set(lHandPos.x + offsetX, lHandPos.y + offsetY, lHandPos.z);
+                d.visible = true;
+            }
         });
     }
     if (res.rightHandLandmarks) {
         res.rightHandLandmarks.forEach((lm, i) => {
             const d = rightHandDots[i];
-            if (d) { d.position.set((lm.x - 0.5) * scaleX, (1.0 - lm.y) * scaleY, 0); d.visible = true; }
+            if (d) {
+                const offsetX = (lm.x - res.rightHandLandmarks[0].x) * 0.4;
+                const offsetY = -(lm.y - res.rightHandLandmarks[0].y) * 0.4;
+                d.position.set(rHandPos.x + offsetX, rHandPos.y + offsetY, rHandPos.z);
+                d.visible = true;
+            }
         });
     }
 }
 
 function onHolisticResults(results) {
-    lastResults = results; // Store for the main loop
-    if (results) updateLandmarks3D(results);
+    // Smoothing / Interpolation
+    smoothedResults.poseLandmarks = lerpLandmarks(smoothedResults.poseLandmarks, results.poseLandmarks, SMOOTHING_FACTOR);
+    smoothedResults.leftHandLandmarks = lerpLandmarks(smoothedResults.leftHandLandmarks, results.leftHandLandmarks, SMOOTHING_FACTOR);
+    smoothedResults.rightHandLandmarks = lerpLandmarks(smoothedResults.rightHandLandmarks, results.rightHandLandmarks, SMOOTHING_FACTOR);
+    smoothedResults.faceLandmarks = lerpLandmarks(smoothedResults.faceLandmarks, results.faceLandmarks, SMOOTHING_FACTOR);
+
+    lastResults = smoothedResults; // Store smoothed results for the main loop
+    if (smoothedResults) updateLandmarks3D(smoothedResults);
+
     if (canvasCtx) {
-        // Universal Sync Fix (Step 2: ensure canvas matches layout)
         if (canvasElement.width !== window.innerWidth) {
             canvasElement.width = window.innerWidth;
             canvasElement.height = window.innerHeight;
@@ -273,22 +385,28 @@ function onHolisticResults(results) {
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
         // Drawing Connectors (Bones/Wireframe)
+        // Accessing via window or global namespace if provided by MediaPipe
+        const mpHolistic = window;
+        const poseConn = mpHolistic.POSE_CONNECTIONS || window.POSE_CONNECTIONS;
+        const handConn = mpHolistic.HAND_CONNECTIONS || window.HAND_CONNECTIONS;
+        const faceConn = mpHolistic.FACEMESH_TESSELATION || window.FACEMESH_TESSELATION;
+
         if (typeof drawConnectors !== 'undefined') {
             // POSE
-            if (results.poseLandmarks && typeof POSE_CONNECTIONS !== 'undefined') {
-                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
+            if (smoothedResults.poseLandmarks && poseConn) {
+                drawConnectors(canvasCtx, smoothedResults.poseLandmarks, poseConn, { color: '#00F2FF', lineWidth: 2 });
             }
             // HANDS
-            if (results.leftHandLandmarks && typeof HAND_CONNECTIONS !== 'undefined') {
-                drawConnectors(canvasCtx, results.leftHandLandmarks, HAND_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
+            if (smoothedResults.leftHandLandmarks && handConn) {
+                drawConnectors(canvasCtx, smoothedResults.leftHandLandmarks, handConn, { color: '#00F2FF', lineWidth: 2 });
             }
-            if (results.rightHandLandmarks && typeof HAND_CONNECTIONS !== 'undefined') {
-                drawConnectors(canvasCtx, results.rightHandLandmarks, HAND_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
+            if (smoothedResults.rightHandLandmarks && handConn) {
+                drawConnectors(canvasCtx, smoothedResults.rightHandLandmarks, handConn, { color: '#7000ff', lineWidth: 2 });
             }
         }
         canvasCtx.restore();
     }
-    syncMotion(results);
+    syncMotion(smoothedResults);
 }
 
 function mapMotionToVRM(vrm, res) {
@@ -364,35 +482,72 @@ function syncMotion(results) {
 }
 
 function updateParticipantCount() {
-    const activeCount = Object.keys(vrms).filter(id => id !== 'local' && id !== 'bot').length;
-    if (participantCountText) participantCountText.textContent = `参加者: ${activeCount + 1}`;
+    const othersCount = Object.keys(peers).length;
+    if (participantCountText) participantCountText.textContent = `参加者: ${othersCount + 1}`;
 
-    if (activeCount === 0 && !vrms['bot']) spawnBot();
-    else if (activeCount > 0 && vrms['bot']) removeBot();
+    // AI Agent logic: only spawn bot if alone and it doesn't already exist
+    if (othersCount === 0) {
+        if (!vrms['bot']) spawnBot();
+    } else {
+        if (vrms['bot']) removeBot();
+    }
 
     updateLayout();
 }
 
 function updateLayout() {
-    // Positioning Bot and Local
-    if (vrms['bot']) {
-        vrms['bot'].scene.position.set(0, 0, -1.2);
-        vrms['bot'].scene.rotation.y = 0; // Face -Z (Local)
-    }
     if (vrms['local']) {
         vrms['local'].scene.position.set(0, 0, 0);
-        vrms['local'].scene.rotation.y = Math.PI; // Face +Z (Bot)
+        vrms['local'].scene.rotation.y = Math.PI;
     }
-    // Positioning Other Performers
-    const performers = Object.keys(vrms).filter(id => id !== 'local' && id !== 'bot');
-    performers.forEach((id, index) => {
+
+    // Positioning Other Performers (including bot) in a circle around local
+    const others = Object.keys(vrms).filter(id => id !== 'local');
+    const radius = 2.5;
+    others.forEach((id, index) => {
         const vrm = vrms[id];
-        vrm.scene.position.set((index + 1) * 1.5, 0, 0);
-        vrm.scene.rotation.y = Math.PI;
+        const angle = (index / others.length) * Math.PI * 2;
+        vrm.scene.position.set(
+            Math.sin(angle) * radius,
+            0,
+            Math.cos(angle) * radius
+        );
+        // Make them face the center
+        vrm.scene.lookAt(0, 0, 0);
     });
 }
 
-async function spawnBot() { await loadAvatar('g1_mchan.glb', 'bot', 'G1:Mちゃん (AI)'); }
+async function spawnBot() {
+    if (vrms['local'] && !vrms['bot']) {
+        log('Loader: Cloning local avatar for G1:M-chan bot');
+        const botId = 'bot';
+        const botName = 'G1:Mちゃん (AI)';
+
+        // Clone the local scene instead of re-loading
+        const clonedScene = THREE.SkeletonUtils.clone(vrms['local'].scene);
+
+        // Create a basic VRM-like object (simplified since we only need scene and basic updates)
+        const botVrm = {
+            scene: clonedScene,
+            name: botName,
+            humanoid: vrms['local'].humanoid, // Re-use humanoid for bone refs if possible or just rely on bone names
+            update: (delta) => { /* bot specific logic */ }
+        };
+
+        vrms[botId] = botVrm;
+        scene.add(clonedScene);
+
+        const label = document.createElement('div');
+        label.id = `label-${botId}`;
+        label.className = 'avatar-label';
+        label.textContent = botName;
+        if (labelsContainer) labelsContainer.appendChild(label);
+
+        updateParticipantCount();
+    } else {
+        await loadAvatar('g1_mchan.glb', 'bot', 'G1:Mちゃん (AI)');
+    }
+}
 function removeBot() { if (vrms['bot']) { scene.remove(vrms['bot'].scene); delete vrms['bot']; updateParticipantCount(); } }
 
 if (socket) {
@@ -418,7 +573,15 @@ function cleanupPeer(id) {
 }
 
 async function createPeer(id, isInitiator) {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    const pc = new RTCPeerConnection({
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
+        ]
+    });
     peers[id] = pc;
     pc.onicecandidate = (e) => { if (e.candidate) socket.emit('candidate', { targetId: id, candidate: e.candidate }); };
 
@@ -453,11 +616,27 @@ function setupDC(id, dc) {
 async function startCamera(mode = 'user') {
     log(`Camera: Starting ${mode}...`);
     try {
-        const constraints = { video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } } };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        // More robust constraints for PC
+        const constraints = {
+            video: {
+                facingMode: mode,
+                width: { ideal: 1280, min: 640 },
+                height: { ideal: 720, min: 480 }
+            }
+        };
+
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+            log(`Camera: Ideal constraints failed, trying basic...`, '#ff0');
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+
         videoElement.srcObject = stream;
         await videoElement.play();
-        // Sync Fix for All Browsers (MediaPipe requirement for most environments)
+
+        // Sync Fix for All Browsers
         videoElement.width = videoElement.videoWidth || 1280;
         videoElement.height = videoElement.videoHeight || 720;
         log(`Universal Sync: Video is ${videoElement.width}x${videoElement.height}`);
@@ -465,33 +644,52 @@ async function startCamera(mode = 'user') {
 
         const loop = async () => {
             if (isRunning) {
-                try { await holistic.send({ image: videoElement }); } catch (e) { }
+                try {
+                    if (videoElement.readyState >= 2) {
+                        await holistic.send({ image: videoElement });
+                    }
+                } catch (e) { }
                 requestAnimationFrame(loop);
             }
         };
         loop();
         log('Sync: Tracking data started');
     } catch (e) {
-        log('Camera Error: ' + e.message, '#f55');
-        // Fallback for some browsers
-        if (e.name === 'OverconstrainedError') {
-            log('Camera: Retrying with simple constraints...');
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoElement.srcObject = stream;
-            await videoElement.play();
-            isRunning = true;
-        }
+        log('Camera Fatal Error: ' + e.message, '#f55');
+        alert('カメラの起動に失敗しました。ブラウザの設定を確認してください。');
     }
 }
 
-cameraToggle.onclick = () => {
-    if (isRunning) { isRunning = false; cameraToggle.classList.remove('active'); }
-    else { cameraToggle.classList.add('active'); socket.emit('register_role', 'staff'); startCamera('user'); }
-};
-
-if (startFrontBtn) startFrontBtn.onclick = () => startCamera('user');
-if (startBackBtn) startBackBtn.onclick = () => startCamera('environment');
+if (startFrontBtn) startFrontBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('user'); };
+if (startBackBtn) startBackBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('environment'); };
 if (stopBtn) stopBtn.onclick = () => location.reload();
+
+// --- Motion (VMD) Loading Logic ---
+const vmdInput = document.getElementById('vmd-file-input');
+
+if (vmdBtn && vmdInput) {
+    vmdBtn.onclick = () => vmdInput.click();
+    vmdInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !vrms['local']) return;
+
+        log(`MMD: Loading motion ${file.name}...`);
+        try {
+            const loader = new MMDLoader();
+            const url = URL.createObjectURL(file);
+
+            loader.loadAnimation(url, vrms['local'].scene, (mmd) => {
+                log('MMD: Motion loaded, playing...');
+                mmdHelper.add(vrms['local'].scene, { animation: mmd });
+                // Note: Tracking might conflict, so we might need a toggle
+            }, (xhr) => {
+                log(`MMD: ${(xhr.loaded / xhr.total * 100).toFixed(0)}%`);
+            }, (err) => {
+                log('MMD Error: ' + err.message, '#f55');
+            });
+        } catch (err) { log('MMD Loader Error: ' + err.message, '#f55'); }
+    };
+}
 
 // --- Voice Recognition Restoration ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -522,42 +720,202 @@ if (SpeechRecognition) {
     };
 }
 
-async function handleChat(text) {
-    if (!text) return;
-    const isAlone = Object.keys(vrms).filter(id => id !== 'local' && id !== 'bot').length === 0;
-    if (isAlone) {
-        log('Chat: AI (G1:M) processing...');
-        const answer = await performLlmRequest(text);
-        speak(answer, 'G1:M');
-    } else {
-        const data = { type: 'chat', payload: text };
-        Object.values(dataChannels).forEach(dc => { if (dc.readyState === 'open') dc.send(JSON.stringify(data)); });
-        speak(text, '自分');
+// --- i18n Support ---
+const labels = {
+    ja: {
+        logo: "G1:m Dance Floor",
+        chatPlaceholder: "G1:mちゃんに話しかける...",
+        micLabel: "マイク",
+        cameraLabel: "カメラ",
+        frontLabel: "前面",
+        backLabel: "背面",
+        stopLabel: "終了",
+        motionLabel: "モーション",
+        participants: "参加者: "
+    },
+    en: {
+        logo: "G1:m Dance Floor",
+        chatPlaceholder: "Talk to G1:m-chan...",
+        micLabel: "Mic",
+        cameraLabel: "Camera",
+        frontLabel: "Front",
+        backLabel: "Back",
+        stopLabel: "Stop",
+        motionLabel: "Motion",
+        participants: "Participants: "
     }
+};
+
+function applyI18n() {
+    const lang = navigator.language.startsWith('ja') ? 'ja' : 'en';
+    const t = labels[lang];
+
+    if (chatInput) chatInput.placeholder = t.chatPlaceholder;
+    const logoEl = document.getElementById('main-logo');
+    if (logoEl) logoEl.textContent = t.logo;
+
+    // Update button labels
+    const btnLabels = document.querySelectorAll('.btn-label');
+    btnLabels.forEach(el => {
+        if (el.textContent === 'カメラ') el.textContent = t.cameraLabel;
+        if (el.textContent === 'マイク') el.textContent = t.micLabel;
+        if (el.textContent === '前面') el.textContent = t.frontLabel;
+        if (el.textContent === '背面') el.textContent = t.backLabel;
+        if (el.textContent === '終了') el.textContent = t.stopLabel;
+        if (el.textContent === 'モーション') el.textContent = t.motionLabel;
+    });
 }
 
-async function performLlmRequest(prompt) {
-    let endpoint = 'https://cybernetcall-plower.hf.space/api/generate';
-    try {
-        const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'cybernetcall-plower', prompt: prompt }) });
-        if (res.ok) {
-            const s = await res.json();
-            return s.response || s.answer || "うまく答えられません。";
-        }
-    } catch (e) { log('LLM Error: ' + e.message, '#f55'); }
-    return "接続エラー。";
-}
+applyI18n();
 
 async function speak(text, sender = '') {
     if (!subtitleArea) return;
-    subtitleArea.style.opacity = 1; isSpeaking = true;
+
+    subtitleArea.style.opacity = 1;
+    subtitleArea.style.transform = 'translate(-50%, -50%) scale(1)';
+    isSpeaking = true;
+
     let current = sender ? `[${sender}] ` : '';
+    // If text is too long, we might want to truncate or wrap (CSS handles wrap)
+
+    subtitleArea.textContent = current;
+
+    // Typewriter effect
     for (const char of text.split('')) {
-        current += char; subtitleArea.textContent = current;
-        await new Promise(r => setTimeout(r, 40));
+        current += char;
+        subtitleArea.textContent = current;
+        await new Promise(r => setTimeout(r, 30));
     }
-    await new Promise(r => setTimeout(r, 2000));
-    subtitleArea.style.opacity = 0; isSpeaking = false;
+
+    // Keep visible for at least 3 seconds
+    await new Promise(r => setTimeout(r, 3000));
+
+    subtitleArea.style.opacity = 0;
+    subtitleArea.style.transform = 'translate(-50%, -50%) scale(0.95)';
+    isSpeaking = false;
+}
+
+// Update handleChat to use speak for own messages too
+async function handleChat(text, option = {}) {
+    if (!text) return;
+    log(`Chat: ${text}`);
+
+    const isAlone = Object.keys(vrms).filter(id => id !== 'local' && id !== 'bot').length === 0;
+
+    // Translation logic
+    let sendText = text;
+    if (option.translate) {
+        log('Chat: Translating to English...');
+        const translationPrompt = `Translate the following Japanese text to English. Return ONLY the translation.\n\nText: ${text}`;
+        sendText = await performLlmRequest(translationPrompt);
+        log(`Chat: Translated to: ${sendText}`);
+    }
+
+    // Show locally immediately
+    speak(sendText, '自分');
+
+    if (isAlone) {
+        log('Chat: AI (G1:M) processing...');
+        const answer = await performLlmRequest(sendText);
+        speak(answer, 'G1:M');
+    } else {
+        // Participants are present: Exclusive mode
+        // Instead of free-form, we could show "Help" options if requested
+        if (text.toLowerCase() === 'help') {
+            const helpMsg = "HELP MENU:\n1. Dance Mode\n2. Group Intro\n3. System Info";
+            speak(helpMsg, 'G1:M (System)');
+        }
+
+        const data = { type: 'chat', payload: sendText };
+        Object.values(dataChannels).forEach(dc => { if (dc.readyState === 'open') dc.send(JSON.stringify(data)); });
+    }
+
+    if (chatInput) chatInput.value = '';
+}
+
+// --- Recording Logic ---
+if (recordBtn) {
+    recordBtn.onclick = () => {
+        if (!isRecording) {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+    };
+}
+
+function startRecording() {
+    recordedChunks = [];
+    const stream = threeCanvas.captureStream(30); // Capture Three.js canvas at 30fps
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        log('Recording: Stopped');
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    recordIcon.textContent = '🔴';
+    recordBtn.style.background = 'rgba(255, 0, 0, 0.4)';
+    log('Recording: Started');
+}
+
+function stopRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        recordIcon.textContent = '⚪️';
+        recordBtn.style.background = 'var(--glass)';
+    }
+}
+
+if (exportBtn) {
+    exportBtn.onclick = () => {
+        if (recordedChunks.length === 0) {
+            alert('録画データがありません。');
+            return;
+        }
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `G1M_Session_${Date.now()}.webm`;
+        a.click();
+        log('Export: Download started');
+    };
+}
+
+if (translateBtn) {
+    translateBtn.onclick = () => handleChat(chatInput.value, { translate: true });
+}
+
+sendBtn.onclick = () => handleChat(chatInput.value);
+chatInput.onkeydown = (e) => { if (e.key === 'Enter') handleChat(chatInput.value); };
+
+async function performLlmRequest(prompt) {
+    // Updating to GPT 20B endpoint on Hugging Face as per user request
+    // The user mentioned checking plower/script.js for model info.
+    // GPT 20B is often a larger model, so we'll use a direct API if possible or the established Space.
+    let endpoint = 'https://cybernetcall-plower.hf.space/api/generate';
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'gpt-20b', // Specific model name for the Space
+                prompt: prompt
+            })
+        });
+        if (res.ok) {
+            const s = await res.json();
+            return s.response || s.answer || s.result || "うまく答えられません。";
+        }
+    } catch (e) { log('LLM Error: ' + e.message, '#f55'); }
+    return "接続エラー。";
 }
 
 startApp();
