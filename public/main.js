@@ -61,6 +61,23 @@ let currentStream = null;
 let isRunning = false;
 let isSpeaking = false;
 let isListening = false;
+let lastResults = null;
+
+// --- 3D Landmark Overlay (Visualizer) ---
+let landmarkGroup = new THREE.Group();
+let poseDots = [];
+for (let i = 0; i < 33; i++) {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02), new THREE.MeshBasicMaterial({ color: 0x00f2ff }));
+    dot.visible = false; landmarkGroup.add(dot); poseDots.push(dot);
+}
+let leftHandDots = [], rightHandDots = [];
+for (let i = 0; i < 21; i++) {
+    const ld = new THREE.Mesh(new THREE.SphereGeometry(0.015), new THREE.MeshBasicMaterial({ color: 0x00f2ff }));
+    const rd = new THREE.Mesh(new THREE.SphereGeometry(0.015), new THREE.MeshBasicMaterial({ color: 0x7000ff }));
+    ld.visible = rd.visible = false;
+    landmarkGroup.add(ld); landmarkGroup.add(rd);
+    leftHandDots.push(ld); rightHandDots.push(rd);
+}
 let mmdHelper = new MMDAnimationHelper();
 
 // Bone Mapping
@@ -115,6 +132,7 @@ function initThree() {
 
         const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
         scene.add(grid);
+        scene.add(landmarkGroup); // Add landmarks to scene
 
         // OrbitControls: カメラ操作（回転・拡大）の追加
         controls = new OrbitControls(camera, renderer.domElement);
@@ -168,10 +186,13 @@ function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
     if (mmdHelper) mmdHelper.update(delta);
-    if (controls) controls.update(); // カメラ操作の更新
+    if (controls) controls.update();
 
     Object.values(vrms).forEach(vrm => {
         if (vrm.update) vrm.update(delta);
+        // Apply tracking in every frame to ensure it wins over animation
+        if (vrm.name === '自分' && lastResults) mapMotionToVRM(vrm, lastResults);
+
         if (vrm.expressionManager && isSpeaking) {
             vrm.expressionManager.setValue('aa', (Math.sin(Date.now() / 100) + 1) * 0.4);
         }
@@ -207,34 +228,138 @@ async function initHolistic() {
     } catch (e) { log(`Holistic Error: ${e.message}`, '#f55'); }
 }
 
+function updateLandmarks3D(res) {
+    if (!vrms['local']) return;
+    const pos = vrms['local'].scene.position;
+    const rot = vrms['local'].scene.rotation.y;
+    landmarkGroup.position.copy(pos);
+    landmarkGroup.rotation.y = rot;
+
+    const scaleX = 1.0, scaleY = 1.6;
+    if (res.poseLandmarks) {
+        res.poseLandmarks.forEach((lm, i) => {
+            const p = poseDots[i];
+            if (p) {
+                p.position.set((lm.x - 0.5) * scaleX, (1.0 - lm.y) * scaleY, 0); // Flat on Z for now
+                p.visible = true;
+            }
+        });
+    }
+    if (res.leftHandLandmarks) {
+        res.leftHandLandmarks.forEach((lm, i) => {
+            const d = leftHandDots[i];
+            if (d) { d.position.set((lm.x - 0.5) * scaleX, (1.0 - lm.y) * scaleY, 0); d.visible = true; }
+        });
+    }
+    if (res.rightHandLandmarks) {
+        res.rightHandLandmarks.forEach((lm, i) => {
+            const d = rightHandDots[i];
+            if (d) { d.position.set((lm.x - 0.5) * scaleX, (1.0 - lm.y) * scaleY, 0); d.visible = true; }
+        });
+    }
+}
+
 function onHolisticResults(results) {
+    lastResults = results; // Store for the main loop
+    if (results) updateLandmarks3D(results);
     if (canvasCtx) {
+        // Universal Sync Fix (Step 2: ensure canvas matches layout)
+        if (canvasElement.width !== window.innerWidth) {
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+        }
+
         canvasCtx.save();
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        if (results.poseLandmarks && typeof drawConnectors !== 'undefined' && typeof POSE_CONNECTIONS !== 'undefined') {
-            drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
+
+        // Drawing Connectors (Bones/Wireframe)
+        if (typeof drawConnectors !== 'undefined') {
+            // POSE
+            if (results.poseLandmarks && typeof POSE_CONNECTIONS !== 'undefined') {
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
+            }
+            // HANDS
+            if (results.leftHandLandmarks && typeof HAND_CONNECTIONS !== 'undefined') {
+                drawConnectors(canvasCtx, results.leftHandLandmarks, HAND_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
+            }
+            if (results.rightHandLandmarks && typeof HAND_CONNECTIONS !== 'undefined') {
+                drawConnectors(canvasCtx, results.rightHandLandmarks, HAND_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
+            }
         }
         canvasCtx.restore();
     }
-    if (vrms['local']) mapMotionToVRM(vrms['local'], results);
     syncMotion(results);
 }
 
 function mapMotionToVRM(vrm, res) {
-    if (!vrm || !res) return;
+    if (!vrm || !res || !vrm.humanoid) return;
+
+    // Helper to get VR0/VR1 bones
+    const getBone = (name) => {
+        return vrm.humanoid.getRawBoneNode(name) || vrm.humanoid.getRawBoneNode(name.charAt(0).toUpperCase() + name.slice(1));
+    };
+
+    // --- Face (Head Rotation & Mouth) ---
     if (res.faceLandmarks && vrm.expressionManager) {
         const face = res.faceLandmarks;
-        if (!isSpeaking) vrm.expressionManager.setValue('aa', Math.max(0, (face[14].y - face[13].y) * 10.0));
-        vrm.expressionManager.setValue('blinkLeft', Math.abs(face[159].y - face[145].y) < 0.015 ? 1.0 : 0.0);
-        vrm.expressionManager.setValue('blinkRight', Math.abs(face[386].y - face[374].y) < 0.015 ? 1.0 : 0.0);
-        const head = vrm.humanoid.getRawBoneNode('head');
-        if (head) { head.rotation.y = -(face[1].x - 0.5); head.rotation.x = (face[1].y - 0.5) * 0.5; }
+        const mouthOpen = Math.max(0, (face[14].y - face[13].y) * 10.0);
+        if (!isSpeaking) vrm.expressionManager.setValue('aa', mouthOpen);
+
+        const head = getBone('head');
+        if (head) {
+            head.rotation.y = -(face[1].x - 0.5);
+            head.rotation.x = (face[1].y - 0.5) * 0.5;
+        }
+    }
+
+    // --- Pose (Shoulders & Arms) ---
+    if (res.poseLandmarks) {
+        const pose = res.poseLandmarks;
+        const lUpper = getBone('leftUpperArm');
+        const lLower = getBone('leftLowerArm');
+        if (lUpper && pose[11] && pose[13]) {
+            const angle = Math.atan2(pose[13].y - pose[11].y, pose[13].x - pose[11].x);
+            lUpper.rotation.z = angle + Math.PI;
+        }
+        if (lLower && pose[13] && pose[15]) {
+            const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
+            lLower.rotation.z = angle + Math.PI;
+        }
+
+        const rUpper = getBone('rightUpperArm');
+        const rLower = getBone('rightLowerArm');
+        if (rUpper && pose[12] && pose[14]) {
+            const angle = Math.atan2(pose[14].y - pose[12].y, pose[14].x - pose[12].x);
+            rUpper.rotation.z = angle;
+        }
+        if (rLower && pose[14] && pose[16]) {
+            const angle = Math.atan2(pose[16].y - pose[14].y, pose[16].x - pose[14].x);
+            rLower.rotation.z = angle;
+        }
+    }
+
+    // --- Hands ---
+    if (res.leftHandLandmarks) {
+        const lHand = getBone('leftHand');
+        if (lHand) lHand.rotation.y = Math.PI / 2;
+    }
+    if (res.rightHandLandmarks) {
+        const rHand = getBone('rightHand');
+        if (rHand) rHand.rotation.y = -Math.PI / 2;
     }
 }
 
 function syncMotion(results) {
     if (!results) return;
-    const data = { type: 'motion', payload: { faceLandmarks: results.faceLandmarks, poseLandmarks: results.poseLandmarks } };
+    const data = {
+        type: 'motion',
+        payload: {
+            faceLandmarks: results.faceLandmarks,
+            poseLandmarks: results.poseLandmarks,
+            leftHandLandmarks: results.leftHandLandmarks,
+            rightHandLandmarks: results.rightHandLandmarks
+        }
+    };
     Object.values(dataChannels).forEach(dc => { if (dc.readyState === 'open') dc.send(JSON.stringify(data)); });
 }
 
@@ -331,7 +456,11 @@ async function startCamera(mode = 'user') {
         const constraints = { video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } } };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
-        await videoElement.play(); // Ensure playback starts
+        await videoElement.play();
+        // Sync Fix for All Browsers (MediaPipe requirement for most environments)
+        videoElement.width = videoElement.videoWidth || 1280;
+        videoElement.height = videoElement.videoHeight || 720;
+        log(`Universal Sync: Video is ${videoElement.width}x${videoElement.height}`);
         isRunning = true;
 
         const loop = async () => {
@@ -341,7 +470,7 @@ async function startCamera(mode = 'user') {
             }
         };
         loop();
-        log('Camera: Loop started');
+        log('Sync: Tracking data started');
     } catch (e) {
         log('Camera Error: ' + e.message, '#f55');
         // Fallback for some browsers
