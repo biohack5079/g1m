@@ -33,7 +33,7 @@ io.on('connection', socket => {
     console.log(`🔗 New socket connected: ${socket.id}`);
 
     socket.on('register_role', (role) => {
-        if (role !== "staff" && role !== "unity") {
+        if (role !== "staff" && role !== "unity" && role !== "viewer") {
             console.warn(`⚠️ Rejecting connection from unknown role: ${role}. Disconnecting...`);
             socket.disconnect();
             return;
