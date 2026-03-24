@@ -642,12 +642,25 @@ async function createPeer(id, isInitiator) {
     } else {
         pc.ondatachannel = (e) => setupDC(id, e.channel);
     }
+
+    pc.oniceconnectionstatechange = () => {
+        log(`WebRTC: ${id.slice(0, 4)} ICE state: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+            log(`WebRTC Error: Connection to ${id.slice(0, 4)} lost`, '#f55');
+        }
+    };
+
+    pc.onconnectionstatechange = () => {
+        log(`WebRTC: ${id.slice(0, 4)} Connection state: ${pc.connectionState}`);
+    };
+
     return pc;
 }
 
 function setupDC(id, dc) {
     dataChannels[id] = dc;
-    dc.onopen = () => log(`DC Open: ${id.slice(0, 4)}`);
+    dc.onopen = () => log(`DC Open: ${id.slice(0, 4)}`, '#0f0');
+    dc.onerror = (e) => log(`DC Error: ${id.slice(0, 4)} - ${e.message || 'Unknown'}`, '#f55');
     dc.onmessage = (e) => {
         try {
             const data = JSON.parse(e.data);
@@ -875,7 +888,8 @@ async function handleChat(text, option = {}) {
     if (!text) return;
     log(`Chat: ${text}`);
 
-    const isAlone = Object.keys(vrms).filter(id => id !== 'local' && id !== 'bot').length === 0;
+    const openChannels = Object.values(dataChannels).filter(dc => dc.readyState === 'open');
+    const isAlone = openChannels.length === 0;
 
     // Translation logic
     let sendText = text;
