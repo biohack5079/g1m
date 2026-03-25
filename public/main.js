@@ -383,10 +383,10 @@ async function initHolistic() {
     if (typeof Holistic === 'undefined') { log('Holistic: MEDIA PIPE NOT LOADED!', '#f55'); return; }
     try {
         holistic = new Holistic({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5/${file}`
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
         });
         holistic.setOptions({
-            modelComplexity: 1,
+            modelComplexity: window.innerWidth < 768 ? 0 : 1, // iPhoneなどのモバイルでは軽量モデルを使用
             smoothLandmarks: true,
             refineFaceLandmarks: true,
             minDetectionConfidence: 0.5
@@ -798,6 +798,7 @@ async function startCamera(mode = 'user') {
                 height: { ideal: 480 },
                 frameRate: { ideal: 30 }
             }
+            // audio: true を削除（iOS Safariで音声認識サービスと衝突するため）
         };
 
         if (currentStream) {
@@ -806,17 +807,22 @@ async function startCamera(mode = 'user') {
 
         let stream;
         try {
-            log(`Camera: Attempting getUserMedia with ideal constraints...`);
+            log(`Camera: Requesting Video...`);
             stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err) {
-            log(`Camera: Ideal constraints failed: ${err.name}. Retrying with basic...`, '#ff0');
+            log(`Camera: Ideal constraints failed: ${err.name}. Retrying with video only...`, '#ff0');
+            // マイクが使えない場合でもカメラだけは起動を試みる
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
         }
 
         currentStream = stream;
         videoElement.srcObject = stream;
 
-        // Ensure video is playing for iOS Safari
+        // iOS Safari requirements for camera stream
+        videoElement.setAttribute('playsinline', '');
+        videoElement.muted = true;
+        videoElement.playsInline = true;
+
         return new Promise((resolve, reject) => {
             videoElement.onloadedmetadata = async () => {
                 try {
@@ -828,11 +834,16 @@ async function startCamera(mode = 'user') {
                     log(`Camera: Dimensions ${videoElement.width}x${videoElement.height}`);
 
                     isRunning = true;
+                    let lastProcessingTime = 0;
                     const loop = async () => {
-                        if (isRunning) {
+                        // 音声入力中(isListening)はAI解析を一時停止してCPU負荷を下げる（iOS Safari対策）
+                        if (isRunning && !isListening) {
                             try {
-                                if (videoElement.readyState >= 2) {
+                                // 処理負荷を抑えるため、iPhoneでは少しだけ間隔をあける (Max 20fps程度)
+                                const now = performance.now();
+                                if (videoElement.readyState >= 2 && now - lastProcessingTime > 50) {
                                     await holistic.send({ image: videoElement });
+                                    lastProcessingTime = now;
                                 }
                             } catch (e) {
                                 // Silent fail for single frame send errors
@@ -889,19 +900,44 @@ if (vmdBtn && vmdInput) {
     };
 }
 
-// --- Voice Recognition Restoration ---
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SpeechRecognition) {
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ja-JP';
+// --- Voice Recognition ---
+let recognition = null; // Global recognition object
+
+function initSpeechRecognition() {
+    // 既存の認識セッションがあれば停止し、オブジェクトをクリア
+    if (recognition) {
+        try { recognition.stop(); } catch (e) { log('Speech: Error stopping old recognition: ' + e.message, '#ff0'); }
+        recognition = null; // 古いオブジェクトをクリア
+    }
+
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+        log('Speech API: Not supported in this browser.', '#f55');
+        return;
+    }
+
+    recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'ja'; // ja-JP より ja のほうがiOSでは安定する場合があります
     recognition.interimResults = false;
     recognition.continuous = false;
 
-    recognition.onstart = () => { isListening = true; micBtn.classList.add('listening'); log('Speech: Listening...'); updateStatus('音声入力中...', 'running'); };
+    recognition.onstart = () => { 
+        isListening = true; 
+        micBtn.classList.add('listening'); 
+        log('Speech: Listening...'); 
+        updateStatus('音声入力中...', 'running'); 
+    };
     recognition.onend = () => { isListening = false; micBtn.classList.remove('listening'); log('Speech: Stopped'); updateStatus('G1:M 準備完了', 'ready'); };
     recognition.onerror = (e) => {
-        log(`Speech Error DETAILED: ${e.error} ${e.message || ''}`, '#f55');
+        let errorMsg = `Speech Error: ${e.error}`;
+        if (e.error === 'service-not-allowed') {
+            errorMsg += ' - AI解析の負荷が高いか、OSの設定を確認してください。';
+        } else if (e.error === 'not-allowed') {
+            errorMsg += ' - マイクの使用が許可されていません。ブラウザ設定を確認してください。';
+        }
+        log(errorMsg, '#f55');
         isListening = false; micBtn.classList.remove('listening');
+        // エラー発生時は、次の試行のために認識オブジェクトを再初期化
     };
 
     recognition.onresult = (e) => {
@@ -911,11 +947,43 @@ if (SpeechRecognition) {
         handleChat(text);
     };
 
-    if (micBtn) {
-        micBtn.onclick = () => {
-            log('Mic clicked');
-            if (isListening) { try { recognition.stop(); } catch (err) { } }
-            else { try { recognition.start(); } catch (err) { log('Speech Start Error: ' + err.message, '#f55'); } }
+    log('Speech: Recognition object initialized.');
+}
+
+// スクリプト読み込み時に一度初期化
+initSpeechRecognition();
+
+if (micBtn) {
+    micBtn.onclick = () => {
+        log('Mic clicked');
+
+        // 1. オーディオコンテキストの有効化
+        if (!window.audioInitialized) {
+            const dummyContext = new (window.AudioContext || window.webkitAudioContext)();
+            dummyContext.resume();
+            window.audioInitialized = true;
+        }
+
+        if (isListening) {
+            try { recognition.stop(); } catch (err) { }
+        } else {
+            // 2. 認識オブジェクトを毎回フレッシュに生成（iOSのバグ回避）
+            initSpeechRecognition();
+            
+            if (recognition) {
+                try {
+                    // 3. カメラストリームのマイクを完全にオフにする
+                    if (currentStream) {
+                        currentStream.getAudioTracks().forEach(t => t.stop());
+                    }
+                    // ユーザーのジェスチャーコンテキストを維持するため、setTimeoutなしで直接開始
+                    recognition.start();
+                } catch (err) {
+                    log('Speech Start Failed: ' + err.message, '#f55');
+                }
+            } else {
+                log('Speech: Recognition object not available to start.', '#f55');
+            }
         };
     }
 }

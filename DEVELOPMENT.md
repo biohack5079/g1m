@@ -13,6 +13,7 @@ npm install
 # サーバー起動 (ポート 3000)
 npm start
 ```
+fuser -k 3000/tcp; sleep 1; npm start
 
 ### ポートが既に使用されている場合 (EADDRINUSE)
 もし「Error: listen EADDRINUSE: address already in use :::3000」と表示された場合は、以下のコマンドで残っているプロセスを終了してから再試行してください。
