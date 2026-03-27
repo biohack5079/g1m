@@ -270,7 +270,7 @@ function initThree() {
         animate();
 
         log('Three: Launching avatar load');
-        loadAvatar('g1_mchan.glb', 'local', '自分');
+        loadAvatar('g1-m_chan.glb', 'local', '自分');
     } catch (e) { log(`Three Loop Setup Error: ${e.message}`, '#f55'); }
 }
 
@@ -670,7 +670,7 @@ async function spawnBot() {
 
         updateParticipantCount();
     } else {
-        await loadAvatar('g1_mchan.glb', 'bot', 'G1:Mちゃん (AI)');
+        await loadAvatar('g1-m_chan.glb', 'bot', 'G1:Mちゃん (AI)');
     }
     isLoadingBot = false;
     loadingIds.delete('bot');
@@ -774,7 +774,7 @@ function setupDC(id, dc) {
                 lastRemoteData[id] = data.payload;
                 if (!vrms[id] && !loadingIds.has(id)) {
                     // VRMがなくロード中でもなければアバターをロード開始
-                    loadAvatar('g1_mchan.glb', id, `参加者 ${id.slice(0, 4)}`);
+                    loadAvatar('g1-m_chan.glb', id, `参加者 ${id.slice(0, 4)}`);
                 }
             }
             if (data.type === 'chat') speak(data.payload, `参加者 ${id.slice(0, 4)}`);
@@ -1166,18 +1166,13 @@ sendBtn.onclick = () => handleChat(chatInput.value);
 chatInput.onkeydown = (e) => { if (e.key === 'Enter') handleChat(chatInput.value); };
 
 async function performLlmRequest(prompt) {
-    // Updating to GPT 20B endpoint on Hugging Face as per user request
-    // The user mentioned checking plower/script.js for model info.
-    // GPT 20B is often a larger model, so we'll use a direct API if possible or the established Space.
-    let endpoint = 'https://cybernetcall-plower.hf.space/api/generate';
+    // 外部URLを隠蔽するため、自前のサーバーエンドポイントを経由させる
+    let endpoint = '/api/llm';
     try {
         const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'gpt-20b', // Specific model name for the Space
-                prompt: prompt
-            })
+            body: JSON.stringify({ prompt })
         });
         if (res.ok) {
             const s = await res.json();

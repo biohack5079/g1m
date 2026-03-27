@@ -16,6 +16,32 @@ const io = new Server(server, {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// JSONボディを解析するための設定
+app.use(express.json());
+
+/**
+ * AI プロキシエンドポイント
+ * 外部の AI API URL を隠蔽し、将来的な認証やレート制限の追加を容易にします。
+ */
+app.post('/api/llm', async (req, res) => {
+    const { prompt } = req.body;
+    try {
+        const response = await fetch('https://cybernetcall-plower.hf.space/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'gpt-20b',
+                prompt: prompt
+            })
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('LLM Proxy Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // 静的ファイルの提供（publicディレクトリ）
 app.use(express.static(path.join(__dirname, 'public')));
 

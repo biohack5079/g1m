@@ -13,7 +13,7 @@ npm install
 # サーバー起動 (ポート 3000)
 npm start
 ```
-fuser -k 3000/tcp; sleep 1; npm start
+
 
 ### ポートが既に使用されている場合 (EADDRINUSE)
 もし「Error: listen EADDRINUSE: address already in use :::3000」と表示された場合は、以下のコマンドで残っているプロセスを終了してから再試行してください。
@@ -50,3 +50,7 @@ fuser -k 3000/tcp
 - **Tracking**: MediaPipe Holistic (顔・体・手のキャプチャ)
 - **AI**: Gemini API / Hugging Face Space (対話・回答生成)
 - **Signaling**: Socket.IO / WebRTC (リアルタイム同期)
+
+# まとめ
+fuser -k 3000/tcp; sleep 1; npm start
+ngrok http 3000
