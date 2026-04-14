@@ -42,8 +42,21 @@ app.post('/api/llm', async (req, res) => {
     }
 });
 
+// GLBなど大きなアセットに強いキャッシュを設定（ngrok/cloudflaredの帯域節約）
+// GLBは変わらないので7日間キャッシュ可
+app.get('*.glb', (req, res, next) => {
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    next();
+});
+// JS/CSS バンドルも長めにキャッシュ（Viteはコンテンツハッシュ付きファイル名を使う）
+app.get(/\.(js|css|wasm)$/, (req, res, next) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    next();
+});
+
 // 静的ファイルの提供（publicディレクトリ）
-app.use(express.static(path.join(__dirname, 'public')));
+// React 移行後は frontend/dist を参照するように変更
+app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
 // SocketIDと接続状態を管理
 const participants = new Map(); // socket.id -> { socket, role }

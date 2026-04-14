@@ -1,0 +1,192 @@
+:root {
+  --primary: #00f2ff;
+  --secondary: #7000ff;
+  --glass: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+body {
+  margin: 0;
+  background-color: #050505;
+  color: white;
+  font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 20px;
+  z-index: 20;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+  pointer-events: none; /* 下の Canvas を操作できるように */
+}
+
+.logo {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+  white-space: nowrap; /* 改行を禁止 */
+  pointer-events: auto;
+}
+
+/* 3D Scene */
+#scene-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-color: #050505;
+}
+
+/* Status Indicator */
+.status-indicator {
+  position: absolute;
+  top: 85px;
+  right: 20px;
+  z-index: 30;
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--glass-border);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ff00;
+  box-shadow: 0 0 8px #00ff00;
+}
+
+.status-indicator.loading .status-dot {
+  background: #ffcc00;
+  box-shadow: 0 0 8px #ffcc00;
+}
+
+#three-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.participant-count {
+  pointer-events: auto;
+}
+
+/* Control Bar */
+.controls-bar {
+  position: absolute;
+  bottom: 25px;
+  left: 20px;
+  right: 20px;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.btn-control {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  color: white;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 18px;
+  pointer-events: auto;
+}
+
+.btn-control:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-control.active {
+  background: var(--primary);
+  color: black;
+  border-color: var(--primary);
+}
+
+.btn-control.danger {
+  background: rgba(255, 50, 50, 0.2);
+}
+
+.btn-label {
+  font-size: 9px;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* Chat Overlay */
+#subtitle-area {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 800px;
+  text-align: center;
+  font-size: 32px;
+  font-weight: 800;
+  text-shadow: 0 0 15px rgba(0, 0, 0, 1);
+  z-index: 100;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  border-radius: 20px;
+  backdrop-filter: blur(5px);
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-end;
+    padding: 10px 20px;
+  }
+  .logo {
+    align-self: flex-start;
+    font-size: 22px;
+  }
+}

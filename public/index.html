@@ -117,6 +117,7 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
       text-transform: uppercase;
+      white-space: nowrap; /* 文字列を一行に固定 */
     }
 
     /* Subtitles / Large Chat Overlay */
@@ -276,6 +277,17 @@
     }
 
     @media (max-width: 768px) {
+      header {
+        flex-direction: column; /* 縦に並べる */
+        align-items: flex-end;   /* 参加者数などを右寄せに */
+        padding: 10px 20px;
+      }
+
+      .logo {
+        align-self: flex-start; /* ロゴだけは左寄せを維持 */
+        font-size: 22px;        /* モバイル向けに少し小さく */
+      }
+
       .controls-bar {
         padding-bottom: 20px;
       }

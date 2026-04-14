@@ -11,3 +11,5 @@ Thumbs.db
 # --- Git自身に関する設定 ---
 *.swp
 *.lock
+
+g1m_reference/*

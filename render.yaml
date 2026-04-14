@@ -3,6 +3,6 @@ services:
     name: g1m-webrtc-server
     env: node
     plan: free
-    buildCommand: "npm install"
+    buildCommand: "npm install && npm run build"
     startCommand: "npm start"
     rootDir: ./

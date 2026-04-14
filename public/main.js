@@ -204,6 +204,7 @@ const BONE_MAP = {
 // Three.js
 let renderer, mainScene = new THREE.Scene(), camera, controls;
 let clock = new THREE.Clock();
+let isThreeInitialized = false;
 
 function updateStatus(message, type = 'loading') {
     if (statusText) statusText.textContent = message;
@@ -235,6 +236,7 @@ async function startApp() {
 }
 
 function initThree() {
+    if (isThreeInitialized) return;
     log('Three: Setting up renderer...');
     try {
         renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, alpha: true, antialias: true });
@@ -271,6 +273,7 @@ function initThree() {
 
         log('Three: Launching avatar load');
         loadAvatar('g1-m_chan.glb', 'local', '自分');
+        isThreeInitialized = true;
     } catch (e) { log(`Three Loop Setup Error: ${e.message}`, '#f55'); }
 }
 
@@ -339,11 +342,13 @@ function animate() {
             if (lastResults) {
                 mapMotionToVRM(vrm, lastResults);
             } else {
-                // Initial Pose: Arms down (Naturally)
-                const leftUpper = vrm.humanoid?.getRawBoneNode('leftUpperArm');
-                const rightUpper = vrm.humanoid?.getRawBoneNode('rightUpperArm');
-                if (leftUpper) leftUpper.rotation.z = Math.PI * 0.45;
-                if (rightUpper) rightUpper.rotation.z = -Math.PI * 0.45;
+                // Initial Pose: Arms up (V-pose)
+                const getBone = (name) => vrm.humanoid?.getRawBoneNode(name) || vrm.humanoid?.getRawBoneNode(name.charAt(0).toUpperCase() + name.slice(1));
+                const lUpper = getBone('leftUpperArm');
+                const rUpper = getBone( 'rightUpperArm');
+                // VRM: Negative Z on Left / Positive Z on Right moves arms UP
+                if (lUpper) lUpper.rotation.z = -Math.PI * 0.4;
+                if (rUpper) rUpper.rotation.z = Math.PI * 0.4;
             }
         }
 
@@ -383,10 +388,11 @@ async function initHolistic() {
     if (typeof Holistic === 'undefined') { log('Holistic: MEDIA PIPE NOT LOADED!', '#f55'); return; }
     try {
         holistic = new Holistic({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1675235345/${file}`
         });
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         holistic.setOptions({
-            modelComplexity: window.innerWidth < 768 ? 0 : 1, // iPhoneなどのモバイルでは軽量モデルを使用
+            modelComplexity: isMobile ? 0 : 1,
             smoothLandmarks: true,
             refineFaceLandmarks: true,
             minDetectionConfidence: 0.5
@@ -404,6 +410,13 @@ async function initHolistic() {
 
 function updateLandmarks3D(res) {
     if (!vrms['local']) return;
+
+    // Reset visibility before drawing new frame
+    poseDots.forEach(d => d.visible = false);
+    leftHandDots.forEach(d => d.visible = false);
+    rightHandDots.forEach(d => d.visible = false);
+    faceDots.forEach(d => d.visible = false);
+
     const vrm = vrms['local'];
     const pos = vrm.scene.position;
     const rot = vrm.scene.rotation.y;
@@ -505,10 +518,11 @@ function onHolisticResults(results) {
         // Drawing Connectors (Bones/Wireframe)
         // Accessing via window or global namespace if provided by MediaPipe
         const mpHolistic = window;
-        const poseConn = mpHolistic.POSE_CONNECTIONS || window.POSE_CONNECTIONS;
-        const handConn = mpHolistic.HAND_CONNECTIONS || window.HAND_CONNECTIONS;
-        const faceConn = mpHolistic.FACEMESH_TESSELATION || window.FACEMESH_TESSELATION;
+        const poseConn = window.POSE_CONNECTIONS || (window.Holistic ? window.Holistic.POSE_CONNECTIONS : null);
+        const handConn = window.HAND_CONNECTIONS || (window.Holistic ? window.Holistic.HAND_CONNECTIONS : null);
+        const faceConn = window.FACEMESH_TESSELATION || (window.Holistic ? window.Holistic.FACEMESH_TESSELATION : null);
 
+        // Ensure global drawConnectors is used
         if (typeof drawConnectors !== 'undefined') {
             // POSE
             if (smoothedResults.poseLandmarks && poseConn) {
@@ -836,20 +850,20 @@ async function startCamera(mode = 'user') {
                     isRunning = true;
                     let lastProcessingTime = 0;
                     const loop = async () => {
+                        if (!isRunning) return;
+
                         // 音声入力中(isListening)はAI解析を一時停止してCPU負荷を下げる（iOS Safari対策）
-                        if (isRunning && !isListening) {
+                        if (!isListening) {
                             try {
                                 // 処理負荷を抑えるため、iPhoneでは少しだけ間隔をあける (Max 20fps程度)
                                 const now = performance.now();
-                                if (videoElement.readyState >= 2 && now - lastProcessingTime > 50) {
+                                if (videoElement.readyState >= 2 && videoElement.currentTime > 0 && now - lastProcessingTime > 50) {
                                     await holistic.send({ image: videoElement });
                                     lastProcessingTime = now;
                                 }
-                            } catch (e) {
-                                // Silent fail for single frame send errors
-                            }
-                            requestAnimationFrame(loop);
+                            } catch (e) { /* Silent fail for single frame */ }
                         }
+                        requestAnimationFrame(loop);
                     };
                     loop();
                     log('Tracking: Loop started');
