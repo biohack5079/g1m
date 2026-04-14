@@ -166,7 +166,7 @@ const App: React.FC = () => {
         const dx = pose[13].x - pose[11].x;
         const dy = pose[13].y - pose[11].y;
         const angle = Math.atan2(dy, dx);
-        // 左腕: 0が水平(+X方向)、下向きは PI/2
+        // 左腕のマッピング修正
         lUpper.rotation.z = angle; 
       }
       if (lLower && pose[13] && pose[15]) {
@@ -178,7 +178,7 @@ const App: React.FC = () => {
         const dx = pose[14].x - pose[12].x;
         const dy = pose[14].y - pose[12].y;
         const angle = Math.atan2(dy, dx);
-        // 右腕: 鏡像なので反転を考慮
+        // 右腕のマッピング修正
         rUpper.rotation.z = -angle + Math.PI;
       }
       if (rLower && pose[14] && pose[16]) {
@@ -221,9 +221,10 @@ const App: React.FC = () => {
         vrm.expressionManager.setValue('aa', mouthOpen);
 
         // まばたき (159と145の距離などで判定)
-        const eyeL = 1.0 - Math.min(1.0, Math.max(0, (face[159].y - face[145].y) * 20.0));
         const eyeR = 1.0 - Math.min(1.0, Math.max(0, (face[386].y - face[374].y) * 20.0));
-        vrm.expressionManager.setValue('blinkLeft', eyeL);
+        
+        // 左目ウインクを維持するため、blinkLeftは常に1.0、右目のみトラッキング
+        vrm.expressionManager.setValue('blinkLeft', 1.0);
         vrm.expressionManager.setValue('blinkRight', eyeR);
       }
 
@@ -408,18 +409,14 @@ const App: React.FC = () => {
         }
         console.log("Humanoid Nodes:", boneNames);
 
-        // デフォルトポーズ設定 (左手上、右手前)
+        // デフォルトポーズ設定 (両腕を自然に下ろした状態)
         const getB = (name: string) => vrm.humanoid?.getNormalizedBoneNode(name as any);
         const lUp = getB('leftUpperArm');
         const rUp = getB('rightUpperArm');
-        if (lUp) {
-          lUp.rotation.set(0, 0, -Math.PI / 2); // 左手上
-          lUp.updateMatrix();
-        }
-        if (rUp) {
-          rUp.rotation.set(-Math.PI / 2, 0, 0); // 右手前
-          rUp.updateMatrix();
-        }
+
+        // 初期ポーズ適用: Z軸回転で腕を体の方へ寄せる
+        if (lUp) lUp.rotation.z = -1.2;
+        if (rUp) rUp.rotation.z = -1.2;
 
         if (id === 'local') {
           setStatus("G1:M 準備完了");

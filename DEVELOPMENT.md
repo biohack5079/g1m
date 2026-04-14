@@ -170,6 +170,11 @@ git add -A && git commit -m "変更内容" && git push
 > `buildCommand: "npm install && npm run build"`
 > Render 上でも React フロントをビルドしてから `npm start` (Express) で配信します。
 
+Render への再反映手順
+この変更を git commit し、git push してください。
+Render の Build Command は以下になっているか確認してください： npm install && cd frontend && npm install && npm run build
+Start Command は以下です： node server.js
+
 # ショートカット
 npm run dev
 ~/cloudflared tunnel --url http://localhost:3001

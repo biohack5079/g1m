@@ -54,9 +54,13 @@ app.get(/\.(js|css|wasm)$/, (req, res, next) => {
     next();
 });
 
-// 静的ファイルの提供（publicディレクトリ）
-// React 移行後は frontend/dist を参照するように変更
+// 静的ファイルの提供（Reactのビルド済みファイル）
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
+
+// どのルートに対しても index.html を返す (SPA対応)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
+});
 
 // SocketIDと接続状態を管理
 const participants = new Map(); // socket.id -> { socket, role }

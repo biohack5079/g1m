@@ -342,14 +342,19 @@ function animate() {
             if (lastResults) {
                 mapMotionToVRM(vrm, lastResults);
             } else {
-                // Initial Pose: Arms up (V-pose)
+                // 初期ポーズ: 右手は前、左手は上
                 const getBone = (name) => vrm.humanoid?.getRawBoneNode(name) || vrm.humanoid?.getRawBoneNode(name.charAt(0).toUpperCase() + name.slice(1));
                 const lUpper = getBone('leftUpperArm');
                 const rUpper = getBone( 'rightUpperArm');
-                // VRM: Negative Z on Left / Positive Z on Right moves arms UP
-                if (lUpper) lUpper.rotation.z = -Math.PI * 0.4;
-                if (rUpper) rUpper.rotation.z = Math.PI * 0.4;
+                if (lUpper) lUpper.rotation.set(0, 0, -Math.PI / 2); 
+                if (rUpper) rUpper.rotation.set(-Math.PI / 2, 0, 0);
             }
+        }
+
+        // 表情の適用 (常に左目ウインク)
+        if (vrm.expressionManager) {
+            vrm.expressionManager.setValue('blinkLeft', 1.0); // 左目をつぶる
+            vrm.expressionManager.setValue('blinkRight', 0.0);
         }
 
         if (vrm.expressionManager && isSpeaking) {
@@ -569,22 +574,24 @@ function mapMotionToVRM(vrm, res) {
         const lLower = getBone('leftLowerArm');
         if (lUpper && pose[11] && pose[13]) {
             const angle = Math.atan2(pose[13].y - pose[11].y, pose[13].x - pose[11].x);
-            lUpper.rotation.z = angle + Math.PI;
+            // VRMの左腕はZ軸正の方向が「下」
+            lUpper.rotation.z = angle; 
         }
         if (lLower && pose[13] && pose[15]) {
             const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
-            lLower.rotation.z = angle + Math.PI;
+            lLower.rotation.z = angle;
         }
 
         const rUpper = getBone('rightUpperArm');
         const rLower = getBone('rightLowerArm');
         if (rUpper && pose[12] && pose[14]) {
             const angle = Math.atan2(pose[14].y - pose[12].y, pose[14].x - pose[12].x);
-            rUpper.rotation.z = angle;
+            // VRMの右腕はZ軸負の方向が「下」なので反転
+            rUpper.rotation.z = -angle + Math.PI;
         }
         if (rLower && pose[14] && pose[16]) {
             const angle = Math.atan2(pose[16].y - pose[14].y, pose[16].x - pose[14].x);
-            rLower.rotation.z = angle;
+            rLower.rotation.z = -angle + Math.PI;
         }
     }
 
