@@ -5,6 +5,7 @@ import { VRM, VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { io, Socket } from 'socket.io-client';
 import './App.css';
+import { getAnonymousId } from './db';
 
 interface Participant {
   id: string;
@@ -46,6 +47,11 @@ const App: React.FC = () => {
   const [status, setStatus] = useState("システム起動中...");
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState("");
+  const [anonymousId, setAnonymousId] = useState<string>("");
+  const [isKampaModalOpen, setIsKampaModalOpen] = useState(false);
+  const [isDancing, setIsDancing] = useState(false);
+  const [amount, setAmount] = useState(100);
+  const [userWalletImage, setUserWalletImage] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const debugCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -130,6 +136,86 @@ const App: React.FC = () => {
     updateLayout();
     setStatus("G1:M 準備完了 (AIモード)");
   }, [updateLayout]);
+
+  // 匿名IDの初期化
+  useEffect(() => {
+    getAnonymousId().then(id => {
+      setAnonymousId(id);
+      // JavaバックエンドからWallet情報を取得してみる
+      fetch(`http://localhost:8080/api/kampa/wallet/${id}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.walletImageData) {
+            setUserWalletImage(data.walletImageData);
+          }
+        })
+        .catch(_err => console.log("Java Backend not available yet or local connection failed."));
+    });
+  }, []);
+
+  // カンパ処理
+  const handleDonate = async () => {
+    setStatus("カンパ送信中...");
+    try {
+      const res = await fetch("http://localhost:8080/api/kampa/donate", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount })
+      });
+      const message = await res.text();
+      setSubtitle(message);
+      
+      // お礼のアニメーション
+      setIsDancing(true);
+      setTimeout(() => setIsDancing(false), 5000); // 5秒間踊る
+      
+      // 音声合成でお礼
+      if ('speechSynthesis' in window) {
+        const uttr = new SpeechSynthesisUtterance(message);
+        uttr.lang = 'ja-JP';
+        window.speechSynthesis.speak(uttr);
+      }
+      
+      setIsKampaModalOpen(false);
+      setStatus("G1:M 準備完了");
+    } catch (e) {
+      console.error(e);
+      setStatus("送金シミュレーション完了 (Backend未接続)");
+      setSubtitle(`${amount}円送ったよ、ありがとう！`);
+      setIsDancing(true);
+      setTimeout(() => setIsDancing(false), 5000);
+      setIsKampaModalOpen(false);
+    }
+  };
+
+  // Wallet登録 (画像アップロード)
+  const handleUploadWallet = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = ev.target?.result as string;
+      setUserWalletImage(base64);
+      
+      // Javaバックエンドへ登録
+      try {
+        await fetch("http://localhost:8080/api/kampa/wallet/register", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            anonymousId,
+            walletImageData: base64,
+            walletType: "AirWallet"
+          })
+        });
+        setStatus("Wallet登録完了");
+      } catch (err) {
+        console.error("Backend error:", err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const removeBot = useCallback(() => {
     if (vrmsRef.current['bot']) {
@@ -790,6 +876,24 @@ const App: React.FC = () => {
       const now = performance.now();
       const delta = Math.min((now - lastTime) / 1000, 0.1); // deltaを最大0.1秒でキャップ
       lastTime = now;
+      
+      // ダンスアニメーション (isDancingがtrueの時)
+      if (isDancing && vrmsRef.current['bot']) {
+        const bot = vrmsRef.current['bot'];
+        const time = now * 0.005;
+        // 簡易的な左右の揺れと腕の動き
+        bot.scene.rotation.y = Math.sin(time) * 0.2;
+        const lArm = bot.humanoid.getNormalizedBoneNode('leftUpperArm' as any);
+        const rArm = bot.humanoid.getNormalizedBoneNode('rightUpperArm' as any);
+        if (lArm) lArm.rotation.z = -1.2 + Math.sin(time * 2) * 0.5;
+        if (rArm) rArm.rotation.z = -1.2 + Math.sin(time * 2 + Math.PI) * 0.5;
+        
+        if (bot.expressionManager) {
+            bot.expressionManager.setValue('aa', (Math.sin(time * 10) + 1) * 0.5);
+            bot.expressionManager.setValue('happy', 1.0);
+        }
+      }
+
       // vrm.updateが存在する場合のみ呼び出す (bot等の疑似VRMはupdateを持たない場合がある)
       Object.values(vrmsRef.current).forEach(vrm => { if (vrm?.update) vrm.update(delta); });
       controls.update();
@@ -896,7 +1000,51 @@ const App: React.FC = () => {
         <button className="btn-control danger" onClick={() => window.location.reload()}>
           <span>▢</span><span className="btn-label">終了</span>
         </button>
+        <button 
+          className={`btn-control ${isKampaModalOpen ? 'active' : ''}`}
+          onClick={() => {
+            setIsKampaModalOpen(true);
+            if ('speechSynthesis' in window) {
+              const uttr = new SpeechSynthesisUtterance("応援よろしく！");
+              uttr.lang = 'ja-JP';
+              window.speechSynthesis.speak(uttr);
+            }
+          }}
+        >
+          <span>💰</span><span className="btn-label">カンパ</span>
+        </button>
       </div>
+
+      {/* カンパ用モーダル */}
+      {isKampaModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>G1:Mちゃんを応援する</h3>
+            <div className="qr-container">
+              <p>G1:Mの投げ銭用QR</p>
+              <img src="/z1m/AirWallet/g1-m_chan.jpeg" alt="G1:M QR" className="qr-image" />
+            </div>
+            
+            <div className="donation-form">
+              <div className="input-group">
+                <label>自分のAirWalletを登録</label>
+                <input type="file" accept="image/*" onChange={handleUploadWallet} />
+                {userWalletImage && <div className="wallet-mini-preview"><img src={userWalletImage} alt="Your Wallet" /><span>登録済</span></div>}
+              </div>
+              
+              <div className="input-group">
+                <label>金額 (円)</label>
+                <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+              </div>
+              
+              <div className="modal-btns">
+                <button className="btn-action kampa" onClick={handleDonate}>カンパを送る</button>
+                <button className="btn-action close" onClick={() => setIsKampaModalOpen(false)}>閉じる</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
