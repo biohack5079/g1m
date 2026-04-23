@@ -82,8 +82,14 @@ io.on('connection', socket => {
             return;
         }
 
+        // 既に登録済みの場合は重複登録を防ぐ（再接続・再読み込み対策）
+        if (participants.has(socket.id)) {
+            console.warn(`⚠️ Socket ${socket.id} already registered as ${participants.get(socket.id).role}. Ignoring duplicate register_role.`);
+            return;
+        }
+
         participants.set(socket.id, { socket, role });
-        console.log(`✅ ${role} registered with socket ID: ${socket.id}`);
+        console.log(`✅ ${role} registered with socket ID: ${socket.id} | Total: ${participants.size}`);
 
         // 現在の全参加者リストを新しく入った人に送る
         const others = Array.from(participants.entries())
@@ -134,12 +140,13 @@ io.on('connection', socket => {
         console.log(`🎉 WebRTC connection confirmed by ${socket.id}.`);
     });
 
-    socket.on('disconnect', () => {
-        console.log(`🔌 Socket disconnected: ${socket.id}`);
+    socket.on('disconnect', (reason) => {
+        console.log(`🔌 Socket disconnected: ${socket.id} (reason: ${reason}) | Remaining: ${participants.size - 1}`);
         if (participants.has(socket.id)) {
             participants.delete(socket.id);
             // 他の人に退出を通知
             broadcast(socket, 'participant_left', { id: socket.id });
+            console.log(`🗑️ Cleaned up ${socket.id} | Total now: ${participants.size}`);
         }
     });
 });

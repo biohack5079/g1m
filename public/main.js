@@ -52,6 +52,7 @@ const POSE_CONNECTIONS = window.POSE_CONNECTIONS;
 
 // Socket.IO
 let socket;
+let isRegistered = false; // 重複登録防止フラグ
 try {
     socket = io();
     log('Signaling: Socket initiated');
@@ -704,12 +705,18 @@ function removeBot() {
         const label = document.getElementById('label-bot');
         if (label) label.remove();
         delete vrms['bot'];
-        updateParticipantCount();
+        // 注意: ここで updateParticipantCount() を呼ぶと、
+        // updateParticipantCount -> spawnBot/removeBot の無限ループになるので呼ばない
     }
 }
 
 if (socket) {
-    socket.on('connect', () => { log('Socket: Server connection active'); socket.emit('register_role', 'viewer'); });
+    socket.on('connect', () => {
+        isRegistered = false; // 再接続時はフラグをリセット
+        log('Socket: Server connection active');
+        socket.emit('register_role', 'viewer');
+        isRegistered = true;
+    });
     socket.on('participants_list', (l) => l.filter(p => p.id !== socket.id).forEach(p => createPeer(p.id, true)));
     socket.on('participant_left', (d) => cleanupPeer(d.id));
     socket.on('offer', async (d) => {
