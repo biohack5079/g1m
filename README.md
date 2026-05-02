@@ -3,10 +3,11 @@
 G1:m is a Virtual–Real Integration Platform that connects human input, virtual representation, and physical robotic execution into a unified system.
 
 Human Reality World (MediaPipe, mobile sensing, biosignal sensors)
-        ↕
-G1:m Avatar Universe (Three.js, Unity, SagbiAGI)
-        ↕
+        ↕ CyberNetCall BCI Connection 
+G1:m Avatar Universe (Three.js, Unity, Plower AGI)
+        ↕ G1:M P2P Connection
 Robotics Matrix World (KXR, Unitree, Optimus)
+
 
 G1:m functions as a Human Interface OS, absorbing differences between humans, avatars, and robots.
 
