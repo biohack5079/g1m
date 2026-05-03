@@ -10,6 +10,7 @@ import { getAnonymousId } from './db';
 interface Participant {
   id: string;
   role: string;
+  anonymousId?: string;
 }
 
 // MediaPipeのグローバル型定義
@@ -52,6 +53,9 @@ const App: React.FC = () => {
   const [isDancing, setIsDancing] = useState(false);
   const [amount, setAmount] = useState(100);
   const [userWalletImage, setUserWalletImage] = useState<string | null>(null);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [tappedWalletImage, setTappedWalletImage] = useState<string | null>(null);
+  const [tappedModelId, setTappedModelId] = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const debugCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,6 +69,8 @@ const App: React.FC = () => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const holisticRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
+  const threeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const lastResultsRef = useRef<any>(null);
   const smoothedResultsRef = useRef<any>({
     poseLandmarks: null,
@@ -141,15 +147,15 @@ const App: React.FC = () => {
   useEffect(() => {
     getAnonymousId().then(id => {
       setAnonymousId(id);
-      // JavaバックエンドからWallet情報を取得してみる
-      fetch(`http://localhost:8080/api/kampa/wallet/${id}`)
+      // Supabase経由でWallet情報を取得してみる
+      fetch(`/api/kampa/wallet/${id}`)
         .then(res => res.ok ? res.json() : null)
         .then(data => {
-          if (data && data.walletImageData) {
-            setUserWalletImage(data.walletImageData);
+          if (data && data.wallet_image_data) {
+            setUserWalletImage(data.wallet_image_data);
           }
         })
-        .catch(_err => console.log("Java Backend not available yet or local connection failed."));
+        .catch(_err => console.log("Wallet fetch failed (backend may not be running)."));
     });
   }, []);
 
@@ -157,7 +163,7 @@ const App: React.FC = () => {
   const handleDonate = async () => {
     setStatus("カンパ送信中...");
     try {
-      const res = await fetch("http://localhost:8080/api/kampa/donate", {
+      const res = await fetch("/api/kampa/donate", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount })
@@ -200,7 +206,7 @@ const App: React.FC = () => {
       
       // Javaバックエンドへ登録
       try {
-        await fetch("http://localhost:8080/api/kampa/wallet/register", {
+        await fetch("/api/kampa/wallet/register", {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -216,6 +222,78 @@ const App: React.FC = () => {
     };
     reader.readAsDataURL(file);
   };
+
+  // 3Dモデルタップ処理 - Raycasterでどのモデルがタップされたか判定
+  const handleModelTap = useCallback((event: MouseEvent | TouchEvent) => {
+    if (!threeCameraRef.current || !sceneRef.current || !canvasRef.current) return;
+
+    // モーダルが開いている場合はタップを無視
+    if (isKampaModalOpen || isQrModalOpen) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouse = new THREE.Vector2();
+
+    if (event instanceof TouchEvent) {
+      if (event.touches.length === 0) return;
+      mouse.x = ((event.touches[0].clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.touches[0].clientY - rect.top) / rect.height) * 2 + 1;
+    } else {
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    raycasterRef.current.setFromCamera(mouse, threeCameraRef.current);
+
+    // 各VRMのシーンに対してRaycast
+    for (const [id, vrm] of Object.entries(vrmsRef.current)) {
+      const intersects = raycasterRef.current.intersectObject(vrm.scene, true);
+      if (intersects.length > 0) {
+        console.log(`🎯 Tapped model: ${id}`);
+
+        // タップされたモデルの anonymousId を特定
+        let targetAnonymousId: string | null = null;
+
+        if (id === 'local') {
+          // 自分自身
+          targetAnonymousId = anonymousId;
+        } else if (id === 'bot') {
+          // Bot (G1:Mちゃん) → デフォルトのQR表示
+          setTappedModelId('G1:Mちゃん (AI)');
+          setTappedWalletImage(null); // デフォルト画像を使う
+          setIsQrModalOpen(true);
+          return;
+        } else {
+          // 他の参加者 → participantsから anonymousId を取得
+          const participant = participantsRef.current.find(p => p.id === id);
+          targetAnonymousId = participant?.anonymousId || null;
+        }
+
+        if (targetAnonymousId) {
+          setTappedModelId(id === 'local' ? '自分' : id.slice(0, 6));
+          // Supabase経由でWallet情報を取得
+          fetch(`/api/kampa/wallet/${targetAnonymousId}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data && data.wallet_image_data) {
+                setTappedWalletImage(data.wallet_image_data);
+              } else {
+                setTappedWalletImage(null);
+              }
+              setIsQrModalOpen(true);
+            })
+            .catch(() => {
+              setTappedWalletImage(null);
+              setIsQrModalOpen(true);
+            });
+        } else {
+          setTappedModelId(id.slice(0, 6));
+          setTappedWalletImage(null);
+          setIsQrModalOpen(true);
+        }
+        return; // 最初にヒットしたモデルだけ処理
+      }
+    }
+  }, [anonymousId, isKampaModalOpen, isQrModalOpen]);
 
   const removeBot = useCallback(() => {
     if (vrmsRef.current['bot']) {
@@ -749,7 +827,9 @@ const App: React.FC = () => {
 
     socket.on('connect', () => {
       console.log("Connected to Signaling Server");
-      socket.emit('register_role', 'viewer');
+      getAnonymousId().then(anonId => {
+        socket.emit('register_role', { role: 'viewer', anonymousId: anonId });
+      });
     });
 
     socket.on('participants_list', (list: Participant[]) => {
@@ -817,6 +897,7 @@ const App: React.FC = () => {
     }
 
     const camera = new THREE.PerspectiveCamera(35.0, window.innerWidth / window.innerHeight, 0.1, 1000.0);
+    threeCameraRef.current = camera;
     camera.position.set(0.0, 1.4, 4.0);
 
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -914,11 +995,29 @@ const App: React.FC = () => {
     };
     window.addEventListener('resize', handleResize);
 
+    // 3Dモデルタップ検出用イベントリスナー
+    const canvas = canvasRef.current;
+    const onCanvasClick = (e: MouseEvent) => {
+      // OrbitControlsのドラッグとの区別（微小な移動ならクリック扱い）
+      handleModelTap(e);
+    };
+    const onCanvasTouch = (e: TouchEvent) => {
+      handleModelTap(e);
+    };
+    if (canvas) {
+      canvas.addEventListener('click', onCanvasClick);
+      canvas.addEventListener('touchstart', onCanvasTouch, { passive: true });
+    }
+
     return () => {
       console.log("Cleaning up Three.js and Socket...");
       if (recognitionRef.current) recognitionRef.current.stop();
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
+      if (canvas) {
+        canvas.removeEventListener('click', onCanvasClick);
+        canvas.removeEventListener('touchstart', onCanvasTouch);
+      }
       socket.disconnect();
       // カメラのMediaPipeフレームループも停止
       if (cameraRef.current) {
@@ -1046,6 +1145,29 @@ const App: React.FC = () => {
                 <button className="btn-action kampa" onClick={handleDonate}>カンパを送る</button>
                 <button className="btn-action close" onClick={() => setIsKampaModalOpen(false)}>閉じる</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QRコード表示モーダル (3Dモデルタップ時) */}
+      {isQrModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsQrModalOpen(false)}>
+          <div className="modal-content qr-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{tappedModelId} のQRコード</h3>
+            <div className="qr-container">
+              {tappedWalletImage ? (
+                <img src={tappedWalletImage} alt="Wallet QR" className="qr-image" />
+              ) : (
+                <div className="qr-placeholder">
+                  <p>💳</p>
+                  <p>QRコード未登録</p>
+                  <p className="qr-hint">カンパボタンからWalletを登録できます</p>
+                </div>
+              )}
+            </div>
+            <div className="modal-btns">
+              <button className="btn-action close" onClick={() => setIsQrModalOpen(false)}>閉じる</button>
             </div>
           </div>
         </div>

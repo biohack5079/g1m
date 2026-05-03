@@ -17,7 +17,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // JSONボディを解析するための設定
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Base64画像に対応するためlimit拡大
+
+// --- Supabase 設定 ---
+const SUPABASE_URL = 'https://lvzxrzhfqdfiamrkgaxm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_DDg-RSOtr49o5T41bvZfOA_WzBRXLZ7';
+
+const supabaseHeaders = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+};
 
 /**
  * AI プロキシエンドポイント
@@ -42,6 +53,90 @@ app.post('/api/llm', async (req, res) => {
     }
 });
 
+// --- Kampa / Wallet API (Supabase REST) ---
+
+/**
+ * 指定された匿名IDに紐づくWallet情報を取得する。
+ */
+app.get('/api/kampa/wallet/:anonymousId', async (req, res) => {
+    const { anonymousId } = req.params;
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/wallet_info?anonymous_id=eq.${encodeURIComponent(anonymousId)}&select=*&limit=1`,
+            { headers: supabaseHeaders }
+        );
+        const data = await response.json();
+        if (data && data.length > 0) {
+            res.json(data[0]);
+        } else {
+            res.status(404).json({ error: 'Wallet not found' });
+        }
+    } catch (error) {
+        console.error('Supabase GET Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
+ * Wallet情報（QRコード画像データなど）を登録・更新する。
+ */
+app.post('/api/kampa/wallet/register', async (req, res) => {
+    const { anonymousId, walletImageData, walletType } = req.body;
+    try {
+        // 既存レコードを確認
+        const checkRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/wallet_info?anonymous_id=eq.${encodeURIComponent(anonymousId)}&select=id`,
+            { headers: supabaseHeaders }
+        );
+        const existing = await checkRes.json();
+
+        let response;
+        if (existing && existing.length > 0) {
+            // 更新 (PATCH)
+            response = await fetch(
+                `${SUPABASE_URL}/rest/v1/wallet_info?anonymous_id=eq.${encodeURIComponent(anonymousId)}`,
+                {
+                    method: 'PATCH',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        wallet_image_data: walletImageData,
+                        wallet_type: walletType || 'AirWallet'
+                    })
+                }
+            );
+        } else {
+            // 新規作成 (POST)
+            response = await fetch(
+                `${SUPABASE_URL}/rest/v1/wallet_info`,
+                {
+                    method: 'POST',
+                    headers: supabaseHeaders,
+                    body: JSON.stringify({
+                        anonymous_id: anonymousId,
+                        wallet_image_data: walletImageData,
+                        wallet_type: walletType || 'AirWallet'
+                    })
+                }
+            );
+        }
+
+        const result = await response.json();
+        res.json(Array.isArray(result) ? result[0] : result);
+    } catch (error) {
+        console.error('Supabase POST Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
+ * カンパ（模擬）のメッセージを受け取り、お礼のレスポンスを返す。
+ */
+app.post('/api/kampa/donate', (req, res) => {
+    const { amount } = req.body;
+    const message = `${amount}円送ったよ、ありがとう！応援よろしく！`;
+    res.json({ message });
+});
+
 // GLBなど大きなアセットに強いキャッシュを設定（ngrok/cloudflaredの帯域節約）
 // GLBは変わらないので7日間キャッシュ可
 app.get('*.glb', (req, res, next) => {
@@ -63,7 +158,7 @@ app.get('*', (req, res) => {
 });
 
 // SocketIDと接続状態を管理
-const participants = new Map(); // socket.id -> { socket, role }
+const participants = new Map(); // socket.id -> { socket, role, anonymousId }
 
 /**
  * 送信者以外の全参加者にメッセージをブロードキャストする
@@ -75,7 +170,17 @@ function broadcast(socket, event, data) {
 io.on('connection', socket => {
     console.log(`🔗 New socket connected: ${socket.id}`);
 
-    socket.on('register_role', (role) => {
+    socket.on('register_role', (payload) => {
+        // payloadはオブジェクト { role, anonymousId } または文字列 "staff"/"unity"/"viewer" を許容
+        let role, anonymousId;
+        if (typeof payload === 'string') {
+            role = payload;
+            anonymousId = null;
+        } else {
+            role = payload.role;
+            anonymousId = payload.anonymousId || null;
+        }
+
         if (role !== "staff" && role !== "unity" && role !== "viewer") {
             console.warn(`⚠️ Rejecting connection from unknown role: ${role}. Disconnecting...`);
             socket.disconnect();
@@ -88,18 +193,18 @@ io.on('connection', socket => {
             return;
         }
 
-        participants.set(socket.id, { socket, role });
-        console.log(`✅ ${role} registered with socket ID: ${socket.id} | Total: ${participants.size}`);
+        participants.set(socket.id, { socket, role, anonymousId });
+        console.log(`✅ ${role} registered with socket ID: ${socket.id} (anonId: ${anonymousId}) | Total: ${participants.size}`);
 
         // 現在の全参加者リストを新しく入った人に送る
         const others = Array.from(participants.entries())
             .filter(([id]) => id !== socket.id)
-            .map(([id, info]) => ({ id, role: info.role }));
+            .map(([id, info]) => ({ id, role: info.role, anonymousId: info.anonymousId }));
 
         socket.emit('participants_list', others);
 
         // 他の人に新しい人が入ったことを通知
-        broadcast(socket, 'participant_joined', { id: socket.id, role });
+        broadcast(socket, 'participant_joined', { id: socket.id, role, anonymousId });
     });
 
     socket.on('offer', (data) => {
