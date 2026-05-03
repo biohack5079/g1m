@@ -11,17 +11,31 @@ body {
   color: white;
   font-family: 'Outfit', 'Noto Sans JP', sans-serif;
   overflow: hidden;
-  height: 100vh;
+  height: 100dvh;
+  height: 100vh; /* dvh 非対応ブラウザ用フォールバック */
   width: 100vw;
   position: fixed;
   top: 0;
   left: 0;
 }
 
+@supports (height: 100dvh) {
+  body {
+    height: 100dvh;
+  }
+}
+
 .container {
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
+  height: 100vh; /* フォールバック */
   position: relative;
+}
+
+@supports (height: 100dvh) {
+  .container {
+    height: 100dvh;
+  }
 }
 
 .header {
@@ -105,15 +119,19 @@ body {
 
 /* Control Bar */
 .controls-bar {
-  position: absolute;
-  bottom: 25px;
-  left: 20px;
-  right: 20px;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 40;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
 }
 
 .btn-control {
