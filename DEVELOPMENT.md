@@ -175,6 +175,18 @@ Render への再反映手順
 Render の Build Command は以下になっているか確認してください： npm install && cd frontend && npm install && npm run build
 Start Command は以下です： node server.js
 
+# 移行
+npm install
+cloudflared install
+cd /home/me/Documents/d/g1m/g1m
+node server.js
+
+サービス	状態
+バックエンド (Express :3000)	✅ 起動中
+フロントエンド (Vite :3001)	✅ 起動中
+cloudflared トンネル ✅ 起動中
+
+
 # ショートカット
 npm run dev
 ~/cloudflared tunnel --url http://localhost:3001

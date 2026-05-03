@@ -579,10 +579,15 @@ const App: React.FC = () => {
     }
 
     try {
-      // 既存ストリームを停止
+      // 既存ストリームとMediaPipeループ・インスタンスを停止
       if (cameraRef.current) {
+        try { (cameraRef.current as any)._stopLoop?.(); } catch(e) {}
         try { (cameraRef.current as any).stop?.(); } catch(e) {}
         cameraRef.current = null;
+      }
+      if (holisticRef.current) {
+        try { holisticRef.current.close(); } catch(e) {}
+        holisticRef.current = null;
       }
 
       // --- MediaPipe Holistic 初期化 ---
