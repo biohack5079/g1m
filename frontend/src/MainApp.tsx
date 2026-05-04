@@ -528,8 +528,24 @@ const App: React.FC = () => {
   const createPeer = useCallback(async (targetId: string, isInitiator: boolean) => {
     if (peersRef.current[targetId]) return;
 
+    const iceServers: RTCIceServer[] = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ];
+
+    // TURN サーバーは cloudflared / HTTPS トンネル環境下ではほぼ必須です。
+    // VITE_TURN_URL を .env に設定して使ってください。
+    if (import.meta.env.VITE_TURN_URL) {
+      iceServers.push({
+        urls: import.meta.env.VITE_TURN_URL as string,
+        username: (import.meta.env.VITE_TURN_USERNAME as string) || undefined,
+        credential: (import.meta.env.VITE_TURN_PASSWORD as string) || undefined
+      });
+    }
+
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers
     });
     peersRef.current[targetId] = pc;
 
@@ -1140,7 +1156,7 @@ const App: React.FC = () => {
           onClick={() => {
             setIsKampaModalOpen(true);
             if ('speechSynthesis' in window) {
-              const uttr = new SpeechSynthesisUtterance("応援よろしく！");
+              const uttr = new SpeechSynthesisUtterance("応援よろしくね？");
               uttr.lang = 'ja-JP';
               window.speechSynthesis.speak(uttr);
             }
@@ -1205,7 +1221,11 @@ const App: React.FC = () => {
                 <div className="qr-placeholder">
                   <p>💳</p>
                   <p>QRコード未登録</p>
-                  <p className="qr-hint">カンパボタンからWalletを登録できます</p>
+                  <p className="qr-hint">
+                    {tappedModelId === '自分'
+                      ? '自分のQRはカンパから登録できます'
+                      : '相手のQRは未登録です。自分のQRはカンパから登録できます'}
+                  </p>
                 </div>
               )}
             </div>
