@@ -3,6 +3,7 @@ G1M/*
 !G1M/Assets/
 !G1M/Assets/Scripts/**
 node_modules/
+.env
 
 # --- macOS / Windows共通 ---
 .DS_Store
