@@ -694,6 +694,63 @@ const App: React.FC = () => {
     }
   }, [updateLayout]);
 
+  // --- Language Detection & Translation ---
+  /**
+   * Detect language: 'ja' for Japanese, 'en' for English
+   */
+  const detectLanguage = useCallback((text: string): 'ja' | 'en' => {
+    // Japanese characters: Hiragana, Katakana, Kanji, Japanese punctuation
+    const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3001-\u3008]/g;
+    // English: Latin letters and common punctuation
+    const englishRegex = /[a-zA-Z0-9\s.,!?\-'":;]/g;
+    
+    const japaneseMatches = (text.match(japaneseRegex) || []).length;
+    const englishMatches = (text.match(englishRegex) || []).length;
+    
+    if (japaneseMatches > englishMatches && japaneseMatches > text.length * 0.1) {
+      return 'ja';
+    }
+    return 'en';
+  }, []);
+
+  /**
+   * Translate text to target language via API
+   */
+  const translateText = useCallback(async (text: string, targetLang: 'ja' | 'en'): Promise<string> => {
+    try {
+      let prompt = '';
+      if (targetLang === 'en') {
+        prompt = `Translate the following Japanese text to English. Return ONLY the translation without any explanation.\n\nText: ${text}`;
+      } else if (targetLang === 'ja') {
+        prompt = `次の英文を日本語に翻訳してください。説明なしで翻訳のみを返してください。\n\nText: ${text}`;
+      }
+      
+      const res = await fetch('/api/llm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        return data.response || data.answer || data.result || text;
+      }
+    } catch (e) {
+      console.error('Translation Error:', e);
+    }
+    return text;
+  }, []);
+
+  /**
+   * Generate system prompt based on detected language
+   */
+  const generateSystemPrompt = useCallback((language: 'ja' | 'en'): string => {
+    if (language === 'ja') {
+      return `あなたは「G1:Mちゃん」というキャラクターです。ユーザーが日本語で話しかけてくれました。親切で、楽しく、サポーティブな性格で日本語で答えてください。短く、会話的な応答を心がけてください。`;
+    } else {
+      return `You are "G1:M-chan", a cheerful and supportive character. The user is speaking to you in English. Please respond in English with a friendly and conversational tone. Keep your response concise and engaging.`;
+    }
+  }, []);
 
   // チャット送信
   const handleChat = useCallback(async (text: string) => {
@@ -714,12 +771,44 @@ const App: React.FC = () => {
       return;
     }
 
+    // Auto-detect language
+    const detectedLang = detectLanguage(text);
+    console.log(`Chat: Detected language: ${detectedLang}`);
+
     setSubtitle(`[自分] ${text}`);
     setChatInput("");
     
     // AI Bot 対応 (一人の時)
     if (Object.keys(dataChannelsRef.current).length === 0 && vrmsRef.current['bot']) {
-      setTimeout(() => setSubtitle("[G1:M] こんにちは！"), 1000);
+      setTimeout(async () => {
+        // Generate system prompt based on detected language
+        const systemPrompt = generateSystemPrompt(detectedLang);
+        const fullPrompt = `${systemPrompt}\n\nUser: ${text}`;
+        
+        try {
+          const res = await fetch('/api/llm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: fullPrompt })
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            let answer = data.response || data.answer || data.result || "うまく答えられません。";
+            
+            // If response was in Japanese, add English translation
+            if (detectedLang === 'ja') {
+              const englishTranslation = await translateText(answer, 'en');
+              answer = `${answer}\n\n[EN] ${englishTranslation}`;
+            }
+            
+            setSubtitle(`[G1:M] ${answer}`);
+          }
+        } catch (e) {
+          console.error('LLM Error:', e);
+          setSubtitle("[G1:M] 接続エラー");
+        }
+      }, 1000);
     }
 
     const data = JSON.stringify({ type: 'chat', payload: text });
@@ -727,7 +816,7 @@ const App: React.FC = () => {
       if (dc.readyState === 'open') dc.send(data);
     });
     setTimeout(() => setSubtitle(""), 3000);
-  }, [uploadedFile]);
+  }, [uploadedFile, detectLanguage, translateText, generateSystemPrompt]);
 
   // 音声認識の初期化と制御
   useEffect(() => {

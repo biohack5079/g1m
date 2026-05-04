@@ -1099,6 +1099,50 @@ function applyI18n() {
 
 applyI18n();
 
+// --- Language Detection & Translation ---
+/**
+ * Detect language: 'ja' for Japanese, 'en' for English
+ */
+function detectLanguage(text) {
+    // Japanese characters: Hiragana, Katakana, Kanji, Japanese punctuation
+    const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3001-\u3008]/g;
+    // English: Latin letters and common punctuation
+    const englishRegex = /[a-zA-Z0-9\s.,!?\-'":;]/g;
+    
+    const japaneseMatches = (text.match(japaneseRegex) || []).length;
+    const englishMatches = (text.match(englishRegex) || []).length;
+    
+    if (japaneseMatches > englishMatches && japaneseMatches > text.length * 0.1) {
+        return 'ja';
+    }
+    return 'en';
+}
+
+/**
+ * Translate text to another language
+ */
+async function translateText(text, targetLang) {
+    if (targetLang === 'en') {
+        const prompt = `Translate the following Japanese text to English. Return ONLY the translation without any explanation.\n\nText: ${text}`;
+        return await performLlmRequest(prompt);
+    } else if (targetLang === 'ja') {
+        const prompt = `次の英文を日本語に翻訳してください。説明なしで翻訳のみを返してください。\n\nText: ${text}`;
+        return await performLlmRequest(prompt);
+    }
+    return text;
+}
+
+/**
+ * Generate system prompt based on detected language
+ */
+function generateSystemPrompt(language) {
+    if (language === 'ja') {
+        return `あなたは「G1:Mちゃん」というキャラクターです。ユーザーが日本語で話しかけてくれました。親切で、楽しく、サポーティブな性格で日本語で答えてください。短く、会話的な応答を心がけてください。`;
+    } else {
+        return `You are "G1:M-chan", a cheerful and supportive character. The user is speaking to you in English. Please respond in English with a friendly and conversational tone. Keep your response concise and engaging.`;
+    }
+}
+
 async function speak(text, sender = '') {
     if (!subtitleArea) return;
 
@@ -1134,12 +1178,15 @@ async function handleChat(text, option = {}) {
     const openChannels = Object.values(dataChannels).filter(dc => dc.readyState === 'open');
     const isAlone = openChannels.length === 0;
 
+    // Auto-detect language
+    const detectedLang = detectLanguage(text);
+    log(`Chat: Detected language: ${detectedLang}`);
+
     // Translation logic
     let sendText = text;
     if (option.translate) {
         log('Chat: Translating to English...');
-        const translationPrompt = `Translate the following Japanese text to English. Return ONLY the translation.\n\nText: ${text}`;
-        sendText = await performLlmRequest(translationPrompt);
+        sendText = await translateText(text, 'en');
         log(`Chat: Translated to: ${sendText}`);
     }
 
@@ -1152,14 +1199,29 @@ async function handleChat(text, option = {}) {
             speak(botResponse, 'G1:M');
         } else {
             log('Chat: AI (G1:M) processing...');
-            const answer = await performLlmRequest(sendText);
-            speak(answer, 'G1:M');
+            // Generate system prompt based on detected language
+            const systemPrompt = generateSystemPrompt(detectedLang);
+            const fullPrompt = `${systemPrompt}\n\nUser: ${text}`;
+            const answer = await performLlmRequest(fullPrompt);
+            
+            // If response was in Japanese, add English translation
+            let displayText = answer;
+            if (detectedLang === 'ja') {
+                log('Chat: Translating response to English...');
+                const englishTranslation = await translateText(answer, 'en');
+                displayText = `${answer}\n\n[EN] ${englishTranslation}`;
+                log(`Chat: English translation: ${englishTranslation}`);
+            }
+            
+            speak(displayText, 'G1:M');
         }
     } else {
         // Participants are present: Exclusive mode
         // Instead of free-form, we could show "Help" options if requested
         if (text.toLowerCase() === 'help') {
-            const helpMsg = "HELP MENU:\n1. Dance Mode\n2. Group Intro\n3. System Info";
+            const helpMsg = detectedLang === 'ja' 
+                ? "ヘルプメニュー:\n1. ダンスモード\n2. グループ紹介\n3. システム情報"
+                : "HELP MENU:\n1. Dance Mode\n2. Group Intro\n3. System Info";
             speak(helpMsg, 'G1:M (System)');
         }
 

@@ -46,6 +46,10 @@ const supabaseHeaders = {
 /**
  * AI プロキシエンドポイント
  * 外部の AI API URL を隠蔽し、将来的な認証やレート制限の追加を容易にします。
+ * 
+ * Hugging Face Spaces対応：
+ * - エンドポイント: https://username-space.hf.space
+ * - リクエスト形式: Gradio API (data: [...], session_hash: "...")
  */
 app.post('/api/llm', async (req, res) => {
     const { prompt } = req.body;
@@ -56,26 +60,48 @@ app.post('/api/llm', async (req, res) => {
 
     try {
         const headers = { 'Content-Type': 'application/json' };
-        if (LLM_API_KEY) {
-            headers.Authorization = `Bearer ${LLM_API_KEY}`;
-        } else if (HUGGINGFACE_TOKEN) {
+        
+        // Hugging Face Spaces の認証
+        if (HUGGINGFACE_TOKEN) {
             headers.Authorization = `Bearer ${HUGGINGFACE_TOKEN}`;
+        } else if (LLM_API_KEY) {
+            headers.Authorization = `Bearer ${LLM_API_KEY}`;
         }
 
-        const response = await fetch(LLM_API_URL, {
+        // Hugging Face Spaces Gradio API形式
+        // エンドポイントが /run/ または /call/ を使用する場合
+        let apiUrl = LLM_API_URL;
+        if (!apiUrl.includes('/run/') && !apiUrl.includes('/call/') && !apiUrl.includes('/api/')) {
+            // ベースURLが与えられた場合、/run/predict を追加（デフォルト関数名）
+            apiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+            apiUrl = apiUrl + '/run/predict';
+        }
+
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify({
-                model: 'gpt-20b',
-                prompt: prompt
+                data: [prompt]  // Gradio API形式
             })
         });
 
+        if (!response.ok) {
+            console.error(`LLM API returned ${response.status}`);
+            const errorText = await response.text();
+            console.error(`Error response: ${errorText}`);
+            res.status(response.status).json({ error: 'LLM API Error' });
+            return;
+        }
+
         const data = await response.json();
-        res.json(data);
+        
+        // Gradio API はデータが配列形式で返ることが多い
+        let result = data.data?.[0] || data.response || data.answer || data.result || "Unable to process";
+        
+        res.json({ response: result });
     } catch (error) {
         console.error('LLM Proxy Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 });
 
