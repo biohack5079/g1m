@@ -63,6 +63,8 @@ const App: React.FC = () => {
   const [userHuggingFaceUrl, setUserHuggingFaceUrl] = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isModelHiddenRef = useRef(isModelHidden);
   const debugCanvasRef = useRef<HTMLCanvasElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const vrmsRef = useRef<{ [key: string]: VRM }>({});
@@ -72,6 +74,7 @@ const App: React.FC = () => {
   const dataChannelsRef = useRef<{ [key: string]: RTCDataChannel }>({});
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  useEffect(() => { isModelHiddenRef.current = isModelHidden; }, [isModelHidden]);
   const holisticRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
   const threeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -95,22 +98,6 @@ const App: React.FC = () => {
     participantsRef.current = participants;
   }, [participants]);
 
-  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !threeCameraRef.current || !sceneRef.current) return;
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycasterRef.current.setFromCamera({ x, y }, threeCameraRef.current);
-
-    const intersects = raycasterRef.current.intersectObjects(sceneRef.current.children, true);
-
-    if (intersects.length > 0) {
-      // モデルがクリックされたら非表示ボタンを表示
-      setShowHideButton(true);
-    }
-  }, []);
 
   const processVideoForMotion = useCallback(async (file: File) => {
     const video = document.createElement('video');
@@ -319,12 +306,14 @@ const App: React.FC = () => {
     const mouse = new THREE.Vector2();
 
     if ('touches' in event && event.touches.length > 0) {
-      if (event.touches.length === 0) return;
-      mouse.x = ((event.touches[0].clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.touches[0].clientY - rect.top) / rect.height) * 2 + 1;
+      const touchEvent = event as TouchEvent;
+      const touch = touchEvent.touches[0];
+      mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
     } else {
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const mouseEvent = event as MouseEvent;
+      mouse.x = ((mouseEvent.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((mouseEvent.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
     raycasterRef.current.setFromCamera(mouse, threeCameraRef.current);
@@ -334,6 +323,7 @@ const App: React.FC = () => {
       const intersects = raycasterRef.current.intersectObject(vrm.scene, true);
       if (intersects.length > 0) {
         console.log(`🎯 Tapped model: ${id}`);
+        setShowHideButton(true);
 
         // タップされたモデルの anonymousId を特定
         let targetAnonymousId: string | null = null;
@@ -1109,7 +1099,7 @@ const App: React.FC = () => {
 
       // vrm.updateが存在する場合のみ呼び出す (bot等の疑似VRMはupdateを持たない場合がある)
       Object.values(vrmsRef.current).forEach(vrm => { 
-        if (vrm?.scene) vrm.scene.visible = !isModelHidden;
+        if (vrm?.scene) vrm.scene.visible = !isModelHiddenRef.current;
         if (vrm?.update) vrm.update(delta); 
       });
       controls.update();
@@ -1127,13 +1117,12 @@ const App: React.FC = () => {
 
     // 3Dモデルタップ検出用イベントリスナー
     const canvas = canvasRef.current;
-    const onCanvasClick = (e: MouseEvent) => {
+const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
       // OrbitControlsのドラッグとの区別（微小な移動ならクリック扱い）
       handleModelTap(e);
     };
-    const onCanvasTouch = (e: TouchEvent) => {
-      handleModelTap(e);
-    };
+    const onCanvasClick = (e: MouseEvent) => onCanvasInteraction(e);
+    const onCanvasTouch = (e: TouchEvent) => onCanvasInteraction(e);
     if (canvas) {
       canvas.addEventListener('click', onCanvasClick);
       canvas.addEventListener('touchstart', onCanvasTouch, { passive: true });
@@ -1190,7 +1179,7 @@ const App: React.FC = () => {
       {subtitle && <div id="subtitle-area">{subtitle}</div>}
       
       <div id="scene-container" style={{ position: 'relative' }}>
-        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100vw', height: '100vh' }} onClick={handleCanvasClick}></canvas>
+        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100vw', height: '100vh' }}></canvas>
         <canvas 
           ref={debugCanvasRef} 
           width={640} 
@@ -1219,15 +1208,14 @@ const App: React.FC = () => {
           placeholder="メッセージを入力..."
           style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', color: 'white', padding: '10px 20px', outline: 'none', width: '250px' }}
         />
-        <label style={{ position: 'relative', cursor: 'pointer' }}>
-          <input 
-            type="file" 
-            accept="video/*"
-            onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
-            style={{ display: 'none' }}
-          />
-          <button className="btn-control" style={{ width: '44px', height: '44px', background: 'rgba(100,150,255,0.3)' }} title="動画ファイルを選択してモーションキャプチャー">📹</button>
-        </label>
+        <input 
+          ref={fileInputRef}
+          type="file" 
+          accept="video/*,text/*"
+          onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+          style={{ display: 'none' }}
+        />
+        <button type="button" className="btn-control" onClick={() => fileInputRef.current?.click()} style={{ width: '44px', height: '44px', background: 'rgba(100,150,255,0.3)' }} title="動画またはテキストファイルを選択して送信">📎</button>
         <button onClick={() => handleChat(chatInput)} className="btn-control" style={{ width: '44px', height: '44px' }}>➔</button>
       </div>
 
@@ -1247,9 +1235,9 @@ const App: React.FC = () => {
 
       {uploadedFile && (
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 50, background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px', textAlign: 'center', color: 'white' }}>
-          <p>動画を読み込み中...</p>
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>モーションキャプチャーを処理しています</p>
-          <p style={{ fontSize: '12px', marginTop: '10px' }}>📹 {uploadedFile.name}</p>
+          <p>{uploadedFile.type.startsWith('video/') ? '動画を読み込み中...' : 'テキストを読み込み中...'}</p>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{uploadedFile.type.startsWith('video/') ? 'モーションキャプチャーを処理しています' : 'テキストをRAGとして処理しています'}</p>
+          <p style={{ fontSize: '12px', marginTop: '10px' }}>📎 {uploadedFile.name}</p>
         </div>
       )}
 
