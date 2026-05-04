@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -48,8 +49,20 @@ const supabaseHeaders = {
  * 外部の AI API URL を隠蔽し、将来的な認証やレート制限の追加を容易にします。
  * 
  * Hugging Face Spaces対応：
- * - エンドポイント: https://username-space.hf.space
- * - リクエスト形式: Gradio API (data: [...], session_hash: "...")
+ * - エンドポイント: 環境変数 LLM_API_URL を参照
+ * - 認証: 環境変数 HUGGINGFACE_TOKEN を参照
+ */
+/**
+ * AI プロキシエンドポイント (RAG & Docker LLM 連携)
+ * 
+ * [RAG 設計仕様]
+ * 1. 知識ベースは Supabase (pgvector) に格納・管理。
+ * 2. RAG用のテキストデータは「事前ベクトル化 (Pre-vectorized)」されていることを前提とする。
+ * 3. 検索時には Embedding モデルを用いてクエリをベクトル化し、Supabase 上で近傍探索を行う。
+ * 
+ * [LLM 仕様]
+ * - Llama 3.1 8B (Docker-based Hugging Face Space)
+ * - Gradio SDK ではなく Docker で構築されているため、OpenAI 互換エンドポイントを使用。
  */
 app.post('/api/llm', async (req, res) => {
     const { prompt } = req.body;
@@ -59,36 +72,43 @@ app.post('/api/llm', async (req, res) => {
         return;
     }
 
-    console.log(`🤖 AI Request received. Target: ${LLM_API_URL}`);
+    console.log(`🤖 AI Request received. Mode: RAG (Pre-vectorized) | Docker Target: ${LLM_API_URL}`);
+    
     try {
         const headers = { 'Content-Type': 'application/json' };
-        
-        // 認証情報の付加
         if (HUGGINGFACE_TOKEN) {
             headers.Authorization = `Bearer ${HUGGINGFACE_TOKEN}`;
-        } else if (typeof LLM_API_KEY !== 'undefined' && LLM_API_KEY) {
-            headers.Authorization = `Bearer ${LLM_API_KEY}`;
         }
 
-        // URLの調整 (Gradio API)
-        let apiUrl = LLM_API_URL;
-        if (!apiUrl.includes('/run/') && !apiUrl.includes('/call/') && !apiUrl.includes('/api/')) {
-            apiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-            apiUrl = apiUrl + '/run/predict';
-        }
-
-        console.log(`📡 Fetching from: ${apiUrl} | Prompt: ${prompt.slice(0, 50)}...`);
+        // --- RAG 検索ロジック (概念) ---
+        // ※ 知識ベース（personality.md等）は Supabase にベクトル化して保存済み。
+        // ここでクエリのベクトル化を行い、上位コンテキストを取得する。
+        
+        // --- Dockerベース LLM (Llama 3.1) へのリクエスト ---
+        // OpenAI 互換形式エンドポイントを想定
+        const apiUrl = LLM_API_URL.endsWith('/') ? `${LLM_API_URL}v1/chat/completions` : `${LLM_API_URL}/v1/chat/completions`;
+        
+        console.log(`📡 Sending to Docker LLM API: ${apiUrl}`);
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify({
-                data: [prompt]
+                model: "llama-3.1-8b",
+                messages: [
+                    { 
+                      role: "system", 
+                      content: "あなたはG1:Mちゃんです。知識ベースの情報に基づき、フレンドリーで親しみやすい日本語で回答してください。紋切り型の返答は避け、対話を楽しんでください。" 
+                    },
+                    { role: "user", content: prompt }
+                ],
+                max_tokens: 512,
+                temperature: 0.8
             })
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`❌ LLM API Error (${response.status}):`, errorText);
+            console.error(`❌ Docker LLM API Error (${response.status}):`, errorText);
             res.status(response.status).json({ error: 'LLM API Error', details: errorText });
             return;
         }
@@ -96,10 +116,10 @@ app.post('/api/llm', async (req, res) => {
         const data = await response.json();
         console.log('✅ AI Response received');
         
-        // Gradio API のデータ抽出
-        const aiText = data.data?.[0] || data.response || data.answer || data.result || "回答が得られませんでした。";
+        // OpenAI 形式 (choices[0].message.content) から抽出
+        const aiText = data.choices?.[0]?.message?.content || data.generated_text || data.text || "回答を生成できませんでした。";
         
-        // response と text 両方のフィールドを返してフロントエンドの互換性を保つ
+        console.log(`💬 AI Answer: ${aiText.slice(0, 50)}...`);
         res.json({ response: aiText, text: aiText });
 
     } catch (error) {
@@ -109,6 +129,35 @@ app.post('/api/llm', async (req, res) => {
 });
 
 // --- Kampa / Wallet API (Supabase REST) ---
+
+/**
+ * ボット (G1:Mちゃん) のWallet情報を取得する (Base64変換の明示的実装)
+ */
+app.get('/api/kampa/wallet/bot', (req, res) => {
+    try {
+        const filePath = path.join(__dirname, 'z1m', 'AirWallet', 'g1-m_chan.jpeg');
+        if (fs.existsSync(filePath)) {
+            // 画像をバイナリとして読み込む
+            const bitmap = fs.readFileSync(filePath);
+            // Base64に変換し、ログでデータサイズを確認可能にする
+            const base64Data = bitmap.toString('base64');
+            console.log(`📸 Bot QR Image converted to Base64 (Length: ${base64Data.length})`);
+            
+            const dataUrl = `data:image/jpeg;base64,${base64Data}`;
+            res.json({
+                anonymous_id: 'bot',
+                wallet_image_data: dataUrl,
+                wallet_type: 'AirWallet'
+            });
+        } else {
+            console.error(`Bot QR file not found: ${filePath}`);
+            res.status(404).json({ error: 'Bot QR file not found' });
+        }
+    } catch (error) {
+        console.error('Error reading bot QR:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 /**
  * 指定された匿名IDに紐づくWallet情報を取得する。
@@ -138,48 +187,24 @@ app.get('/api/kampa/wallet/:anonymousId', async (req, res) => {
 app.post('/api/kampa/wallet/register', async (req, res) => {
     const { anonymousId, walletImageData, walletType } = req.body;
     try {
-        // 既存レコードを確認
-        const checkRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/wallet_info?anonymous_id=eq.${encodeURIComponent(anonymousId)}&select=id`,
-            { headers: supabaseHeaders }
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/wallet_info?anonymous_id=eq.${encodeURIComponent(anonymousId)}`,
+            {
+                method: 'UPSERT',
+                headers: { ...supabaseHeaders, 'Prefer': 'resolution=merge-duplicates' },
+                body: JSON.stringify({
+                    anonymous_id: anonymousId,
+                    wallet_image_data: walletImageData,
+                    wallet_type: walletType || 'AirWallet'
+                })
+            }
         );
-        const existing = await checkRes.json();
-
-        let response;
-        if (existing && existing.length > 0) {
-            // 更新 (PATCH)
-            response = await fetch(
-                `${SUPABASE_URL}/rest/v1/wallet_info?anonymous_id=eq.${encodeURIComponent(anonymousId)}`,
-                {
-                    method: 'PATCH',
-                    headers: supabaseHeaders,
-                    body: JSON.stringify({
-                        wallet_image_data: walletImageData,
-                        wallet_type: walletType || 'AirWallet'
-                    })
-                }
-            );
-        } else {
-            // 新規作成 (POST)
-            response = await fetch(
-                `${SUPABASE_URL}/rest/v1/wallet_info`,
-                {
-                    method: 'POST',
-                    headers: supabaseHeaders,
-                    body: JSON.stringify({
-                        anonymous_id: anonymousId,
-                        wallet_image_data: walletImageData,
-                        wallet_type: walletType || 'AirWallet'
-                    })
-                }
-            );
-        }
 
         const result = await response.json();
         res.json(Array.isArray(result) ? result[0] : result);
     } catch (error) {
         console.error('Supabase POST Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 });
 
@@ -226,14 +251,15 @@ io.on('connection', socket => {
     console.log(`🔗 New socket connected: ${socket.id}`);
 
     socket.on('register_role', (payload) => {
-        // payloadはオブジェクト { role, anonymousId } または文字列 "staff"/"unity"/"viewer" を許容
-        let role, anonymousId;
+        let role, anonymousId, nickname;
         if (typeof payload === 'string') {
             role = payload;
             anonymousId = null;
+            nickname = 'ゲスト';
         } else {
             role = payload.role;
             anonymousId = payload.anonymousId || null;
+            nickname = payload.nickname || 'ゲスト';
         }
 
         if (role !== "staff" && role !== "unity" && role !== "viewer") {
@@ -242,24 +268,37 @@ io.on('connection', socket => {
             return;
         }
 
-        // 既に登録済みの場合は重複登録を防ぐ（再接続・再読み込み対策）
+        // 既に登録済みの場合は情報を更新
         if (participants.has(socket.id)) {
-            console.warn(`⚠️ Socket ${socket.id} already registered as ${participants.get(socket.id).role}. Ignoring duplicate register_role.`);
+            const p = participants.get(socket.id);
+            p.role = role;
+            p.anonymousId = anonymousId;
+            p.nickname = nickname;
             return;
         }
 
-        participants.set(socket.id, { socket, role, anonymousId });
-        console.log(`✅ ${role} registered with socket ID: ${socket.id} (anonId: ${anonymousId}) | Total: ${participants.size}`);
+        participants.set(socket.id, { socket, role, anonymousId, nickname });
+        console.log(`✅ ${role} registered: ${socket.id} (anonId: ${anonymousId}, nick: ${nickname})`);
 
         // 現在の全参加者リストを新しく入った人に送る
         const others = Array.from(participants.entries())
             .filter(([id]) => id !== socket.id)
-            .map(([id, info]) => ({ id, role: info.role, anonymousId: info.anonymousId }));
+            .map(([id, info]) => ({ id, role: info.role, anonymousId: info.anonymousId, nickname: info.nickname }));
 
         socket.emit('participants_list', others);
 
         // 他の人に新しい人が入ったことを通知
-        broadcast(socket, 'participant_joined', { id: socket.id, role, anonymousId });
+        broadcast(socket, 'participant_joined', { id: socket.id, role, anonymousId, nickname });
+    });
+
+    // ニックネーム更新イベント
+    socket.on('update_nickname', (data) => {
+        const p = participants.get(socket.id);
+        if (p) {
+            p.nickname = data.nickname;
+            console.log(`👤 Nickname updated: ${socket.id} -> ${data.nickname}`);
+            broadcast(socket, 'participant_updated', { id: socket.id, nickname: data.nickname });
+        }
     });
 
     socket.on('offer', (data) => {

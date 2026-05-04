@@ -11,6 +11,7 @@ interface Participant {
   id: string;
   role: string;
   anonymousId?: string;
+  nickname?: string;
 }
 
 // MediaPipeのグローバル型定義
@@ -59,8 +60,7 @@ const App: React.FC = () => {
   const [tappedWalletImage, setTappedWalletImage] = useState<string | null>(null);
   const [tappedModelId, setTappedModelId] = useState<string>("");
   const [tappedSocketId, setTappedSocketId] = useState<string>("");
-  const [tappedHuggingFaceUrl, setTappedHuggingFaceUrl] = useState<string>("");
-  const [userHuggingFaceUrl, setUserHuggingFaceUrl] = useState<string>("");
+  const [nickname, setNickname] = useState<string>("ゲスト");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -203,13 +203,43 @@ const App: React.FC = () => {
           if (data && data.wallet_image_data) {
             setUserWalletImage(data.wallet_image_data);
           }
-          if (data && data.hugging_face_url) {
-            setUserHuggingFaceUrl(data.hugging_face_url);
-          }
         })
-        .catch(_err => console.log("Wallet fetch failed (backend may not be running)."));
+        .catch(_err => console.log("Wallet fetch failed."));
+      
+      // ニックネームをIndexedDBから取得
+      const dbRequest = indexedDB.open("G1M_DB", 1);
+      dbRequest.onsuccess = (e: any) => {
+        const db = e.target.result;
+        const tx = db.transaction(["user_info"], "readonly");
+        const getNick = tx.objectStore("user_info").get("nickname");
+        getNick.onsuccess = () => { if (getNick.result) setNickname(getNick.result); };
+      };
     });
   }, []);
+
+  // ニックネーム保存
+  const handleSaveNickname = (newNick: string) => {
+    setNickname(newNick);
+    const dbRequest = indexedDB.open("G1M_DB", 1);
+    dbRequest.onsuccess = (e: any) => {
+      const db = e.target.result;
+      const tx = db.transaction(["user_info"], "readwrite");
+      tx.objectStore("user_info").put(newNick, "nickname");
+    };
+    if (socketRef.current) {
+      socketRef.current.emit('update_nickname', { nickname: newNick });
+    }
+  };
+
+  // 日本語の女性音声を探すヘルパー
+  const getJapaneseFemaleVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    // 1. 日本語(ja-JP)かつ名前に "Google" や "Haruka", "Nanami" などの女性名が含まれるものを優先
+    // Ubuntu/Linuxなら "Japanese (Japan)" や特定のエンジン名を検索
+    return voices.find(v => v.lang.includes('ja') && (v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Microsoft'))) 
+           || voices.find(v => v.lang.includes('ja')) 
+           || null;
+  };
 
   // カンパ処理
   const handleDonate = async () => {
@@ -230,7 +260,9 @@ const App: React.FC = () => {
       // 音声合成でお礼
       if ('speechSynthesis' in window) {
         const uttr = new SpeechSynthesisUtterance(message);
+        uttr.voice = getJapaneseFemaleVoice();
         uttr.lang = 'ja-JP';
+        uttr.pitch = 1.2; // 少し高くして女性らしく
         window.speechSynthesis.speak(uttr);
       }
       
@@ -264,8 +296,7 @@ const App: React.FC = () => {
           body: JSON.stringify({
             anonymousId,
             walletImageData: base64,
-            walletType: "AirWallet",
-            huggingFaceUrl: userHuggingFaceUrl
+            walletType: "AirWallet"
           })
         });
         setStatus("Wallet登録完了");
@@ -274,25 +305,6 @@ const App: React.FC = () => {
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  // HuggingFace URL保存
-  const handleSaveHuggingFaceUrl = async () => {
-    try {
-      await fetch("/api/kampa/wallet/register", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          anonymousId,
-          walletImageData: userWalletImage,
-          walletType: "AirWallet",
-          huggingFaceUrl: userHuggingFaceUrl
-        })
-      });
-      setStatus("HuggingFace URL保存完了");
-    } catch (err) {
-      console.error("Backend error:", err);
-    }
   };
 
   // 3Dモデルタップ処理 - Raycasterでどのモデルがタップされたか判定
@@ -333,10 +345,16 @@ const App: React.FC = () => {
           // 自分自身
           targetAnonymousId = anonymousId;
         } else if (id === 'bot') {
-          // Bot (G1:Mちゃん) → デフォルトのQR表示
+          // Bot (G1:Mちゃん) → サーバーから専用情報を取得
           setTappedModelId('G1:Mちゃん (AI)');
-          setTappedWalletImage(null); // デフォルト画像を使う
-          setIsQrModalOpen(true);
+          setTappedSocketId(id);
+          fetch('/api/kampa/wallet/bot')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data && data.wallet_image_data) setTappedWalletImage(data.wallet_image_data);
+              setIsQrModalOpen(true);
+            })
+            .catch(() => setIsQrModalOpen(true));
           return;
         } else {
           // 他の参加者 → participantsから anonymousId を取得
@@ -345,7 +363,11 @@ const App: React.FC = () => {
         }
 
         if (targetAnonymousId) {
-          setTappedModelId(id === 'local' ? '自分' : id.slice(0, 6));
+          // 他の参加者ならニックネームを表示
+          const participant = participantsRef.current.find(p => p.id === id);
+          setTappedModelId(id === 'local' ? nickname : (participant?.nickname || id.slice(0, 6)));
+          setTappedSocketId(id);
+          
           // Supabase経由でWallet情報を取得
           fetch(`/api/kampa/wallet/${targetAnonymousId}`)
             .then(res => res.ok ? res.json() : null)
@@ -355,16 +377,10 @@ const App: React.FC = () => {
               } else {
                 setTappedWalletImage(null);
               }
-              if (data && data.hugging_face_url) {
-                setTappedHuggingFaceUrl(data.hugging_face_url);
-              } else {
-                setTappedHuggingFaceUrl("");
-              }
               setIsQrModalOpen(true);
             })
             .catch(() => {
               setTappedWalletImage(null);
-              setTappedHuggingFaceUrl("");
               setIsQrModalOpen(true);
             });
         } else {
@@ -1039,7 +1055,8 @@ const App: React.FC = () => {
     socket.on('connect', () => {
       console.log("Connected to Signaling Server");
       getAnonymousId().then(anonId => {
-        socket.emit('register_role', { role: 'viewer', anonymousId: anonId });
+        // nickname も含めて登録
+        socket.emit('register_role', { role: 'viewer', anonymousId: anonId, nickname: nickname });
       });
     });
 
@@ -1051,14 +1068,16 @@ const App: React.FC = () => {
       // Botの召喚判定はloadVRM('local')内で行うように変更
     });
 
-    socket.on('participant_joined', (p: Participant) => {
+    socket.on('participant_joined', (p: any) => {
       setParticipants(prev => {
-        // 重複排除：既に参加者リストにいる場合は追加しない
         if (prev.find(existing => existing.id === p.id)) return prev;
         return [...prev, p];
       });
       loadVRM('/g1-m_chan.glb', p.id);
-      // removeBot(); // ボットは常駐させる
+    });
+
+    socket.on('participant_updated', (data: { id: string, nickname: string }) => {
+      setParticipants(prev => prev.map(p => p.id === data.id ? { ...p, nickname: data.nickname } : p));
     });
 
     socket.on('offer', async (data: any) => {
@@ -1263,9 +1282,19 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
   return (
     <div className="container">
       <header className="header">
-        <div className="logo">G1:M DANCE FLOOR</div>
-        <div className="participant-count">
-          参加者: {participants.length + 1}
+        <div className="logo">G1:M</div>
+        <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input 
+            type="text" 
+            value={nickname} 
+            onChange={(e) => handleSaveNickname(e.target.value)}
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '15px', color: 'white', padding: '5px 12px', fontSize: '12px', width: '80px', outline: 'none' }}
+            placeholder="ニックネーム"
+            title="クリックして名前を変更"
+          />
+          <div className="participant-count">
+            参加者: {participants.length + 1}
+          </div>
         </div>
       </header>
 
@@ -1378,21 +1407,9 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
             
             <div className="donation-form">
               <div className="input-group">
-                <label>自分のAirWalletを登録</label>
+                <label>自分のAirWalletを登録 (任意)</label>
                 <input type="file" accept="image/*" onChange={handleUploadWallet} />
                 {userWalletImage && <div className="wallet-mini-preview"><img src={userWalletImage} alt="Your Wallet" /><span>登録済</span></div>}
-              </div>
-              
-              <div className="input-group">
-                <label>HuggingFace URL (モデルURL)</label>
-                <input 
-                  type="text" 
-                  value={userHuggingFaceUrl} 
-                  onChange={(e) => setUserHuggingFaceUrl(e.target.value)}
-                  placeholder="https://huggingface.co/user/model"
-                  style={{ width: '100%', padding: '8px', marginBottom: '8px' }}
-                />
-                {userHuggingFaceUrl && <button className="btn-action" onClick={handleSaveHuggingFaceUrl} style={{ fontSize: '12px' }}>保存</button>}
               </div>
               
               <div className="input-group">
@@ -1422,22 +1439,13 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
                   <p>💳</p>
                   <p>QRコード未登録</p>
                   <p className="qr-hint">
-                    {tappedModelId === '自分'
+                    {tappedModelId === nickname
                       ? '自分のQRはカンパから登録できます'
-                      : '相手のQRは未登録です。自分のQRはカンパから登録できます'}
+                      : '相手のQRは未登録です'}
                   </p>
                 </div>
               )}
             </div>
-            
-            {tappedHuggingFaceUrl && (
-              <div className="input-group" style={{ marginTop: '15px', textAlign: 'left' }}>
-                <label>🤗 HuggingFace URL</label>
-                <a href={tappedHuggingFaceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4da6ff', wordBreak: 'break-all', fontSize: '12px' }}>
-                  {tappedHuggingFaceUrl}
-                </a>
-              </div>
-            )}
             
             <div className="modal-btns">
               <button 

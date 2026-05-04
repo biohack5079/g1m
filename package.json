@@ -14,9 +14,9 @@
   "dependencies": {
     "@mediapipe/hands": "^0.4.1675469240",
     "@mediapipe/pose": "^0.5.1675469404",
-    "dotenv": "^16.3.1",
+    "concurrently": "^8.2.2",
+    "dotenv": "^16.6.1",
     "express": "^4.18.2",
-    "socket.io": "^4.7.5",
-    "concurrently": "^8.2.2"
+    "socket.io": "^4.7.5"
   }
 }
