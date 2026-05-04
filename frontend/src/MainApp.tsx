@@ -50,7 +50,6 @@ const App: React.FC = () => {
   const [chatInput, setChatInput] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isModelHidden, setIsModelHidden] = useState(false);
-  const [showHideButton, setShowHideButton] = useState(false);
   const [anonymousId, setAnonymousId] = useState<string>("");
   const [isKampaModalOpen, setIsKampaModalOpen] = useState(false);
   const [isDancing, setIsDancing] = useState(false);
@@ -59,6 +58,7 @@ const App: React.FC = () => {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [tappedWalletImage, setTappedWalletImage] = useState<string | null>(null);
   const [tappedModelId, setTappedModelId] = useState<string>("");
+  const [tappedSocketId, setTappedSocketId] = useState<string>("");
   const [tappedHuggingFaceUrl, setTappedHuggingFaceUrl] = useState<string>("");
   const [userHuggingFaceUrl, setUserHuggingFaceUrl] = useState<string>("");
 
@@ -323,7 +323,8 @@ const App: React.FC = () => {
       const intersects = raycasterRef.current.intersectObject(vrm.scene, true);
       if (intersects.length > 0) {
         console.log(`🎯 Tapped model: ${id}`);
-        setShowHideButton(true);
+        setTappedSocketId(id);
+        // setShowHideButton(true); // 中央のボタンは出さない
 
         // タップされたモデルの anonymousId を特定
         let targetAnonymousId: string | null = null;
@@ -375,14 +376,6 @@ const App: React.FC = () => {
       }
     }
   }, [anonymousId, isKampaModalOpen, isQrModalOpen]);
-
-  const removeBot = useCallback(() => {
-    if (vrmsRef.current['bot']) {
-      disposeVRM(vrmsRef.current['bot']);
-      delete vrmsRef.current['bot'];
-      updateLayout();
-    }
-  }, [updateLayout]);
 
   // モーション適用
   const mapMotionToVRM = (vrm: VRM, res: any) => {
@@ -794,7 +787,7 @@ const App: React.FC = () => {
           
           if (res.ok) {
             const data = await res.json();
-            let answer = data.response || data.answer || data.result || "うまく答えられません。";
+            let answer = data.text || data.response || data.answer || data.result || "うまく答えられません。";
             
             // If response was in Japanese, add English translation
             if (detectedLang === 'ja') {
@@ -803,6 +796,22 @@ const App: React.FC = () => {
             }
             
             setSubtitle(`[G1:M] ${answer}`);
+
+            // ボットの口パク連動
+            const botVrm = vrmsRef.current['bot'];
+            if (botVrm && botVrm.expressionManager) {
+              let startTime = Date.now();
+              const lipSync = () => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                if (elapsed < 3) { // 3秒間パクパク
+                  botVrm.expressionManager!.setValue('aa', Math.abs(Math.sin(elapsed * 10)));
+                  requestAnimationFrame(lipSync);
+                } else {
+                  botVrm.expressionManager!.setValue('aa', 0);
+                }
+              };
+              lipSync();
+            }
           }
         } catch (e) {
           console.error('LLM Error:', e);
@@ -1049,7 +1058,7 @@ const App: React.FC = () => {
         return [...prev, p];
       });
       loadVRM('/g1-m_chan.glb', p.id);
-      removeBot();
+      // removeBot(); // ボットは常駐させる
     });
 
     socket.on('offer', async (data: any) => {
@@ -1293,7 +1302,12 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
           type="text" 
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleChat(chatInput)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleChat(chatInput);
+              (e.target as HTMLInputElement).blur(); // iPhoneキーボードを閉じる
+            }
+          }}
           placeholder="メッセージを入力..."
           style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', color: 'white', padding: '10px 20px', outline: 'none', width: '250px' }}
         />
@@ -1308,13 +1322,8 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
         <button onClick={() => handleChat(chatInput)} className="btn-control" style={{ width: '44px', height: '44px' }}>➔</button>
       </div>
 
-      {showHideButton && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 50, background: 'rgba(0,0,0,0.8)', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
-          <p style={{ color: 'white', marginBottom: '10px' }}>モデルの表示・非表示</p>
-          <button onClick={() => { setIsModelHidden(true); setShowHideButton(false); }} className="btn-control" style={{ marginRight: '10px' }}>非表示</button>
-          <button onClick={() => setShowHideButton(false)} className="btn-control">キャンセル</button>
-        </div>
-      )}
+      {/* 個別非表示ボタンはQRモーダルに統合したため削除 */}
+
 
       {isModelHidden && (
         <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 50 }}>
@@ -1431,6 +1440,27 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
             )}
             
             <div className="modal-btns">
+              <button 
+                className="btn-action danger" 
+                onClick={() => {
+                  const targetId = tappedSocketId;
+                  const vrm = vrmsRef.current[targetId];
+                  if (vrm) {
+                    disposeVRM(vrm);
+                    delete vrmsRef.current[targetId];
+                    if (targetId !== 'local' && targetId !== 'bot') {
+                      peersRef.current[targetId]?.close();
+                      delete peersRef.current[targetId];
+                      delete dataChannelsRef.current[targetId];
+                      setParticipants(prev => prev.filter(p => p.id !== targetId));
+                    }
+                  }
+                  setIsQrModalOpen(false);
+                }}
+                style={{ background: 'rgba(255, 50, 50, 0.3)', color: 'white' }}
+              >
+                退出/非表示
+              </button>
               <button className="btn-action close" onClick={() => setIsQrModalOpen(false)}>閉じる</button>
             </div>
           </div>
