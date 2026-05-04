@@ -607,6 +607,63 @@ function mapMotionToVRM(vrm, res) {
     }
 }
 
+function updateBotAction(vrm, delta) {
+    if (!vrm || !vrm.humanoid) return;
+
+    if (vrm.action === 'raiseHand') {
+        applyBotRaiseHandPose(vrm);
+    }
+
+    if (vrm.followLocalMotion && lastResults) {
+        mapMotionToVRM(vrm, lastResults);
+    }
+
+    if (vrm.actionTimer && performance.now() > vrm.actionTimer) {
+        vrm.action = null;
+        vrm.followLocalMotion = false;
+    }
+}
+
+function getBotBone(vrm, name) {
+    if (!vrm || !vrm.humanoid) return null;
+    return vrm.humanoid.getRawBoneNode(name) || vrm.humanoid.getRawBoneNode(name.charAt(0).toUpperCase() + name.slice(1));
+}
+
+function applyBotRaiseHandPose(vrm) {
+    const lUpper = getBotBone(vrm, 'leftUpperArm');
+    const lLower = getBotBone(vrm, 'leftLowerArm');
+    const rUpper = getBotBone(vrm, 'rightUpperArm');
+    const rLower = getBotBone(vrm, 'rightLowerArm');
+
+    if (lUpper) lUpper.rotation.set(-Math.PI / 2, 0, 0);
+    if (lLower) lLower.rotation.set(-Math.PI / 4, 0, 0);
+    if (rUpper) rUpper.rotation.set(-Math.PI / 2, 0, 0);
+    if (rLower) rLower.rotation.set(-Math.PI / 4, 0, 0);
+}
+
+function setBotAction(action, duration = 5000, followLocal = false) {
+    const bot = vrms['bot'];
+    if (!bot) return;
+    bot.action = action;
+    bot.actionTimer = performance.now() + duration;
+    bot.followLocalMotion = followLocal;
+}
+
+function handleBotCommand(text) {
+    if (!vrms['bot']) return null;
+    const normalized = text.replace(/[？?。！!]/g, '').toLowerCase();
+
+    if (/手を挙げて|手をあげて/.test(normalized)) {
+        setBotAction('raiseHand', 4000, false);
+        return 'はい、手をあげました！';
+    }
+    if (/踊っ|ダンス/.test(normalized)) {
+        setBotAction('dance', 15000, true);
+        return 'いいですね！いっしょに踊りましょう！';
+    }
+    return null;
+}
+
 function syncMotion(results) {
     if (!results) return;
     const data = {
@@ -664,36 +721,14 @@ async function spawnBot() {
     isLoadingBot = true;
     loadingIds.add('bot');
 
-    if (vrms['local']) {
-        log('Loader: Cloning local avatar for G1:M-chan bot');
-        const botId = 'bot';
-        const botName = 'G1:Mちゃん (AI)';
-
-        // Clone the local scene instead of re-loading
-        const clonedScene = THREE.SkeletonUtils.clone(vrms['local'].scene);
-
-        // Create a basic VRM-like object (simplified since we only need scene and basic updates)
-        const botVrm = {
-            scene: clonedScene,
-            name: botName,
-            humanoid: vrms['local'].humanoid, // Re-use humanoid for bone refs if possible or just rely on bone names
-            update: (delta) => { /* bot specific logic */ }
-        };
-
-        vrms[botId] = botVrm;
-        if (mainScene) mainScene.add(clonedScene);
-        else log('Loader Error: mainScene missing during bot spawn', '#f55');
-
-        const label = document.createElement('div');
-        label.id = `label-${botId}`;
-        label.className = 'avatar-label';
-        label.textContent = botName;
-        if (labelsContainer) labelsContainer.appendChild(label);
-
-        updateParticipantCount();
-    } else {
-        await loadAvatar('g1-m_chan.glb', 'bot', 'G1:Mちゃん (AI)');
+    await loadAvatar('g1-m_chan.glb', 'bot', 'G1:Mちゃん (AI)');
+    if (vrms['bot']) {
+        vrms['bot'].followLocalMotion = false;
+        vrms['bot'].action = null;
+        vrms['bot'].actionTimer = 0;
+        vrms['bot'].update = (delta) => updateBotAction(vrms['bot'], delta);
     }
+
     isLoadingBot = false;
     loadingIds.delete('bot');
 }
@@ -1112,9 +1147,14 @@ async function handleChat(text, option = {}) {
     speak(sendText, '自分');
 
     if (isAlone) {
-        log('Chat: AI (G1:M) processing...');
-        const answer = await performLlmRequest(sendText);
-        speak(answer, 'G1:M');
+        const botResponse = handleBotCommand(text);
+        if (botResponse) {
+            speak(botResponse, 'G1:M');
+        } else {
+            log('Chat: AI (G1:M) processing...');
+            const answer = await performLlmRequest(sendText);
+            speak(answer, 'G1:M');
+        }
     } else {
         // Participants are present: Exclusive mode
         // Instead of free-form, we could show "Help" options if requested
