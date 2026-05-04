@@ -48,6 +48,9 @@ const App: React.FC = () => {
   const [status, setStatus] = useState("システム起動中...");
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isModelHidden, setIsModelHidden] = useState(false);
+  const [showHideButton, setShowHideButton] = useState(false);
   const [anonymousId, setAnonymousId] = useState<string>("");
   const [isKampaModalOpen, setIsKampaModalOpen] = useState(false);
   const [isDancing, setIsDancing] = useState(false);
@@ -91,6 +94,63 @@ const App: React.FC = () => {
   useEffect(() => {
     participantsRef.current = participants;
   }, [participants]);
+
+  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !threeCameraRef.current || !sceneRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycasterRef.current.setFromCamera({ x, y }, threeCameraRef.current);
+
+    const intersects = raycasterRef.current.intersectObjects(sceneRef.current.children, true);
+
+    if (intersects.length > 0) {
+      // モデルがクリックされたら非表示ボタンを表示
+      setShowHideButton(true);
+    }
+  }, []);
+
+  const processVideoForMotion = useCallback(async (file: File) => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.playsInline = true;
+
+    await new Promise((resolve) => {
+      video.onloadeddata = resolve;
+      video.load();
+    });
+
+    if (!holisticRef.current) return;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const processFrame = async () => {
+      if (video.paused || video.ended) return;
+
+      ctx?.drawImage(video, 0, 0);
+      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+
+      if (imageData) {
+        await holisticRef.current.send({ image: imageData });
+      }
+
+      requestAnimationFrame(processFrame);
+    };
+
+    video.play();
+    processFrame();
+
+    // 動画終了時に停止
+    video.onended = () => {
+      setIsDancing(false);
+    };
+  }, []);
 
   // メモリ解放
   const disposeVRM = (vrm: VRM) => {
@@ -258,7 +318,7 @@ const App: React.FC = () => {
     const rect = canvasRef.current.getBoundingClientRect();
     const mouse = new THREE.Vector2();
 
-    if (event instanceof TouchEvent) {
+    if ('touches' in event && event.touches.length > 0) {
       if (event.touches.length === 0) return;
       mouse.x = ((event.touches[0].clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.touches[0].clientY - rect.top) / rect.height) * 2 + 1;
@@ -646,8 +706,24 @@ const App: React.FC = () => {
 
 
   // チャット送信
-  const handleChat = useCallback((text: string) => {
-    if (!text || !socketRef.current) return;
+  const handleChat = useCallback(async (text: string) => {
+    if (!text && !uploadedFile) return;
+    if (!socketRef.current) return;
+
+    if (uploadedFile) {
+      if (uploadedFile.type.startsWith('video/')) {
+        // 動画の場合、モーションキャプチャー
+        await processVideoForMotion(uploadedFile);
+      } else if (uploadedFile.type.startsWith('text/')) {
+        // テキストの場合、RAGとして処理
+        const content = await uploadedFile.text();
+        // RAG処理（仮）
+        setSubtitle(`[RAG] ${content.substring(0, 100)}...`);
+      }
+      setUploadedFile(null);
+      return;
+    }
+
     setSubtitle(`[自分] ${text}`);
     setChatInput("");
     
@@ -661,7 +737,7 @@ const App: React.FC = () => {
       if (dc.readyState === 'open') dc.send(data);
     });
     setTimeout(() => setSubtitle(""), 3000);
-  }, []);
+  }, [uploadedFile]);
 
   // 音声認識の初期化と制御
   useEffect(() => {
@@ -888,7 +964,11 @@ const App: React.FC = () => {
     });
 
     socket.on('participant_joined', (p: Participant) => {
-      setParticipants(prev => [...prev, p]);
+      setParticipants(prev => {
+        // 重複排除：既に参加者リストにいる場合は追加しない
+        if (prev.find(existing => existing.id === p.id)) return prev;
+        return [...prev, p];
+      });
       loadVRM('/g1-m_chan.glb', p.id);
       removeBot();
     });
@@ -1028,7 +1108,10 @@ const App: React.FC = () => {
       }
 
       // vrm.updateが存在する場合のみ呼び出す (bot等の疑似VRMはupdateを持たない場合がある)
-      Object.values(vrmsRef.current).forEach(vrm => { if (vrm?.update) vrm.update(delta); });
+      Object.values(vrmsRef.current).forEach(vrm => { 
+        if (vrm?.scene) vrm.scene.visible = !isModelHidden;
+        if (vrm?.update) vrm.update(delta); 
+      });
       controls.update();
       renderer.render(scene, camera);
     };
@@ -1107,7 +1190,7 @@ const App: React.FC = () => {
       {subtitle && <div id="subtitle-area">{subtitle}</div>}
       
       <div id="scene-container" style={{ position: 'relative' }}>
-        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100vw', height: '100vh' }}></canvas>
+        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100vw', height: '100vh' }} onClick={handleCanvasClick}></canvas>
         <canvas 
           ref={debugCanvasRef} 
           width={640} 
@@ -1127,7 +1210,7 @@ const App: React.FC = () => {
         ></canvas>
       </div>
 
-      <div id="chat-wrapper" style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 40 }}>
+      <div id="chat-wrapper" style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 40, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
         <input 
           type="text" 
           value={chatInput}
@@ -1136,8 +1219,39 @@ const App: React.FC = () => {
           placeholder="メッセージを入力..."
           style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', color: 'white', padding: '10px 20px', outline: 'none', width: '250px' }}
         />
+        <label style={{ position: 'relative', cursor: 'pointer' }}>
+          <input 
+            type="file" 
+            accept="video/*"
+            onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+            style={{ display: 'none' }}
+          />
+          <button className="btn-control" style={{ width: '44px', height: '44px', background: 'rgba(100,150,255,0.3)' }} title="動画ファイルを選択してモーションキャプチャー">📹</button>
+        </label>
         <button onClick={() => handleChat(chatInput)} className="btn-control" style={{ width: '44px', height: '44px' }}>➔</button>
       </div>
+
+      {showHideButton && (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 50, background: 'rgba(0,0,0,0.8)', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
+          <p style={{ color: 'white', marginBottom: '10px' }}>モデルの表示・非表示</p>
+          <button onClick={() => { setIsModelHidden(true); setShowHideButton(false); }} className="btn-control" style={{ marginRight: '10px' }}>非表示</button>
+          <button onClick={() => setShowHideButton(false)} className="btn-control">キャンセル</button>
+        </div>
+      )}
+
+      {isModelHidden && (
+        <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 50 }}>
+          <button onClick={() => setIsModelHidden(false)} className="btn-control" style={{ background: 'rgba(100,255,150,0.3)' }}>モデルを表示</button>
+        </div>
+      )}
+
+      {uploadedFile && (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 50, background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px', textAlign: 'center', color: 'white' }}>
+          <p>動画を読み込み中...</p>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>モーションキャプチャーを処理しています</p>
+          <p style={{ fontSize: '12px', marginTop: '10px' }}>📹 {uploadedFile.name}</p>
+        </div>
+      )}
 
       <div className="controls-bar">
         <button className="btn-control active" onClick={() => startCamera('user')}><span>💃</span><span className="btn-label">前面</span></button>
