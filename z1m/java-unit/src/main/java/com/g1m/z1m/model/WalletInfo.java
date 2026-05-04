@@ -17,5 +17,7 @@ public class WalletInfo {
     
     private String walletType; // e.g., "AirWallet", "PayPay", "Stripe"
     
+    private String huggingFaceUrl; // HuggingFace model URL
+    
     private String createdAt;
 }
