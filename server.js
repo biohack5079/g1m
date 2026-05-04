@@ -54,51 +54,54 @@ const supabaseHeaders = {
 app.post('/api/llm', async (req, res) => {
     const { prompt } = req.body;
     if (!LLM_API_URL) {
+        console.error('LLM_API_URL is missing');
         res.status(500).json({ error: 'LLM API endpoint is not configured.' });
         return;
     }
 
+    console.log(`🤖 AI Request received. Target: ${LLM_API_URL}`);
     try {
         const headers = { 'Content-Type': 'application/json' };
         
-        // Hugging Face Spaces の認証
+        // 認証情報の付加
         if (HUGGINGFACE_TOKEN) {
             headers.Authorization = `Bearer ${HUGGINGFACE_TOKEN}`;
-        } else if (LLM_API_KEY) {
+        } else if (typeof LLM_API_KEY !== 'undefined' && LLM_API_KEY) {
             headers.Authorization = `Bearer ${LLM_API_KEY}`;
         }
 
-        // Hugging Face Spaces Gradio API形式
-        // エンドポイントが /run/ または /call/ を使用する場合
+        // URLの調整 (Gradio API)
         let apiUrl = LLM_API_URL;
         if (!apiUrl.includes('/run/') && !apiUrl.includes('/call/') && !apiUrl.includes('/api/')) {
-            // ベースURLが与えられた場合、/run/predict を追加（デフォルト関数名）
             apiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
             apiUrl = apiUrl + '/run/predict';
         }
 
+        console.log(`📡 Fetching from: ${apiUrl} | Prompt: ${prompt.slice(0, 50)}...`);
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify({
-                data: [prompt]  // Gradio API形式
+                data: [prompt]
             })
         });
 
         if (!response.ok) {
-            console.error(`LLM API returned ${response.status}`);
             const errorText = await response.text();
-            console.error(`Error response: ${errorText}`);
-            res.status(response.status).json({ error: 'LLM API Error' });
+            console.error(`❌ LLM API Error (${response.status}):`, errorText);
+            res.status(response.status).json({ error: 'LLM API Error', details: errorText });
             return;
         }
 
         const data = await response.json();
+        console.log('✅ AI Response received');
         
-        // Gradio API はデータが配列形式で返ることが多い
-        let result = data.data?.[0] || data.response || data.answer || data.result || "Unable to process";
+        // Gradio API のデータ抽出
+        const aiText = data.data?.[0] || data.response || data.answer || data.result || "回答が得られませんでした。";
         
-        res.json({ response: result });
+        // response と text 両方のフィールドを返してフロントエンドの互換性を保つ
+        res.json({ response: aiText, text: aiText });
+
     } catch (error) {
         console.error('LLM Proxy Error:', error);
         res.status(500).json({ error: 'Internal Server Error', details: error.message });
