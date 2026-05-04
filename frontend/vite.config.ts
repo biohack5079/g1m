@@ -14,5 +14,18 @@ export default defineConfig({
         ws: true
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        codeSplitting: true,
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor'
+          }
+        }
+      }
+    }
   }
 })
