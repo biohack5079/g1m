@@ -56,6 +56,8 @@ const App: React.FC = () => {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [tappedWalletImage, setTappedWalletImage] = useState<string | null>(null);
   const [tappedModelId, setTappedModelId] = useState<string>("");
+  const [tappedHuggingFaceUrl, setTappedHuggingFaceUrl] = useState<string>("");
+  const [userHuggingFaceUrl, setUserHuggingFaceUrl] = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const debugCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -154,6 +156,9 @@ const App: React.FC = () => {
           if (data && data.wallet_image_data) {
             setUserWalletImage(data.wallet_image_data);
           }
+          if (data && data.hugging_face_url) {
+            setUserHuggingFaceUrl(data.hugging_face_url);
+          }
         })
         .catch(_err => console.log("Wallet fetch failed (backend may not be running)."));
     });
@@ -212,7 +217,8 @@ const App: React.FC = () => {
           body: JSON.stringify({
             anonymousId,
             walletImageData: base64,
-            walletType: "AirWallet"
+            walletType: "AirWallet",
+            huggingFaceUrl: userHuggingFaceUrl
           })
         });
         setStatus("Wallet登録完了");
@@ -221,6 +227,25 @@ const App: React.FC = () => {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // HuggingFace URL保存
+  const handleSaveHuggingFaceUrl = async () => {
+    try {
+      await fetch("/api/kampa/wallet/register", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          anonymousId,
+          walletImageData: userWalletImage,
+          walletType: "AirWallet",
+          huggingFaceUrl: userHuggingFaceUrl
+        })
+      });
+      setStatus("HuggingFace URL保存完了");
+    } catch (err) {
+      console.error("Backend error:", err);
+    }
   };
 
   // 3Dモデルタップ処理 - Raycasterでどのモデルがタップされたか判定
@@ -279,10 +304,16 @@ const App: React.FC = () => {
               } else {
                 setTappedWalletImage(null);
               }
+              if (data && data.hugging_face_url) {
+                setTappedHuggingFaceUrl(data.hugging_face_url);
+              } else {
+                setTappedHuggingFaceUrl("");
+              }
               setIsQrModalOpen(true);
             })
             .catch(() => {
               setTappedWalletImage(null);
+              setTappedHuggingFaceUrl("");
               setIsQrModalOpen(true);
             });
         } else {
@@ -1137,6 +1168,18 @@ const App: React.FC = () => {
               </div>
               
               <div className="input-group">
+                <label>HuggingFace URL (モデルURL)</label>
+                <input 
+                  type="text" 
+                  value={userHuggingFaceUrl} 
+                  onChange={(e) => setUserHuggingFaceUrl(e.target.value)}
+                  placeholder="https://huggingface.co/user/model"
+                  style={{ width: '100%', padding: '8px', marginBottom: '8px' }}
+                />
+                {userHuggingFaceUrl && <button className="btn-action" onClick={handleSaveHuggingFaceUrl} style={{ fontSize: '12px' }}>保存</button>}
+              </div>
+              
+              <div className="input-group">
                 <label>金額 (円)</label>
                 <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
@@ -1166,6 +1209,16 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
+            
+            {tappedHuggingFaceUrl && (
+              <div className="input-group" style={{ marginTop: '15px', textAlign: 'left' }}>
+                <label>🤗 HuggingFace URL</label>
+                <a href={tappedHuggingFaceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4da6ff', wordBreak: 'break-all', fontSize: '12px' }}>
+                  {tappedHuggingFaceUrl}
+                </a>
+              </div>
+            )}
+            
             <div className="modal-btns">
               <button className="btn-action close" onClick={() => setIsQrModalOpen(false)}>閉じる</button>
             </div>

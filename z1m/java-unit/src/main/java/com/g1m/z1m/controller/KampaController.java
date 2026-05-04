@@ -31,7 +31,7 @@ public class KampaController {
     }
 
     /**
-     * Wallet情報（QRコード画像データなど）を登録・更新する。
+     * Wallet情報（QRコード画像データ、HuggingFace URLなど）を登録・更新する。
      */
     @PostMapping("/wallet/register")
     public ResponseEntity<WalletInfo> registerWallet(@RequestBody WalletInfo walletInfo) {
@@ -41,6 +41,7 @@ public class KampaController {
         toSave.setAnonymousId(walletInfo.getAnonymousId());
         toSave.setWalletImageData(walletInfo.getWalletImageData());
         toSave.setWalletType(walletInfo.getWalletType());
+        toSave.setHuggingFaceUrl(walletInfo.getHuggingFaceUrl());
         toSave.setCreatedAt(LocalDateTime.now().toString());
 
         return ResponseEntity.ok(walletRepository.save(toSave));
