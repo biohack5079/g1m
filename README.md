@@ -216,4 +216,16 @@ MediaPipe
 Local LLM (Plower)
 ---
 
+## 環境変数の管理
+
+ローカルでは、リポジトリに秘密情報を含めないために `.env` ファイルを使います。
+`SUPABASE_URL`、`SUPABASE_KEY`、`LLM_API_URL` を設定し、`.env` は `.gitignore` に登録されています。
+
+本番環境（Render / Hugging Face Spaces）では、サーバー管理画面の環境変数設定に同じキーを登録してください。
+
+- ローカル: `.env`
+- 本番: Render/Hugging Face の Environment Variables / Secrets
+
+`.env.example` を用意しているので、`cp .env.example .env` して実際の値を入れてください。
+
 For local testing and development using `ngrok`, please refer to [DEVELOPMENT.md](DEVELOPMENT.md).

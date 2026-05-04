@@ -3,6 +3,9 @@ import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -20,8 +23,17 @@ const __dirname = path.dirname(__filename);
 app.use(express.json({ limit: '10mb' })); // Base64画像に対応するためlimit拡大
 
 // --- Supabase 設定 ---
-const SUPABASE_URL = 'https://lvzxrzhfqdfiamrkgaxm.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_DDg-RSOtr49o5T41bvZfOA_WzBRXLZ7';
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+const LLM_API_URL = process.env.LLM_API_URL || '';
+const LLM_API_KEY = process.env.LLM_API_KEY || '';
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.warn('⚠️ SUPABASE_URL or SUPABASE_KEY is not configured. Set them in .env or production environment variables.');
+}
+if (!LLM_API_URL) {
+    console.warn('⚠️ LLM_API_URL is not configured. Set it in .env or production environment variables.');
+}
 
 const supabaseHeaders = {
     'apikey': SUPABASE_KEY,
@@ -36,15 +48,26 @@ const supabaseHeaders = {
  */
 app.post('/api/llm', async (req, res) => {
     const { prompt } = req.body;
+    if (!LLM_API_URL) {
+        res.status(500).json({ error: 'LLM API endpoint is not configured.' });
+        return;
+    }
+
     try {
-        const response = await fetch('https://cybernetcall-plower.hf.space/api/generate', {
+        const headers = { 'Content-Type': 'application/json' };
+        if (LLM_API_KEY) {
+            headers.Authorization = `Bearer ${LLM_API_KEY}`;
+        }
+
+        const response = await fetch(LLM_API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 model: 'gpt-20b',
                 prompt: prompt
             })
         });
+
         const data = await response.json();
         res.json(data);
     } catch (error) {
