@@ -27,6 +27,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
 const LLM_API_URL = process.env.LLM_API_URL || '';
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
+const HUGGINGFACE_TOKEN = process.env.HUGGINGFACE_TOKEN || '';
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.warn('⚠️ SUPABASE_URL or SUPABASE_KEY is not configured. Set them in .env or production environment variables.');
@@ -57,6 +58,8 @@ app.post('/api/llm', async (req, res) => {
         const headers = { 'Content-Type': 'application/json' };
         if (LLM_API_KEY) {
             headers.Authorization = `Bearer ${LLM_API_KEY}`;
+        } else if (HUGGINGFACE_TOKEN) {
+            headers.Authorization = `Bearer ${HUGGINGFACE_TOKEN}`;
         }
 
         const response = await fetch(LLM_API_URL, {
