@@ -759,10 +759,10 @@ const App: React.FC = () => {
     // MediaPipe Y is down, so lower Y means higher up.
     let desc = [];
     if (res.poseLandmarks[15] && res.poseLandmarks[11] && res.poseLandmarks[15].y < res.poseLandmarks[11].y) {
-      desc.push("右手を挙げています"); // ユーザーから見て左だが鏡面なので右とする
+      desc.push("左手を挙げています"); // 15 is Left
     }
     if (res.poseLandmarks[16] && res.poseLandmarks[12] && res.poseLandmarks[16].y < res.poseLandmarks[12].y) {
-      desc.push("左手を挙げています");
+      desc.push("右手を挙げています"); // 16 is Right
     }
     
     if (desc.length > 0) {
@@ -787,22 +787,22 @@ const App: React.FC = () => {
       const progress = Math.min(elapsed / duration, 1.0);
       
       if (action === 'raise_hand' && rUp) {
-        // 上げて下ろす
+        // 上げて下ろす (目標値を2.0から1.3に修正: 2.0だと一周して下がってしまうため)
         if (progress < 0.3) {
-          rUp.rotation.z = -1.2 + ((progress / 0.3) * 3.2);
+          rUp.rotation.z = -1.2 + ((progress / 0.3) * 2.5);
         } else if (progress > 0.7) {
-          rUp.rotation.z = 2.0 - (((progress - 0.7) / 0.3) * 3.2);
+          rUp.rotation.z = 1.3 - (((progress - 0.7) / 0.3) * 2.5);
         } else {
-          rUp.rotation.z = 2.0;
+          rUp.rotation.z = 1.3;
         }
       } else if (action === 'wave' && rUp) {
         // 上げて振って下ろす
         if (progress < 0.2) {
-          rUp.rotation.z = -1.2 + ((progress / 0.2) * 3.2);
+          rUp.rotation.z = -1.2 + ((progress / 0.2) * 2.5);
         } else if (progress > 0.8) {
-          rUp.rotation.z = 2.0 - (((progress - 0.8) / 0.2) * 3.2);
+          rUp.rotation.z = 1.3 - (((progress - 0.8) / 0.2) * 2.5);
         } else {
-          rUp.rotation.z = 2.0;
+          rUp.rotation.z = 1.3;
           rUp.rotation.x = Math.sin(progress * Math.PI * 10) * 0.5; // wave
         }
       } else if (action === 'nod' && head) {
