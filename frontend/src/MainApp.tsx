@@ -6,6 +6,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { io, Socket } from 'socket.io-client';
 import './App.css';
 import { getAnonymousId } from './db';
+import systemPromptJa from './systemprompt_ja.md?raw';
+import systemPromptEn from './systemprompt_en.md?raw';
 
 interface Participant {
   id: string;
@@ -590,18 +592,10 @@ const App: React.FC = () => {
     const iceServers: RTCIceServer[] = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
     ];
-
-    // TURN サーバーは cloudflared / HTTPS トンネル環境下ではほぼ必須です。
-    // VITE_TURN_URL を .env に設定して使ってください。
-    if (import.meta.env.VITE_TURN_URL) {
-      iceServers.push({
-        urls: import.meta.env.VITE_TURN_URL as string,
-        username: (import.meta.env.VITE_TURN_USERNAME as string) || undefined,
-        credential: (import.meta.env.VITE_TURN_PASSWORD as string) || undefined
-      });
-    }
 
     const pc = new RTCPeerConnection({
       iceServers
@@ -610,6 +604,14 @@ const App: React.FC = () => {
 
     pc.onicecandidate = (e) => {
       if (e.candidate) socketRef.current?.emit('candidate', { targetId, candidate: e.candidate });
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`📡 Peer ${targetId.slice(0, 5)} ICE state: ${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'failed') {
+        console.error("❌ ICE connection failed. Please check your network environment.");
+        setStatus("通信エラー: 接続に失敗しました");
+      }
     };
 
     const setupDC = (dc: RTCDataChannel) => {
@@ -785,30 +787,45 @@ const App: React.FC = () => {
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1.0);
+
+      // --- アクションの類推ロジック ---
       
-      if (action === 'raise_hand' && rUp) {
-        // 上げて下ろす (目標値を2.0から1.3に修正: 2.0だと一周して下がってしまうため)
-        if (progress < 0.3) {
-          rUp.rotation.z = -1.2 + ((progress / 0.3) * 2.5);
-        } else if (progress > 0.7) {
-          rUp.rotation.z = 1.3 - (((progress - 0.7) / 0.3) * 2.5);
-        } else {
-          rUp.rotation.z = 1.3;
-        }
-      } else if (action === 'wave' && rUp) {
-        // 上げて振って下ろす
+      // 1. 手・腕系の動き (wave, raise, hand, arm, jump...)
+      if ((action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump')) && rUp) {
         if (progress < 0.2) {
           rUp.rotation.z = -1.2 + ((progress / 0.2) * 2.5);
         } else if (progress > 0.8) {
           rUp.rotation.z = 1.3 - (((progress - 0.8) / 0.2) * 2.5);
         } else {
           rUp.rotation.z = 1.3;
-          rUp.rotation.x = Math.sin(progress * Math.PI * 10) * 0.5; // wave
+          // wave や jump なら激しく振る、それ以外なら少し揺らす
+          const speed = (action.includes('wave') || action.includes('jump')) ? 10 : 3;
+          rUp.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
         }
-      } else if (action === 'nod' && head) {
-        head.rotation.x = Math.sin(progress * Math.PI * 4) * 0.2;
-      } else if (action === 'bow' && spine) {
-        spine.rotation.x = Math.sin(progress * Math.PI) * 0.4;
+      }
+
+      // 2. 頭・視線系の動き (nod, tilt, head, look, think...)
+      if ((action.includes('head') || action.includes('look') || action.includes('think') || action.includes('nod')) && head) {
+        if (action.includes('tilt')) {
+          // 首をかしげる
+          head.rotation.z = Math.sin(progress * Math.PI) * 0.3;
+        } else if (action.includes('nod') || action.includes('think')) {
+          // うなずく・考え込む
+          head.rotation.x = Math.sin(progress * Math.PI * 4) * 0.15;
+        } else {
+          // 左右を見渡す
+          head.rotation.y = Math.sin(progress * Math.PI * 2) * 0.4;
+        }
+      }
+
+      // 3. 体・腰系の動き (bow, body, dance, lean...)
+      if ((action.includes('bow') || action.includes('body') || action.includes('lean') || action.includes('dance')) && spine) {
+        spine.rotation.x = Math.sin(progress * Math.PI) * (action.includes('bow') ? 0.4 : 0.1);
+      }
+
+      // 4. 汎用フォールバック (どれにも当てはまらない場合、少し体を揺らす)
+      if (!action.includes('hand') && !action.includes('head') && !action.includes('body') && spine) {
+        spine.rotation.z = Math.sin(progress * Math.PI * 2) * 0.05;
       }
 
       if (progress < 1.0) {
@@ -828,25 +845,7 @@ const App: React.FC = () => {
    * Generate system prompt based on detected language
    */
   const generateSystemPrompt = useCallback((language: 'ja' | 'en'): string => {
-    if (language === 'ja') {
-      return `あなたは「G1:Mちゃん」というキャラクターです。ユーザーが日本語で話しかけてくれました。親切で、楽しく、サポーティブな性格で日本語で答えてください。短く、会話的な応答を心がけてください。
-また、必要に応じてあなた自身の動作を表現するタグ [ACTION:xxx] を含めて回答してください。
-使えるアクション:
-[ACTION:wave] - 手を振る
-[ACTION:raise_hand] - 手を挙げる
-[ACTION:nod] - うなずく
-[ACTION:bow] - お辞儀する
-例: "[ACTION:wave] こんにちは！"`;
-    } else {
-      return `You are "G1:M-chan", a cheerful and supportive character. The user is speaking to you in English. Please respond in English with a friendly and conversational tone. Keep your response concise and engaging.
-You can also include an action tag [ACTION:xxx] in your response to express movements.
-Available actions:
-[ACTION:wave] - wave hand
-[ACTION:raise_hand] - raise hand
-[ACTION:nod] - nod
-[ACTION:bow] - bow
-Example: "[ACTION:wave] Hello!"`;
-    }
+    return language === 'ja' ? systemPromptJa : systemPromptEn;
   }, []);
 
   // チャット送信
@@ -1200,7 +1199,15 @@ Example: "[ACTION:wave] Hello!"`;
     });
 
     socket.on('candidate', async (data: any) => {
-      await peersRef.current[data.from]?.addIceCandidate(new RTCIceCandidate(data.candidate));
+      try {
+        const pc = peersRef.current[data.from];
+        // リモートのSDPがセットされる前にCandidateを追加しようとするとエラーになるため、状態をチェック
+        if (pc && pc.remoteDescription && data.candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+      } catch (e) {
+        console.warn("ICE Candidateの追加に失敗しました（無視して問題ない場合が多いです）:", e);
+      }
     });
 
     socket.on('participant_left', (data: { id: string }) => {
