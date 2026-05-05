@@ -188,8 +188,10 @@ cloudflared トンネル ✅ 起動中
 
 
 # ショートカット
+fuser -k 3001/tcp
 npm run dev
 ~/cloudflared tunnel --url http://localhost:3001
+
 cd frontend
 npm run build
 git add .
