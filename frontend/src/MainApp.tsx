@@ -750,14 +750,102 @@ const App: React.FC = () => {
     return text;
   }, []);
 
+  const getUserPoseDescription = useCallback(() => {
+    const res = smoothedResultsRef.current;
+    if (!res || !res.poseLandmarks) return "";
+    
+    // poseLandmarks[15] is left wrist, [16] is right wrist
+    // poseLandmarks[11] is left shoulder, [12] is right shoulder
+    // MediaPipe Y is down, so lower Y means higher up.
+    let desc = [];
+    if (res.poseLandmarks[15] && res.poseLandmarks[11] && res.poseLandmarks[15].y < res.poseLandmarks[11].y) {
+      desc.push("右手を挙げています"); // ユーザーから見て左だが鏡面なので右とする
+    }
+    if (res.poseLandmarks[16] && res.poseLandmarks[12] && res.poseLandmarks[16].y < res.poseLandmarks[12].y) {
+      desc.push("左手を挙げています");
+    }
+    
+    if (desc.length > 0) {
+      return `(ユーザーの現在の状態: ${desc.join('、')})`;
+    }
+    return "";
+  }, []);
+
+  const executeBotAction = useCallback((action: string, botVrm: any) => {
+    if (!botVrm || !botVrm.humanoid) return;
+    
+    const getBone = (name: string) => botVrm.humanoid.getNormalizedBoneNode(name as any);
+    const rUp = getBone('rightUpperArm');
+    const head = getBone('head');
+    const spine = getBone('spine');
+
+    let startTime = Date.now();
+    const duration = 2000; // ms
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1.0);
+      
+      if (action === 'raise_hand' && rUp) {
+        // 上げて下ろす
+        if (progress < 0.3) {
+          rUp.rotation.z = -1.2 + ((progress / 0.3) * 3.2);
+        } else if (progress > 0.7) {
+          rUp.rotation.z = 2.0 - (((progress - 0.7) / 0.3) * 3.2);
+        } else {
+          rUp.rotation.z = 2.0;
+        }
+      } else if (action === 'wave' && rUp) {
+        // 上げて振って下ろす
+        if (progress < 0.2) {
+          rUp.rotation.z = -1.2 + ((progress / 0.2) * 3.2);
+        } else if (progress > 0.8) {
+          rUp.rotation.z = 2.0 - (((progress - 0.8) / 0.2) * 3.2);
+        } else {
+          rUp.rotation.z = 2.0;
+          rUp.rotation.x = Math.sin(progress * Math.PI * 10) * 0.5; // wave
+        }
+      } else if (action === 'nod' && head) {
+        head.rotation.x = Math.sin(progress * Math.PI * 4) * 0.2;
+      } else if (action === 'bow' && spine) {
+        spine.rotation.x = Math.sin(progress * Math.PI) * 0.4;
+      }
+
+      if (progress < 1.0) {
+        requestAnimationFrame(animate);
+      } else {
+        // Reset to default
+        if (rUp) { rUp.rotation.z = -1.2; rUp.rotation.x = 0; }
+        if (head) head.rotation.x = 0;
+        if (spine) spine.rotation.x = 0;
+      }
+    };
+    
+    animate();
+  }, []);
+
   /**
    * Generate system prompt based on detected language
    */
   const generateSystemPrompt = useCallback((language: 'ja' | 'en'): string => {
     if (language === 'ja') {
-      return `あなたは「G1:Mちゃん」というキャラクターです。ユーザーが日本語で話しかけてくれました。親切で、楽しく、サポーティブな性格で日本語で答えてください。短く、会話的な応答を心がけてください。`;
+      return `あなたは「G1:Mちゃん」というキャラクターです。ユーザーが日本語で話しかけてくれました。親切で、楽しく、サポーティブな性格で日本語で答えてください。短く、会話的な応答を心がけてください。
+また、必要に応じてあなた自身の動作を表現するタグ [ACTION:xxx] を含めて回答してください。
+使えるアクション:
+[ACTION:wave] - 手を振る
+[ACTION:raise_hand] - 手を挙げる
+[ACTION:nod] - うなずく
+[ACTION:bow] - お辞儀する
+例: "[ACTION:wave] こんにちは！"`;
     } else {
-      return `You are "G1:M-chan", a cheerful and supportive character. The user is speaking to you in English. Please respond in English with a friendly and conversational tone. Keep your response concise and engaging.`;
+      return `You are "G1:M-chan", a cheerful and supportive character. The user is speaking to you in English. Please respond in English with a friendly and conversational tone. Keep your response concise and engaging.
+You can also include an action tag [ACTION:xxx] in your response to express movements.
+Available actions:
+[ACTION:wave] - wave hand
+[ACTION:raise_hand] - raise hand
+[ACTION:nod] - nod
+[ACTION:bow] - bow
+Example: "[ACTION:wave] Hello!"`;
     }
   }, []);
 
@@ -792,7 +880,8 @@ const App: React.FC = () => {
       setTimeout(async () => {
         // Generate system prompt based on detected language
         const systemPrompt = generateSystemPrompt(detectedLang);
-        const fullPrompt = `${systemPrompt}\n\nUser: ${text}`;
+        const poseContext = getUserPoseDescription();
+        const fullPrompt = `${systemPrompt}\n\nUser: ${poseContext} ${text}`;
         
         try {
           const res = await fetch('/api/llm', {
@@ -803,8 +892,17 @@ const App: React.FC = () => {
           
           if (res.ok) {
             const data = await res.json();
-            let answer = data.text || data.response || data.answer || data.result || "うまく答えられません。";
+            let rawAnswer = data.text || data.response || data.answer || data.result || "うまく答えられません。";
             
+            // Extract action tag
+            let actionName = "";
+            const actionMatch = rawAnswer.match(/\[ACTION:([a-zA-Z_]+)\]/);
+            if (actionMatch) {
+              actionName = actionMatch[1];
+              rawAnswer = rawAnswer.replace(/\[ACTION:[a-zA-Z_]+\]/g, "").trim();
+            }
+
+            let answer = rawAnswer;
             // If response was in Japanese, add English translation
             if (detectedLang === 'ja') {
               const englishTranslation = await translateText(answer, 'en');
@@ -815,18 +913,25 @@ const App: React.FC = () => {
 
             // ボットの口パク連動
             const botVrm = vrmsRef.current['bot'];
-            if (botVrm && botVrm.expressionManager) {
-              let startTime = Date.now();
-              const lipSync = () => {
-                const elapsed = (Date.now() - startTime) / 1000;
-                if (elapsed < 3) { // 3秒間パクパク
-                  botVrm.expressionManager!.setValue('aa', Math.abs(Math.sin(elapsed * 10)));
-                  requestAnimationFrame(lipSync);
-                } else {
-                  botVrm.expressionManager!.setValue('aa', 0);
-                }
-              };
-              lipSync();
+            if (botVrm) {
+              // アクション実行
+              if (actionName) {
+                executeBotAction(actionName, botVrm);
+              }
+              
+              if (botVrm.expressionManager) {
+                let startTime = Date.now();
+                const lipSync = () => {
+                  const elapsed = (Date.now() - startTime) / 1000;
+                  if (elapsed < 3) { // 3秒間パクパク
+                    botVrm.expressionManager!.setValue('aa', Math.abs(Math.sin(elapsed * 10)));
+                    requestAnimationFrame(lipSync);
+                  } else {
+                    botVrm.expressionManager!.setValue('aa', 0);
+                  }
+                };
+                lipSync();
+              }
             }
           }
         } catch (e) {
