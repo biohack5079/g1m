@@ -30,6 +30,11 @@ const LLM_API_URL = process.env.LLM_API_URL || '';
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const HUGGINGFACE_TOKEN = process.env.HUGGINGFACE_TOKEN || '';
 
+// HF Redirection Settings
+const USE_HF_REDIRECT = process.env.USE_HF_REDIRECT !== 'false'; // Default true for startup phase
+const HF_COMPLEX_URL = process.env.HF_COMPLEX_URL || 'https://default-complex-hidden-url.hf.space';
+
+
 if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.warn('⚠️ SUPABASE_URL or SUPABASE_KEY is not configured. Set them in .env or production environment variables.');
 }
@@ -84,11 +89,16 @@ app.post('/api/llm', async (req, res) => {
         // ※ 知識ベース（personality.md等）は Supabase にベクトル化して保存済み。
         // ここでクエリのベクトル化を行い、上位コンテキストを取得する。
         
-        // --- Dockerベース LLM (Llama 3.1) へのリクエスト ---
-        // OpenAI 互換形式エンドポイントを想定
-        const apiUrl = LLM_API_URL.endsWith('/') ? `${LLM_API_URL}v1/chat/completions` : `${LLM_API_URL}/v1/chat/completions`;
+        // --- Dockerベース LLM (Llama 3.1) または HFへのリクエスト ---
+        let targetUrl = LLM_API_URL;
+        if (USE_HF_REDIRECT && HF_COMPLEX_URL) {
+            targetUrl = HF_COMPLEX_URL;
+            console.log(`🔀 Proxied heavy LLM request to HF Complex URL (Obfuscated)`);
+        }
+
+        const apiUrl = targetUrl.endsWith('/') ? `${targetUrl}v1/chat/completions` : `${targetUrl}/v1/chat/completions`;
         
-        console.log(`📡 Sending to Docker LLM API: ${apiUrl}`);
+        console.log(`📡 Sending to LLM API: ${apiUrl}`);
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers,
@@ -127,6 +137,52 @@ app.post('/api/llm', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 });
+
+/**
+ * 分散処理用エンドポイント (Goバックエンド向け)
+ * UUIDとBase64データをHFのGoプロキシに転送する
+ */
+app.post('/api/process', async (req, res) => {
+    const { uuid, base64_data } = req.body;
+    
+    if (!uuid || !base64_data) {
+        return res.status(400).json({ error: 'uuid and base64_data are required' });
+    }
+
+    // デフォルトはRenderの内部処理だが、スイッチONでHFへ転送
+    if (USE_HF_REDIRECT && HF_COMPLEX_URL) {
+        console.log(`🚀 Redirecting heavy processing to HF Distributed Go Backend for UUID: ${uuid}`);
+        try {
+            const targetUrl = HF_COMPLEX_URL.endsWith('/') ? `${HF_COMPLEX_URL}api/process` : `${HF_COMPLEX_URL}/api/process`;
+            const response = await fetch(targetUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uuid, base64_data })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ HF Process API Error (${response.status}):`, errorText);
+                return res.status(response.status).json({ error: 'HF Process API Error', details: errorText });
+            }
+
+            const data = await response.json();
+            return res.json(data);
+        } catch (error) {
+            console.error('HF Process Proxy Error:', error);
+            return res.status(500).json({ error: 'Internal Server Error forwarding to HF', details: error.message });
+        }
+    }
+
+    // HF転送がOFFの場合はここで処理 (仮実装)
+    console.log(`⚙️ Processing data locally for UUID: ${uuid}`);
+    res.json({
+        status: 'success',
+        message: 'Data processed locally (HF redirect disabled)',
+        uuid: uuid
+    });
+});
+
 
 // --- Kampa / Wallet API (Supabase REST) ---
 
