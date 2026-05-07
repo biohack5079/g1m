@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
-llama-cpp-python>=0.2.76
+llama-cpp-python
 huggingface-hub
 supabase
 python-dotenv

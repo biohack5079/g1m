@@ -778,8 +778,14 @@ const App: React.FC = () => {
     
     const getBone = (name: string) => botVrm.humanoid.getNormalizedBoneNode(name as any);
     const rUp = getBone('rightUpperArm');
+    const lUp = getBone('leftUpperArm');
     const head = getBone('head');
     const spine = getBone('spine');
+
+    const arms = [lUp, rUp].filter(Boolean) as any[];
+    const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise');
+    const isLeftOnly = action.includes('left') || action.includes('左手');
+    const isRightOnly = action.includes('right') || action.includes('右手');
 
     let startTime = Date.now();
     const duration = 2000; // ms
@@ -790,50 +796,53 @@ const App: React.FC = () => {
 
       // --- アクションの類推ロジック ---
       
-      // 1. 手・腕系の動き (wave, raise, hand, arm, jump...)
-      if ((action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump')) && rUp) {
-        if (progress < 0.2) {
-          rUp.rotation.z = -1.2 + ((progress / 0.2) * 2.5);
-        } else if (progress > 0.8) {
-          rUp.rotation.z = 1.3 - (((progress - 0.8) / 0.2) * 2.5);
-        } else {
-          rUp.rotation.z = 1.3;
-          // wave や jump なら激しく振る、それ以外なら少し揺らす
-          const speed = (action.includes('wave') || action.includes('jump')) ? 10 : 3;
-          rUp.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
-        }
+      // 1. 手・腕系の動き
+      if (isHandAction && arms.length > 0) {
+        const targetArms = [] as any[];
+        if (isLeftOnly && lUp) targetArms.push(lUp);
+        else if (isRightOnly && rUp) targetArms.push(rUp);
+        else targetArms.push(...arms);
+
+        targetArms.forEach((arm) => {
+          if (progress < 0.2) {
+            arm.rotation.z = -1.2 + ((progress / 0.2) * 2.5);
+          } else if (progress > 0.8) {
+            arm.rotation.z = 1.3 - (((progress - 0.8) / 0.2) * 2.5);
+          } else {
+            arm.rotation.z = 1.3;
+            const speed = (action.includes('wave') || action.includes('jump')) ? 10 : 3;
+            arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
+          }
+        });
       }
 
-      // 2. 頭・視線系の動き (nod, tilt, head, look, think...)
+      // 2. 頭・視線系の動き
       if ((action.includes('head') || action.includes('look') || action.includes('think') || action.includes('nod')) && head) {
         if (action.includes('tilt')) {
-          // 首をかしげる
           head.rotation.z = Math.sin(progress * Math.PI) * 0.3;
         } else if (action.includes('nod') || action.includes('think')) {
-          // うなずく・考え込む
           head.rotation.x = Math.sin(progress * Math.PI * 4) * 0.15;
         } else {
-          // 左右を見渡す
           head.rotation.y = Math.sin(progress * Math.PI * 2) * 0.4;
         }
       }
 
-      // 3. 体・腰系の動き (bow, body, dance, lean...)
+      // 3. 体・腰系の動き
       if ((action.includes('bow') || action.includes('body') || action.includes('lean') || action.includes('dance')) && spine) {
         spine.rotation.x = Math.sin(progress * Math.PI) * (action.includes('bow') ? 0.4 : 0.1);
       }
 
-      // 4. 汎用フォールバック (どれにも当てはまらない場合、少し体を揺らす)
-      if (!action.includes('hand') && !action.includes('head') && !action.includes('body') && spine) {
+      // 4. 汎用フォールバック
+      if (!isHandAction && !action.includes('head') && !action.includes('body') && spine) {
         spine.rotation.z = Math.sin(progress * Math.PI * 2) * 0.05;
       }
 
       if (progress < 1.0) {
         requestAnimationFrame(animate);
       } else {
-        // Reset to default
         if (rUp) { rUp.rotation.z = -1.2; rUp.rotation.x = 0; }
-        if (head) head.rotation.x = 0;
+        if (lUp) { lUp.rotation.z = -1.2; lUp.rotation.x = 0; }
+        if (head) { head.rotation.x = 0; head.rotation.y = 0; head.rotation.z = 0; }
         if (spine) spine.rotation.x = 0;
       }
     };
@@ -893,13 +902,52 @@ const App: React.FC = () => {
             const data = await res.json();
             let rawAnswer = data.text || data.response || data.answer || data.result || "うまく答えられません。";
             
-            // Extract action tag
+            // Extract action tag from multiple tag styles and bracket tokens
             let actionName = "";
-            const actionMatch = rawAnswer.match(/\[ACTION:([a-zA-Z_]+)\]/);
-            if (actionMatch) {
-              actionName = actionMatch[1];
-              rawAnswer = rawAnswer.replace(/\[ACTION:[a-zA-Z_]+\]/g, "").trim();
+            const knownActions = new Set([
+              'raise_hand', 'raise hand', 'raisehand', 'raise',
+              'wave', 'bow', 'nod', 'look', 'think', 'dance', 'jump',
+              'left_raise', 'right_raise', 'left_hand', 'right_hand'
+            ]);
+
+            const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
+            for (const token of tokens) {
+              const normalized = token.replace(/\s+/g, '_').toLowerCase();
+              if (token.includes(':')) {
+                const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
+                if (parts.length > 1 && knownActions.has(parts[1])) {
+                  actionName = parts[1].replace(/\s+/g, '_');
+                  break;
+                }
+              }
+              if (knownActions.has(normalized)) {
+                actionName = normalized;
+                break;
+              }
             }
+            rawAnswer = rawAnswer.replace(/\[[^\]]*\]/g, "").trim();
+
+            // Fallback: infer an action from natural language if no explicit tag was found
+            if (!actionName) {
+              const fallbackMatch = rawAnswer.match(/\b(raise_hand|raise hand|wave|bow|nod|look|think|dance|jump|hand_raise|hand raised)\b/i);
+              if (fallbackMatch) {
+                actionName = fallbackMatch[1].toLowerCase().replace(/\s+/g, '_');
+              } else {
+                const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ジャンプ|跳ね)/);
+                if (jpMatch) {
+                  const jp = jpMatch[1];
+                  if (/左手|left/.test(jp)) actionName = 'left_raise';
+                  else if (/右手|right/.test(jp)) actionName = 'right_raise';
+                  else if (/手を上げ|手上げ|上げて/.test(jp)) actionName = 'raise_hand';
+                  else if (/振って/.test(jp)) actionName = 'wave';
+                  else if (/お辞儀/.test(jp)) actionName = 'bow';
+                  else if (/うなず/.test(jp)) actionName = 'nod';
+                  else if (/踊|ジャンプ|跳ね/.test(jp)) actionName = 'dance';
+                }
+              }
+            }
+
+            console.log('LLM rawAnswer:', rawAnswer, 'actionName:', actionName);
 
             let answer = rawAnswer;
             // If response was in Japanese, add English translation
@@ -915,6 +963,7 @@ const App: React.FC = () => {
             if (botVrm) {
               // アクション実行
               if (actionName) {
+                console.log('Executing bot action:', actionName);
                 executeBotAction(actionName, botVrm);
               }
               
@@ -931,6 +980,8 @@ const App: React.FC = () => {
                 };
                 lipSync();
               }
+            } else if (actionName) {
+              console.warn('Bot VRM is not available to execute action:', actionName);
             }
           }
         } catch (e) {

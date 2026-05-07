@@ -1,40 +1,45 @@
-# Build stage for Go Proxy
-FROM golang:1.21-alpine AS builder
+# Stage 1: Go プロキシのビルド
+FROM golang:1.21-bullseye AS go-builder
 WORKDIR /app
 COPY main.go .
 RUN go build -o proxy main.go
 
-# Run stage (Python + Go)
-FROM python:3.10-slim
+# Stage 2: Python 実行環境の構築
+FROM python:3.10-slim-bullseye
 
-# Avoid OOM during llama-cpp-python installation by using pre-built wheels
-ENV PIP_PREFER_BINARY=1
-ENV CMAKE_ARGS="-DGGML_OPENBLAS=off"
-
-WORKDIR /app
-
-# Install system dependencies
+# システムパッケージのインストール (コンパイルが必要になった場合の備え)
 RUN apt-get update && apt-get install -y \
     build-essential \
+    cmake \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python requirements and install
+WORKDIR /app
+
+# Go バイナリのコピー
+COPY --from=go-builder /app/proxy .
+
+# --- llama-cpp-python のビルド OOM 対策 ---
+# 1. 並列コンパイル数を 1 に制限して RAM 使用量を最小化
+ENV MAX_JOBS=1
+# 2. ビルド済みバイナリ (wheel) がある場合は優先して使用
+ENV PIP_PREFER_BINARY=1
+# 3. キャッシュを使わずディスク容量を節約
+ENV PIP_NO_CACHE_DIR=1
+
+# 依存関係ファイルのコピー
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
 
-# Copy Python App and Go Proxy
-COPY app.py .
-COPY --from=builder /app/proxy .
+# pip のアップグレードと、CPU用ビルド済みホイールのリポジトリを指定してインストール
+RUN pip install --upgrade pip && \
+    pip install --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu -r requirements.txt
 
-# Copy and prepare start script
-COPY start.sh .
-RUN chmod +x start.sh
+# アプリケーションファイルのコピー
+COPY . .
 
-# HF Spaces needs to listen on 7860
-ENV PORT=7860
-EXPOSE 7860
+# Hugging Face Spaces の実行環境 (UID 1000) への適合設定
+RUN chmod +x start.sh proxy && \
+    useradd -m -u 1000 user
+USER user
 
-# Start both services
 CMD ["./start.sh"]

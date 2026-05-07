@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3001,
+    strictPort: true,
     allowedHosts: true, // ngrokなどの外部ホストを許可
     proxy: {
       '/api': 'http://localhost:3000',
