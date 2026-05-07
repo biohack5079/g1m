@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import { Client } from 'undici';
 
 dotenv.config();
 
@@ -96,10 +97,20 @@ app.post('/api/llm', async (req, res) => {
             console.log(`🔀 Proxied heavy LLM request to HF Complex URL (Obfuscated)`);
         }
 
-        const apiUrl = targetUrl.endsWith('/') ? `${targetUrl}v1/chat/completions` : `${targetUrl}/v1/chat/completions`;
-        
-        console.log(`📡 Sending to LLM API: ${apiUrl}`);
-        const response = await fetch(apiUrl, {
+        const apiPath = targetUrl.endsWith('/') ? 'v1/chat/completions' : '/v1/chat/completions';
+        const client = new Client(targetUrl, {
+            headersTimeout: 600000, // 10分
+            bodyTimeout: 0 // ボディ受信中はタイムアウトしない
+        });
+
+        console.log(`📡 Sending to LLM API: ${targetUrl}${apiPath}`);
+
+        // タイムアウト設定（HuggingFace Space は応答が遅い場合がある）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分（以前の動作時間）
+
+        const { statusCode, body } = await client.request({
+            path: apiPath,
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -113,8 +124,20 @@ app.post('/api/llm', async (req, res) => {
                 ],
                 max_tokens: 512,
                 temperature: 0.8
-            })
+            }),
+            signal: controller.signal
         });
+
+        const responseText = await body.text();
+        clearTimeout(timeoutId);
+        await client.close();
+
+        const response = {
+            ok: statusCode >= 200 && statusCode < 300,
+            status: statusCode,
+            text: async () => responseText,
+            json: async () => JSON.parse(responseText)
+        };
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -134,6 +157,19 @@ app.post('/api/llm', async (req, res) => {
 
     } catch (error) {
         console.error('LLM Proxy Error:', error);
+        
+        // タイムアウトエラーの詳細ログ
+        if (error.name === 'AbortError') {
+            console.error('⏱️  Request timeout: HuggingFace Space API response took too long (>3min)');
+            console.error('💡 Try: 1) Wait for HF Space to wake up (cold start), 2) Check HF Space status, 3) Verify USE_HF_REDIRECT setting');
+            res.status(504).json({ 
+                error: 'API Timeout', 
+                details: 'HuggingFace Space API response timeout (3min). Please try again later.',
+                suggestion: 'HF Spaces may have cold-start delays. First request may take 3-5min.'
+            });
+            return;
+        }
+        
         res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 });

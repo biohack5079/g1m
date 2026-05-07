@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "node server.js",
+    "dev": "fuser -k 3000/tcp 3001/tcp || true && concurrently \"npm run server\" \"npm run client\"",
+    "server": "fuser -k 3000/tcp || true && node server.js",
     "client": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
-    "restart": "fuser -k 3000/tcp || true; npm run build && npm start"
+    "restart": "fuser -k 3000/tcp || true; fuser -k 3001/tcp || true; npm run build && npm start"
   },
   "dependencies": {
     "@mediapipe/hands": "^0.4.1675469240",
@@ -17,6 +17,7 @@
     "concurrently": "^8.2.2",
     "dotenv": "^16.6.1",
     "express": "^4.18.2",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "undici": "^8.2.0"
   }
 }

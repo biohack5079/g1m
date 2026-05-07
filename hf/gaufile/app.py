@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 from fastapi import FastAPI, Request
 from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
@@ -114,20 +115,17 @@ async def universal_handler(request: Request, prompt: str = None):
 
     # 推論
     full_prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-    
+
     try:
-        # 非同期実行のためにBackgroundTasksを利用するのが理想だが、
-        # ここでは簡易的に推論後に処理を行う。
-        # 実際には推論結果を返した後に別スレッドで回すようにGoプロキシ側で制御するのも手。
+        # ここでは LLM 応答を最優先とし、進化ロジックは非同期で後続実行する。
         output = llm(full_prompt, max_tokens=200, stop=["<|eot_id|>"], echo=False)
         res_text = output["choices"][0]["text"].strip()
-        
-        # 進化ロジックはリソースを食うため、ランダムまたは明示的な要求時のみにするなどの検討が必要
-        # 一旦は呼び出しを残すが、エラーでLLM全体が止まらないよう保護
+
+        # 進化ロジックはレスポンス後にバックグラウンドで実行
         try:
-            await evolve_logic(user_prompt, res_text, system_prompt)
+            asyncio.create_task(evolve_logic(user_prompt, res_text, system_prompt))
         except Exception as evolution_err:
-            logger.warning(f"Evolution skipped: {evolution_err}")
+            logger.warning(f"Evolution task failed to start: {evolution_err}")
 
         return {
             "choices": [{"message": {"content": res_text}}],
