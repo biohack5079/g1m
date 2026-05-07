@@ -64,6 +64,9 @@ const App: React.FC = () => {
   const [tappedSocketId, setTappedSocketId] = useState<string>("");
   const [nickname, setNickname] = useState<string>("ゲスト");
   const [aiThinking, setAiThinking] = useState(false);
+  const [systemLogs, setSystemLogs] = useState<Array<{message: string, timestamp: string}>>([]);
+  const [isLogPanelOpen, setIsLogPanelOpen] = useState(true);
+  const [showSystemLog, setShowSystemLog] = useState(true);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusBeforeAiRef = useRef<string>(status);
@@ -706,9 +709,9 @@ const App: React.FC = () => {
         const lUp = getB('leftUpperArm');
         const rUp = getB('rightUpperArm');
 
-        // 初期ポーズ適用: Z軸回転で腕を体の方へ寄せる
+        // 初期ポーズ適用: Z軸回転で腕を体の方へ寄せる (鏡像を考慮)
         if (lUp) lUp.rotation.z = -1.2;
-        if (rUp) rUp.rotation.z = -1.2;
+        if (rUp) rUp.rotation.z = 1.2;
 
         if (id === 'local') {
           setStatus("G1:M 準備完了");
@@ -802,34 +805,38 @@ const App: React.FC = () => {
     const head = getBone('head');
     const spine = getBone('spine');
 
-    const arms = [lUp, rUp].filter(Boolean) as any[];
-    const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise');
-    const isLeftOnly = action.includes('left') || action.includes('左手');
-    const isRightOnly = action.includes('right') || action.includes('右手');
+    const arms = [lUp, rUp].filter(Boolean) 
+    console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
+    // アクションのキーワード判定 (日本語・英語両方)
+    const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || /手|腕|振|上げ/.test(action);
+    const isLeftOnly = action.includes('left') || action.includes('左');
+    const isRightOnly = action.includes('right') || action.includes('右');
 
     let startTime = Date.now();
-    const duration = 2000; // ms
+    const duration = (action.includes('dance') || action.includes('jump')) ? 4000 : 2000; // ダンスやジャンプは長めに
 
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1.0);
 
-      // --- アクションの類推ロジック ---
-      
       // 1. 手・腕系の動き
       if (isHandAction && arms.length > 0) {
-        const targetArms = [] as any[];
+        const targetArms = [];
         if (isLeftOnly && lUp) targetArms.push(lUp);
         else if (isRightOnly && rUp) targetArms.push(rUp);
         else targetArms.push(...arms);
 
         targetArms.forEach((arm) => {
+          const isRightArm = arm === rUp;
+          const downZ = isRightArm ? 1.4 : -1.4;
+          const upZ = isRightArm ? -1.5 : 1.5;
+          
           if (progress < 0.2) {
-            arm.rotation.z = -1.2 + ((progress / 0.2) * 2.5);
+            arm.rotation.z = downZ + ((progress / 0.2) * (upZ - downZ));
           } else if (progress > 0.8) {
-            arm.rotation.z = 1.3 - (((progress - 0.8) / 0.2) * 2.5);
+            arm.rotation.z = upZ - (((progress - 0.8) / 0.2) * (upZ - downZ));
           } else {
-            arm.rotation.z = 1.3;
+            arm.rotation.z = upZ;
             const speed = (action.includes('wave') || action.includes('jump')) ? 10 : 3;
             arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
           }
@@ -837,10 +844,10 @@ const App: React.FC = () => {
       }
 
       // 2. 頭・視線系の動き
-      if ((action.includes('head') || action.includes('look') || action.includes('think') || action.includes('nod')) && head) {
-        if (action.includes('tilt')) {
-          head.rotation.z = Math.sin(progress * Math.PI) * 0.3;
-        } else if (action.includes('nod') || action.includes('think')) {
+      if ((action.includes('head') || action.includes('look') || action.includes('think') || action.includes('nod') || action.includes('tilt') || /頭|首|顔|うなず|かしげ/.test(action)) && head) {
+        if (action.includes('tilt') || action.includes('かしげ')) {
+          head.rotation.z = Math.sin(progress * Math.PI * 2) * 0.3;
+        } else if (action.includes('nod') || action.includes('うなず') || action.includes('think')) {
           head.rotation.x = Math.sin(progress * Math.PI * 4) * 0.15;
         } else {
           head.rotation.y = Math.sin(progress * Math.PI * 2) * 0.4;
@@ -848,22 +855,31 @@ const App: React.FC = () => {
       }
 
       // 3. 体・腰系の動き
-      if ((action.includes('bow') || action.includes('body') || action.includes('lean') || action.includes('dance')) && spine) {
-        spine.rotation.x = Math.sin(progress * Math.PI) * (action.includes('bow') ? 0.4 : 0.1);
+      if ((action.includes('bow') || action.includes('body') || action.includes('lean') || action.includes('dance') || action.includes('jump') || /辞儀|腰|踊|跳|跳ね/.test(action)) && spine) {
+        if (action.includes('dance') || action.includes('踊')) {
+          spine.rotation.z = Math.sin(progress * Math.PI * 4) * 0.2;
+          spine.rotation.x = Math.sin(progress * Math.PI * 8) * 0.1;
+          botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 8)) * 0.2;
+        } else if (action.includes('jump') || action.includes('跳')) {
+          botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 4)) * 0.5;
+        } else {
+          spine.rotation.x = Math.sin(progress * Math.PI) * (action.includes('bow') ? 0.4 : 0.1);
+        }
       }
 
       // 4. 汎用フォールバック
-      if (!isHandAction && !action.includes('head') && !action.includes('body') && spine) {
-        spine.rotation.z = Math.sin(progress * Math.PI * 2) * 0.05;
+      if (!isHandAction && !/head|look|think|nod|tilt|頭|首|顔|うなず|かしげ/.test(action) && !/bow|body|lean|dance|jump|辞儀|腰|踊|跳|跳ね/.test(action) && spine) {
+        spine.rotation.y = Math.sin(progress * Math.PI * 2) * 0.1;
       }
 
       if (progress < 1.0) {
         requestAnimationFrame(animate);
       } else {
-        if (rUp) { rUp.rotation.z = -1.2; rUp.rotation.x = 0; }
+        if (rUp) { rUp.rotation.z = 1.2; rUp.rotation.x = 0; }
         if (lUp) { lUp.rotation.z = -1.2; lUp.rotation.x = 0; }
         if (head) { head.rotation.x = 0; head.rotation.y = 0; head.rotation.z = 0; }
-        if (spine) spine.rotation.x = 0;
+        if (spine) { spine.rotation.x = 0; spine.rotation.y = 0; spine.rotation.z = 0; }
+        botVrm.scene.position.y = 0;
       }
     };
     
@@ -876,6 +892,91 @@ const App: React.FC = () => {
   const generateSystemPrompt = useCallback((language: 'ja' | 'en'): string => {
     return language === 'ja' ? systemPromptJa : systemPromptEn;
   }, []);
+
+  /**
+   * AIの回答をパースして字幕表示とモーション実行を行う
+   */
+  const processAiResponse = useCallback((rawText: string) => {
+    let rawAnswer = rawText;
+    
+    // Extract action tag
+    let actionName = "";
+    const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
+    for (const token of tokens) {
+      if (token.includes(':')) {
+        const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
+        if (parts.length > 1) {
+          actionName = parts[1].replace(/\s+/g, '_');
+          break;
+        }
+      }
+      actionName = token.replace(/\s+/g, '_').toLowerCase();
+      break;
+    }
+
+    // テキストから修飾語（左右）を補足
+    const sideModifier = rawAnswer.match(/(左手|右手|左|右|left|right)/i);
+    if (sideModifier) {
+      const side = sideModifier[1];
+      if (/左|left/i.test(side)) actionName = actionName ? `left_${actionName}` : "left_raise";
+      else if (/右|right/i.test(side)) actionName = actionName ? `right_${actionName}` : "right_raise";
+    }
+
+    rawAnswer = rawAnswer.replace(/\[[^\]]*\]/g, "").trim();
+
+    // Fallback logic
+    if (!actionName) {
+      const fallbackMatch = rawAnswer.match(/\b(raise_hand|raise hand|wave|bow|nod|look|think|dance|jump|hand_raise|hand raised)\b/i);
+      if (fallbackMatch) {
+        actionName = fallbackMatch[1].toLowerCase().replace(/\s+/g, '_');
+      } else {
+        const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ジャンプ|跳ね|首をかしげ|かしげる|考える)/);
+        if (jpMatch) {
+          const jp = jpMatch[1];
+          if (/左手|left/.test(jp)) actionName = 'left_raise';
+          else if (/右手|right/.test(jp)) actionName = 'right_raise';
+          else if (/手を上げ|手上げ|上げて/.test(jp)) actionName = 'raise_hand';
+          else if (/振って/.test(jp)) actionName = 'wave';
+          else if (/お辞儀/.test(jp)) actionName = 'bow';
+          else if (/うなず/.test(jp)) actionName = 'nod';
+          else if (/踊|ジャンプ|跳ね/.test(jp)) actionName = 'dance';
+          else if (/首をかしげ|かしげる/.test(jp)) actionName = 'tilt_head';
+          else if (/考える/.test(jp)) actionName = 'thinking';
+        }
+      }
+    }
+
+    console.log('Processed LLM rawAnswer:', rawAnswer, 'actionName:', actionName);
+
+    // 日本語の回答とモーションを反映
+    const displayAnswer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
+    console.log('Final UI Answer:', displayAnswer);
+    setSubtitle(`[G1:M] ${displayAnswer}`);
+    setAiThinking(false);
+    setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
+
+    const botVrm = vrmsRef.current['bot'];
+    if (botVrm) {
+      if (actionName) {
+        console.log('Executing bot action:', actionName);
+        executeBotAction(actionName, botVrm);
+      }
+      
+      if (botVrm.expressionManager) {
+        let startTime = Date.now();
+        const lipSync = () => {
+          const elapsed = (Date.now() - startTime) / 1000;
+          if (elapsed < 3) { // 3秒間パクパク
+            botVrm.expressionManager!.setValue('aa', Math.abs(Math.sin(elapsed * 10)));
+            requestAnimationFrame(lipSync);
+          } else {
+            botVrm.expressionManager!.setValue('aa', 0);
+          }
+        };
+        lipSync();
+      }
+    }
+  }, [executeBotAction, statusBeforeAiRef]);
 
   // チャット送信
   const handleChat = useCallback(async (text: string) => {
@@ -905,130 +1006,52 @@ const App: React.FC = () => {
     
     // AI Bot 対応 (一人の時)
     if (Object.keys(dataChannelsRef.current).length === 0 && vrmsRef.current['bot']) {
+      // Generate system prompt based on detected language
+      const systemPrompt = generateSystemPrompt(detectedLang);
+      const poseContext = getUserPoseDescription();
+      const fullPrompt = `${systemPrompt}\n\nUser: ${poseContext} ${text}`;
+
       setTimeout(async () => {
-        // Generate system prompt based on detected language
-        const systemPrompt = generateSystemPrompt(detectedLang);
-        const poseContext = getUserPoseDescription();
-        const fullPrompt = `${systemPrompt}\n\nUser: ${poseContext} ${text}`;
-        
         try {
           statusBeforeAiRef.current = status;
           setStatus("G1:M 考え中...");
           setAiThinking(true);
           setSubtitle("[G1:M] 考え中...");
-          scheduleSubtitleClear(10000);
+            scheduleSubtitleClear(15000); // 長めに設定
 
-          const res = await fetch('/api/llm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: fullPrompt })
-          });
-          
-          if (res.ok) {
-            const data = await res.json();
-            let rawAnswer = data.text || data.response || data.answer || data.result || "うまく答えられません。";
+            const res = await fetch('/api/llm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt: fullPrompt })
+            });
             
-            // Extract action tag from multiple tag styles and bracket tokens
-            let actionName = "";
-            const knownActions = new Set([
-              'raise_hand', 'raise hand', 'raisehand', 'raise',
-              'wave', 'bow', 'nod', 'look', 'think', 'dance', 'jump',
-              'left_raise', 'right_raise', 'left_hand', 'right_hand'
-            ]);
-
-            const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
-            for (const token of tokens) {
-              const normalized = token.replace(/\s+/g, '_').toLowerCase();
-              if (token.includes(':')) {
-                const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
-                if (parts.length > 1 && knownActions.has(parts[1])) {
-                  actionName = parts[1].replace(/\s+/g, '_');
-                  break;
-                }
-              }
-              if (knownActions.has(normalized)) {
-                actionName = normalized;
-                break;
-              }
+            if (res.ok) {
+              const data = await res.json();
+              processAiResponse(data.text || data.response || data.answer || data.result || "");
+            } else {
+              const errText = await res.text();
+              console.error('LLM API Error:', errText);
+              setSubtitle(`[G1:M] APIエラー (${res.status})`);
+              setAiThinking(false);
+              setStatus("G1:M 接続エラー");
+              scheduleSubtitleClear(10000);
             }
-            rawAnswer = rawAnswer.replace(/\[[^\]]*\]/g, "").trim();
-
-            // Fallback: infer an action from natural language if no explicit tag was found
-            if (!actionName) {
-              const fallbackMatch = rawAnswer.match(/\b(raise_hand|raise hand|wave|bow|nod|look|think|dance|jump|hand_raise|hand raised)\b/i);
-              if (fallbackMatch) {
-                actionName = fallbackMatch[1].toLowerCase().replace(/\s+/g, '_');
-              } else {
-                const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ジャンプ|跳ね)/);
-                if (jpMatch) {
-                  const jp = jpMatch[1];
-                  if (/左手|left/.test(jp)) actionName = 'left_raise';
-                  else if (/右手|right/.test(jp)) actionName = 'right_raise';
-                  else if (/手を上げ|手上げ|上げて/.test(jp)) actionName = 'raise_hand';
-                  else if (/振って/.test(jp)) actionName = 'wave';
-                  else if (/お辞儀/.test(jp)) actionName = 'bow';
-                  else if (/うなず/.test(jp)) actionName = 'nod';
-                  else if (/踊|ジャンプ|跳ね/.test(jp)) actionName = 'dance';
-                }
-              }
-            }
-
-            console.log('LLM rawAnswer:', rawAnswer, 'actionName:', actionName);
-
-            let answer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
-            // If response was in Japanese, add English translation
-            if (detectedLang === 'ja') {
-              const englishTranslation = await translateText(answer, 'en');
-              answer = `${answer}\n\n[EN] ${englishTranslation}`;
-            }
-            
-            setSubtitle(`[G1:M] ${answer}`);
-            scheduleSubtitleClear(10000);
+          } catch (e) {
+            console.error('LLM Error:', e);
+            setSubtitle("[G1:M] 接続エラー");
             setAiThinking(false);
             setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
-
-            // ボットの口パク連動
-            const botVrm = vrmsRef.current['bot'];
-            if (botVrm) {
-              // アクション実行
-              if (actionName) {
-                console.log('Executing bot action:', actionName);
-                executeBotAction(actionName, botVrm);
-              }
-              
-              if (botVrm.expressionManager) {
-                let startTime = Date.now();
-                const lipSync = () => {
-                  const elapsed = (Date.now() - startTime) / 1000;
-                  if (elapsed < 3) { // 3秒間パクパク
-                    botVrm.expressionManager!.setValue('aa', Math.abs(Math.sin(elapsed * 10)));
-                    requestAnimationFrame(lipSync);
-                  } else {
-                    botVrm.expressionManager!.setValue('aa', 0);
-                  }
-                };
-                lipSync();
-              }
-            } else if (actionName) {
-              console.warn('Bot VRM is not available to execute action:', actionName);
-            }
+            scheduleSubtitleClear(10000);
           }
-        } catch (e) {
-          console.error('LLM Error:', e);
-          setSubtitle("[G1:M] 接続エラー");
-          setAiThinking(false);
-          setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
-          scheduleSubtitleClear(10000);
-        }
-      }, 1000);
-    }
+        }, 1000);
+      }
 
     const data = JSON.stringify({ type: 'chat', payload: text });
     Object.values(dataChannelsRef.current).forEach(dc => {
       if (dc.readyState === 'open') dc.send(data);
     });
     scheduleSubtitleClear();
-  }, [uploadedFile, detectLanguage, translateText, generateSystemPrompt, scheduleSubtitleClear]);
+  }, [uploadedFile, detectLanguage, translateText, generateSystemPrompt, scheduleSubtitleClear, status, nickname, executeBotAction]);
 
   // 音声認識の初期化と制御
   useEffect(() => {
@@ -1239,6 +1262,10 @@ const App: React.FC = () => {
     const socket = io();
     socketRef.current = socket;
 
+    socket.on('config', (data: { showSystemLog: boolean }) => {
+      setShowSystemLog(data.showSystemLog);
+    });
+
     socket.on('connect', () => {
       console.log("Connected to Signaling Server");
       getAnonymousId().then(anonId => {
@@ -1291,6 +1318,15 @@ const App: React.FC = () => {
       } catch (e) {
         console.warn("ICE Candidateの追加に失敗しました（無視して問題ない場合が多いです）:", e);
       }
+    });
+
+    socket.on('system_log', (log: { message: string, timestamp: string }) => {
+      setSystemLogs(prev => [...prev.slice(-19), log]); // 直近20件を保持
+    });
+
+    socket.on('bot_response', (data: { text: string }) => {
+      console.log('Received bot_response via socket:', data.text);
+      processAiResponse(data.text);
     });
 
     socket.on('participant_left', (data: { id: string }) => {
@@ -1545,6 +1581,42 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
         <button type="button" className="btn-control" onClick={() => fileInputRef.current?.click()} style={{ width: '44px', height: '44px', background: 'rgba(100,150,255,0.3)' }} title="動画またはテキストファイルを選択して送信">📎</button>
         <button onClick={() => handleChat(chatInput)} className="btn-control" style={{ width: '44px', height: '44px' }}>➔</button>
       </div>
+
+      {/* システムログパネル */}
+      {showSystemLog && (
+        <div className={`system-log-panel ${isLogPanelOpen ? 'open' : 'closed'}`} onClick={() => !isLogPanelOpen && setIsLogPanelOpen(true)}>
+          <div className="log-panel-header" onClick={(e) => { e.stopPropagation(); setIsLogPanelOpen(!isLogPanelOpen); }}>
+            <span>コンソール</span>
+            <button className="log-close-btn">{isLogPanelOpen ? '▼' : '▲'}</button>
+          </div>
+          {isLogPanelOpen && (
+            <>
+              <div className="log-content" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+                {systemLogs.length === 0 ? (
+                  <div className="log-empty">待機中...</div>
+                ) : (
+                  systemLogs.map((log, i) => (
+                    <div key={i} className="log-entry">
+                      <span className="log-time">[{log.timestamp}]</span>
+                      <span className="log-msg">{log.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+              {/* 将来の広告・告知用拡張エリア */}
+              <div className="log-promo-area">
+                {aiThinking ? (
+                  <div className="promo-loading">
+                    <span className="promo-text">AI回答生成中...</span>
+                  </div>
+                ) : (
+                  <div className="promo-idle">G1:M v1.0.0</div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* 個別非表示ボタンはQRモーダルに統合したため削除 */}
 

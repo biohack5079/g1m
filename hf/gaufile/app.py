@@ -66,12 +66,12 @@ async def evolve_logic(user_query, ai_response, current_prompt):
     """
     
     try:
-        # 小さなコンテキストで進化用の推論を実行
-        output = llm(f"<|begin_of_text|>{evolution_task}", max_tokens=300, stop=["<|eot_id|>"])
-        new_prompt = output["choices"][0]["text"].strip()
-        
-        if new_prompt and len(new_prompt) > 10:
-            await update_system_prompt(new_prompt)
+        # 進化ロジックは負荷が高いため、現在はログのみ
+        # output = llm(f"<|begin_of_text|>{evolution_task}", max_tokens=300, stop=["<|eot_id|>"])
+        # new_prompt = output["choices"][0]["text"].strip()
+        # if new_prompt and len(new_prompt) > 10:
+        #    await update_system_prompt(new_prompt)
+        logger.info("Evolution skipped to save resources")
     except Exception as e:
         logger.error(f"Evolution process failed: {e}")
 
@@ -112,13 +112,19 @@ async def universal_handler(request: Request, prompt: str = None):
 
     # 1. 現在の進化済みプロンプトを取得
     system_prompt = await get_system_prompt()
+    
+    # スレッドプールで実行してイベントループのブロックを防ぐ
+    loop = asyncio.get_event_loop()
 
     # 推論
     full_prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
 
     try:
-        # ここでは LLM 応答を最優先とし、進化ロジックは非同期で後続実行する。
-        output = llm(full_prompt, max_tokens=200, stop=["<|eot_id|>"], echo=False)
+        # スレッドプールで推論を実行（非ブロッキング）
+        output = await loop.run_in_executor(
+            None, 
+            lambda: llm(full_prompt, max_tokens=200, stop=["<|eot_id|>"], echo=False)
+        )
         res_text = output["choices"][0]["text"].strip()
 
         # 進化ロジックはレスポンス後にバックグラウンドで実行
