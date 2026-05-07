@@ -63,6 +63,10 @@ const App: React.FC = () => {
   const [tappedModelId, setTappedModelId] = useState<string>("");
   const [tappedSocketId, setTappedSocketId] = useState<string>("");
   const [nickname, setNickname] = useState<string>("ゲスト");
+  const [aiThinking, setAiThinking] = useState(false);
+
+  const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statusBeforeAiRef = useRef<string>(status);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -100,6 +104,22 @@ const App: React.FC = () => {
     participantsRef.current = participants;
   }, [participants]);
 
+  const scheduleSubtitleClear = useCallback((delay = 3000) => {
+    if (subtitleTimeoutRef.current) {
+      clearTimeout(subtitleTimeoutRef.current);
+    }
+    subtitleTimeoutRef.current = setTimeout(() => {
+      setSubtitle("");
+    }, delay);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (subtitleTimeoutRef.current) {
+        clearTimeout(subtitleTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const processVideoForMotion = useCallback(async (file: File) => {
     const video = document.createElement('video');
@@ -622,7 +642,7 @@ const App: React.FC = () => {
           mapMotionToVRM(vrmsRef.current[targetId], data.payload);
         } else if (data.type === 'chat') {
           setSubtitle(`[${targetId.slice(0, 4)}] ${data.payload}`);
-          setTimeout(() => setSubtitle(""), 3000);
+          scheduleSubtitleClear();
         }
       };
     };
@@ -892,6 +912,12 @@ const App: React.FC = () => {
         const fullPrompt = `${systemPrompt}\n\nUser: ${poseContext} ${text}`;
         
         try {
+          statusBeforeAiRef.current = status;
+          setStatus("G1:M 考え中...");
+          setAiThinking(true);
+          setSubtitle("[G1:M] 考え中...");
+          scheduleSubtitleClear(10000);
+
           const res = await fetch('/api/llm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -949,7 +975,7 @@ const App: React.FC = () => {
 
             console.log('LLM rawAnswer:', rawAnswer, 'actionName:', actionName);
 
-            let answer = rawAnswer;
+            let answer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
             // If response was in Japanese, add English translation
             if (detectedLang === 'ja') {
               const englishTranslation = await translateText(answer, 'en');
@@ -957,6 +983,9 @@ const App: React.FC = () => {
             }
             
             setSubtitle(`[G1:M] ${answer}`);
+            scheduleSubtitleClear(10000);
+            setAiThinking(false);
+            setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
 
             // ボットの口パク連動
             const botVrm = vrmsRef.current['bot'];
@@ -987,6 +1016,9 @@ const App: React.FC = () => {
         } catch (e) {
           console.error('LLM Error:', e);
           setSubtitle("[G1:M] 接続エラー");
+          setAiThinking(false);
+          setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
+          scheduleSubtitleClear(10000);
         }
       }, 1000);
     }
@@ -995,8 +1027,8 @@ const App: React.FC = () => {
     Object.values(dataChannelsRef.current).forEach(dc => {
       if (dc.readyState === 'open') dc.send(data);
     });
-    setTimeout(() => setSubtitle(""), 3000);
-  }, [uploadedFile, detectLanguage, translateText, generateSystemPrompt]);
+    scheduleSubtitleClear();
+  }, [uploadedFile, detectLanguage, translateText, generateSystemPrompt, scheduleSubtitleClear]);
 
   // 音声認識の初期化と制御
   useEffect(() => {
@@ -1461,7 +1493,7 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
         </div>
       </header>
 
-      <div className={`status-indicator ${loadingProgress !== null ? 'loading' : 'ready'}`}>
+      <div className={`status-indicator ${loadingProgress !== null || aiThinking ? 'loading' : 'ready'}`}>
         <div className="status-dot"></div>
         <span>{loadingProgress !== null ? `読込中 ${loadingProgress}%` : status}</span>
       </div>
