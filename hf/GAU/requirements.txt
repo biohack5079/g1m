@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+llama-cpp-python
+huggingface-hub
+supabase
+python-dotenv

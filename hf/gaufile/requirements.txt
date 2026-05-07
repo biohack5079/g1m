@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+llama-cpp-python>=0.2.76
+huggingface-hub
+supabase
+python-dotenv
