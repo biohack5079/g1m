@@ -34,6 +34,7 @@ const HUGGINGFACE_TOKEN = process.env.HUGGINGFACE_TOKEN || '';
 // HF Redirection Settings
 const USE_HF_REDIRECT = process.env.USE_HF_REDIRECT !== 'false'; // Default true for startup phase
 const HF_COMPLEX_URL = process.env.HF_COMPLEX_URL || 'https://default-complex-hidden-url.hf.space';
+const SHOW_SYSTEM_LOG = process.env.SHOW_SYSTEM_LOG === 'true';
 
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -78,7 +79,7 @@ app.post('/api/llm', async (req, res) => {
         return;
     }
 
-    console.log(`🤖 AI Request received. Mode: RAG (Pre-vectorized) | Docker Target: ${LLM_API_URL}`);
+    systemLog('🤖 AI Request received');
     
     try {
         const headers = { 'Content-Type': 'application/json' };
@@ -94,7 +95,7 @@ app.post('/api/llm', async (req, res) => {
         let targetUrl = LLM_API_URL;
         if (USE_HF_REDIRECT && HF_COMPLEX_URL) {
             targetUrl = HF_COMPLEX_URL;
-            console.log(`🔀 Proxied heavy LLM request to HF Complex URL (Obfuscated)`);
+            systemLog('🔀 Proxied LLM request');
         }
 
         const apiPath = targetUrl.endsWith('/') ? 'v1/chat/completions' : '/v1/chat/completions';
@@ -103,7 +104,7 @@ app.post('/api/llm', async (req, res) => {
             bodyTimeout: 0 // ボディ受信中はタイムアウトしない
         });
 
-        console.log(`📡 Sending to LLM API: ${targetUrl}${apiPath}`);
+        systemLog('📡 Sending to LLM API');
 
         // タイムアウト設定（HuggingFace Space は応答が遅い場合がある）
         const controller = new AbortController();
@@ -147,12 +148,16 @@ app.post('/api/llm', async (req, res) => {
         }
 
         const data = await response.json();
-        console.log('✅ AI Response received');
+        systemLog('✅ AI Response received');
         
         // OpenAI 形式 (choices[0].message.content) から抽出
         const aiText = data.choices?.[0]?.message?.content || data.generated_text || data.text || "回答を生成できませんでした。";
         
-        console.log(`💬 AI Answer: ${aiText.slice(0, 50)}...`);
+        systemLog(`💬 AI Answer: ${aiText.slice(0, 50)}...`);
+        
+        // タイムアウト対策：Socket.io経由でも全クライアントに送信（または送信者のみ）
+        io.emit('bot_response', { text: aiText, actionName: "" }); // actionNameはクライアント側で抽出
+
         res.json({ response: aiText, text: aiText });
 
     } catch (error) {
@@ -187,7 +192,7 @@ app.post('/api/process', async (req, res) => {
 
     // デフォルトはRenderの内部処理だが、スイッチONでHFへ転送
     if (USE_HF_REDIRECT && HF_COMPLEX_URL) {
-        console.log(`🚀 Redirecting heavy processing to HF Distributed Go Backend for UUID: ${uuid}`);
+        systemLog(`🚀 Redirecting heavy processing to HF Distributed Go Backend for UUID: ${uuid}`);
         try {
             const targetUrl = HF_COMPLEX_URL.endsWith('/') ? `${HF_COMPLEX_URL}api/process` : `${HF_COMPLEX_URL}/api/process`;
             const response = await fetch(targetUrl, {
@@ -233,7 +238,7 @@ app.get('/api/kampa/wallet/bot', (req, res) => {
             const bitmap = fs.readFileSync(filePath);
             // Base64に変換し、ログでデータサイズを確認可能にする
             const base64Data = bitmap.toString('base64');
-            console.log(`📸 Bot QR Image converted to Base64 (Length: ${base64Data.length})`);
+            // QRログ出力を抑制
             
             const dataUrl = `data:image/jpeg;base64,${base64Data}`;
             res.json({
@@ -333,6 +338,19 @@ app.get('*', (req, res) => {
 const participants = new Map(); // socket.id -> { socket, role, anonymousId }
 
 /**
+ * システムログをコンソールと全クライアントに送信する
+ */
+function systemLog(message) {
+    console.log(message);
+    if (SHOW_SYSTEM_LOG) {
+        io.emit('system_log', {
+            message,
+            timestamp: new Date().toLocaleTimeString('ja-JP', { hour12: false })
+        });
+    }
+}
+
+/**
  * 送信者以外の全参加者にメッセージをブロードキャストする
  */
 function broadcast(socket, event, data) {
@@ -341,6 +359,9 @@ function broadcast(socket, event, data) {
 
 io.on('connection', socket => {
     console.log(`🔗 New socket connected: ${socket.id}`);
+    
+    // クライアントに設定を送信
+    socket.emit('config', { showSystemLog: SHOW_SYSTEM_LOG });
 
     socket.on('register_role', (payload) => {
         let role, anonymousId, nickname;
@@ -432,7 +453,7 @@ io.on('connection', socket => {
     });
 
     socket.on('disconnect', (reason) => {
-        console.log(`🔌 Socket disconnected: ${socket.id} (reason: ${reason}) | Remaining: ${participants.size - 1}`);
+        systemLog(`🔌 Socket disconnected (reason: ${reason})`);
         if (participants.has(socket.id)) {
             participants.delete(socket.id);
             // 他の人に退出を通知
