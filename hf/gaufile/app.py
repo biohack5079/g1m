@@ -16,8 +16,9 @@ app = FastAPI()
 # 1. モデルの準備
 try:
     model_path = hf_hub_download(
-        repo_id="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        filename="Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+        repo_id="bartowski/google_gemma-3-4b-it-GGUF",
+        filename="google_gemma-3-4b-it-Q8_0.gguf",
+        token=os.environ.get("HF_TOKEN")
     )
     # n_threadsを1に制限し、Goプロキシ側のリソースを確保
     # n_ctxも必要最小限に抑える
@@ -67,7 +68,8 @@ async def evolve_logic(user_query, ai_response, current_prompt):
     
     try:
         # 進化ロジックは負荷が高いため、現在はログのみ
-        # output = llm(f"<|begin_of_text|>{evolution_task}", max_tokens=300, stop=["<|eot_id|>"])
+        # evolution_prompt = f"<bos><start_of_turn>user\n{evolution_task}<end_of_turn>\n<start_of_turn>model\n"
+        # output = llm(evolution_prompt, max_tokens=300, stop=["<end_of_turn>"])
         # new_prompt = output["choices"][0]["text"].strip()
         # if new_prompt and len(new_prompt) > 10:
         #    await update_system_prompt(new_prompt)
@@ -117,13 +119,13 @@ async def universal_handler(request: Request, prompt: str = None):
     loop = asyncio.get_event_loop()
 
     # 推論
-    full_prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+    full_prompt = f"<bos><start_of_turn>system\n{system_prompt}<end_of_turn>\n<start_of_turn>user\n{user_prompt}<end_of_turn>\n<start_of_turn>model\n"
 
     try:
         # スレッドプールで推論を実行（非ブロッキング）
         output = await loop.run_in_executor(
             None, 
-            lambda: llm(full_prompt, max_tokens=200, stop=["<|eot_id|>"], echo=False)
+            lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"], echo=False)
         )
         res_text = output["choices"][0]["text"].strip()
 
