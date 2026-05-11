@@ -13,21 +13,15 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 app = FastAPI()
 
-# 推論の競合を防ぐためのロック
-inference_lock = asyncio.Lock()
-
 # 1. モデルの準備
 try:
     model_path = hf_hub_download(
-        repo_id="bartowski/google_gemma-3-4b-it-GGUF",
-        filename="google_gemma-3-4b-it-Q8_0.gguf",
-        token=os.environ.get("HF_TOKEN")
+        repo_id="bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+        filename="Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
     )
-    # 修正: n_threadsを環境に合わせて調整（1だと遅すぎてタイムアウトの原因になる）
-    # CPUコア数を確認し、控えめに設定
-    threads = int(os.cpu_count() or 2) // 2
-    threads = max(1, threads)
-    llm = Llama(model_path=model_path, n_ctx=1024, n_threads=threads, n_gpu_layers=0)
+    # n_threadsを1に制限し、Goプロキシ側のリソースを確保
+    # n_ctxも必要最小限に抑える
+    llm = Llama(model_path=model_path, n_ctx=1024, n_threads=1, n_gpu_layers=0)
     logger.info("Model loaded successfully (Optimized for CPU).")
 except Exception as e:
     logger.error(f"Model load failed: {e}")
@@ -73,8 +67,7 @@ async def evolve_logic(user_query, ai_response, current_prompt):
     
     try:
         # 進化ロジックは負荷が高いため、現在はログのみ
-        # evolution_prompt = f"<bos><start_of_turn>user\n{evolution_task}<end_of_turn>\n<start_of_turn>model\n"
-        # output = llm(evolution_prompt, max_tokens=300, stop=["<end_of_turn>"])
+        # output = llm(f"<|begin_of_text|>{evolution_task}", max_tokens=300, stop=["<|eot_id|>"])
         # new_prompt = output["choices"][0]["text"].strip()
         # if new_prompt and len(new_prompt) > 10:
         #    await update_system_prompt(new_prompt)
@@ -120,30 +113,30 @@ async def universal_handler(request: Request, prompt: str = None):
     # 1. 現在の進化済みプロンプトを取得
     system_prompt = await get_system_prompt()
     
+    # スレッドプールで実行してイベントループのブロックを防ぐ
+    loop = asyncio.get_event_loop()
+
     # 推論
-    full_prompt = f"<bos><start_of_turn>system\n{system_prompt}<end_of_turn>\n<start_of_turn>user\n{user_prompt}<end_of_turn>\n<start_of_turn>model\n"
+    full_prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
 
-    # 修正: ロックを使用して一度に1リクエストのみ処理
-    async with inference_lock:
-        try:
-            loop = asyncio.get_event_loop()
-            # スレッドプールで推論を実行（非ブロッキング）
-            output = await loop.run_in_executor(
-                None, 
-                lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"], echo=False)
-            )
-            res_text = output["choices"][0]["text"].strip()
-        except Exception as e:
-            logger.error(f"Inference error: {e}")
-            return {"error": str(e)}
-
-    # 進化ロジックはロックの外でバックグラウンド実行
     try:
-        asyncio.create_task(evolve_logic(user_prompt, res_text, system_prompt))
-    except Exception as evolution_err:
-        logger.warning(f"Evolution task failed to start: {evolution_err}")
+        # スレッドプールで推論を実行（非ブロッキング）
+        output = await loop.run_in_executor(
+            None, 
+            lambda: llm(full_prompt, max_tokens=200, stop=["<|eot_id|>"], echo=False)
+        )
+        res_text = output["choices"][0]["text"].strip()
 
-    return {
-        "choices": [{"message": {"content": res_text}}],
-        "response": res_text
-    }
+        # 進化ロジックはレスポンス後にバックグラウンドで実行
+        try:
+            asyncio.create_task(evolve_logic(user_prompt, res_text, system_prompt))
+        except Exception as evolution_err:
+            logger.warning(f"Evolution task failed to start: {evolution_err}")
+
+        return {
+            "choices": [{"message": {"content": res_text}}],
+            "response": res_text
+        }
+    except Exception as e:
+        logger.error(f"Inference error: {e}")
+        return {"error": str(e)}
