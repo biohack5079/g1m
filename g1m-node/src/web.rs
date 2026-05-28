@@ -396,10 +396,10 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         socket.on("answer", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "answer".to_string(), target_id, payload); } });
         socket.on("candidate", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "candidate".to_string(), target_id, payload); } });
 
-        socket.on_disconnect({ let st = st.clone(); move |socket: SocketRef| {
+        socket.on_disconnect({ let st = st.clone(); move |socket: SocketRef, _| {
             { let mut parts = st.participants.lock().unwrap(); parts.remove(&socket.id.to_string()); }
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
-        });
+        }});
 
     });
 
