@@ -8,7 +8,7 @@ tokio = { version = "1.38", features = ["full"] }
 axum = { version = "0.7.5", features = ["ws"] }
 tower-http = { version = "0.5.2", features = ["fs", "cors"] }
 # 💡 socketioxideをAxum v0.7に対応した安定版(0.14.x)に上げつつ、古いエラーの原因となる「compat」を削除します
-socketioxide = { version = "0.14.1", features = ["axum"] }
+socketioxide = { version = "0.15.1", features = ["axum"] }
 libp2p = { version = "0.53.2", features = ["tokio", "gossipsub", "mdns", "noise", "yamux", "tcp", "dns", "macros"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
