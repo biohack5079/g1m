@@ -207,6 +207,6 @@ npm run dev
 npm run build
 cd frontend
 npm run build
-git add .
-git commit -m "change"
-git push -u origin main
+git add . && \
+git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')" && \
+git push -u origin main || echo "Git push failed"
