@@ -10,10 +10,18 @@ RUN cd frontend && npm run build
 # Stage 2: Build the Rust P2P backend
 FROM rust:1.78-slim AS backend-builder
 WORKDIR /app
+
 # Install system build dependencies
 RUN apt-get update && apt-get install -y pkg-config libssl-dev git && rm -rf /var/lib/apt/lists/*
-COPY g1m-node/ ./g1m-node/
+
+# 💡 依存関係のみを先にビルドしてキャッシュを効かせ、Render上のビルドを高速化します
+RUN mkdir -p g1m-node/src && echo "fn main() {}" > g1m-node/src/main.rs
+COPY g1m-node/Cargo.toml ./g1m-node/
 RUN cd g1m-node && cargo build --release
+
+# 実際のソースコードをコピーして本番ビルド
+COPY g1m-node/src/ ./g1m-node/src/
+RUN touch g1m-node/src/main.rs && cd g1m-node && cargo build --release
 
 # Stage 3: Final lightweight runtime container
 FROM debian:bookworm-slim
