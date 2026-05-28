@@ -8,7 +8,7 @@ COPY frontend/ ./frontend/
 RUN cd frontend && npm run build
 
 # Stage 2: Build the Rust P2P backend
-FROM rust:1.78-slim AS backend-builder
+FROM rust:1.85-slim AS backend-builder
 WORKDIR /app
 
 # Install system build dependencies
