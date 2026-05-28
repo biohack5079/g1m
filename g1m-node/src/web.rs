@@ -18,7 +18,6 @@ use tokio::sync::mpsc;
 use std::path::PathBuf;
 use std::fs;
 
-use crate::db;
 use crate::p2p::P2PCommand;
 
 #[derive(Clone)]
@@ -138,7 +137,8 @@ async fn handle_llm(
         
     match req.send().await {
         Ok(resp) => {
-            if resp.status().is_success() {
+                let status = resp.status();
+                if status.is_success() {
                 if let Ok(data) = resp.json::<serde_json::Value>().await {
                     let text = data["message"]["content"]
                         .as_str()
@@ -352,7 +352,7 @@ pub fn on_socket_connect(socket: SocketRef) {
 
     // Signaling Answer
     socket.on("answer", |socket: SocketRef, Data(payload): Data<Value>| {
-        let target_id = payload["targetId"].as_str().unwrap_or_default();
+        let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
         let sdp = payload["sdp"].clone();
         
         log::info!("Signaling Answer to target: {}", target_id);
@@ -364,7 +364,7 @@ pub fn on_socket_connect(socket: SocketRef) {
 
     // Signaling ICE Candidate
     socket.on("candidate", |socket: SocketRef, Data(payload): Data<Value>| {
-        let target_id = payload["targetId"].as_str().unwrap_or_default();
+        let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
         let candidate = payload["candidate"].clone();
         
         let _ = socket.to(target_id).emit("candidate", serde_json::json!({

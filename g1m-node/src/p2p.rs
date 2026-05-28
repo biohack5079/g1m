@@ -42,8 +42,6 @@ pub async fn run_p2p_node(
     let local_peer_id = PeerId::from(local_key.public());
     log::info!("Local peer id: {:?}", local_peer_id);
 
-    // 3. Build Gossipsub Behaviour
-    // To content-address message, we can hash the message content
     let message_id_fn = |message: &gossipsub::Message| {
         let mut s = DefaultHasher::new();
         message.data.hash(&mut s);
@@ -81,7 +79,7 @@ pub async fn run_p2p_node(
         .with_other_transport(|key| {
             tcp::tokio::Transport::default()
                 .upgrade(Version::V1Lazy)
-                .authenticate(noise::Config::new(key)?)
+                .authenticate(noise::Config::new(key).expect("failed to create noise config"))
                 .multiplex(yamux::Config::default())
         })?
         .with_behaviour(|_| behaviour)?
