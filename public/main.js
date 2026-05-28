@@ -512,6 +512,11 @@ function onHolisticResults(results) {
     lastResults = smoothedResults; // Store smoothed results for the main loop
     if (smoothedResults) updateLandmarks3D(smoothedResults);
 
+    // デバッグ: 解析が走っているか確認
+    if (results.poseLandmarks && Math.random() < 0.01) {
+        log("Tracking: Pose detected and updating...");
+    }
+
     if (canvasCtx) {
         if (canvasElement.width !== window.innerWidth) {
             canvasElement.width = window.innerWidth;
@@ -550,9 +555,9 @@ function onHolisticResults(results) {
 function mapMotionToVRM(vrm, res) {
     if (!vrm || !res || !vrm.humanoid) return;
 
-    // Helper to get VR0/VR1 bones
+    // Helper to get VR0/VR1 bones with normalization support
     const getBone = (name) => {
-        return vrm.humanoid.getRawBoneNode(name) || vrm.humanoid.getRawBoneNode(name.charAt(0).toUpperCase() + name.slice(1));
+        return vrm.humanoid.getNormalizedBoneNode(name) || vrm.humanoid.getRawBoneNode(name);
     };
 
     // --- Face (Head Rotation & Mouth) ---
@@ -752,8 +757,17 @@ if (socket) {
         socket.emit('register_role', 'viewer');
         isRegistered = true;
     });
+
+    // 新しい参加者が来た時に接続を開始
+    socket.on('participant_joined', (p) => {
+        log(`Signaling: New participant joined ${p.id.slice(0,4)}`);
+        createPeer(p.id, true);
+    });
+
     socket.on('participants_list', (l) => l.filter(p => p.id !== socket.id).forEach(p => createPeer(p.id, true)));
     socket.on('participant_left', (d) => cleanupPeer(d.id));
+    socket.on('chat_message', (d) => speak(d.text, d.senderName));
+
     socket.on('offer', async (d) => {
         log(`WebRTC: Offer from ${d.from}`);
         const pc = await createPeer(d.from, false);
@@ -1227,6 +1241,11 @@ async function handleChat(text, option = {}) {
 
         const data = { type: 'chat', payload: sendText };
         Object.values(dataChannels).forEach(dc => { if (dc.readyState === 'open') dc.send(JSON.stringify(data)); });
+    }
+
+    // Socket.IO 経由でも送信（WebRTC未接続者やP2Pリレー用）
+    if (socket && socket.connected) {
+        socket.emit("chat_message", { text: sendText, senderName: '自分' });
     }
 
     if (chatInput) chatInput.value = '';

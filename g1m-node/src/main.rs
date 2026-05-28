@@ -50,7 +50,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = web::AppState {
         db_conn: db_shared.clone(),
         p2p_tx,
-        llm_api_url,
         hf_complex_url,
         huggingface_token,
         ollama_url,
