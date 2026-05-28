@@ -3,7 +3,6 @@ mod p2p;
 mod web;
 
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use dotenvy::dotenv;
 use tokio::sync::mpsc;
 
@@ -89,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 }
-                p2p::P2PEvent::SignalReceived { target_id, payload } => {
+                p2p::P2PEvent::SignalReceived { target_id, .. } => {
                     // Signaling over Libp2p fallback (not strictly required if WebRTC directly connects,
                     // but enables signaling redundancy across nodes)
                     log::info!("Received P2P signal payload for target: {}", target_id);
