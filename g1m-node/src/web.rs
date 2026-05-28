@@ -340,7 +340,7 @@ pub fn on_socket_connect(socket: SocketRef) {
 
     // Signaling Offer
     socket.on("offer", |socket: SocketRef, Data(payload): Data<Value>| {
-        let target_id = payload["targetId"].as_str().unwrap_or_default();
+        let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
         let sdp = payload["sdp"].clone();
         
         log::info!("Signaling Offer to target: {}", target_id);
