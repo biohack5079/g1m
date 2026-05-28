@@ -317,45 +317,6 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
 
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
-        let st = st.clone();
-
-        socket.on("register_role", move |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
-            let nickname = payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string());
-            let info = ParticipantInfo {
-                id: socket.id.to_string(),
-                role: payload.role.clone(),
-                anonymous_id: payload.anonymous_id.clone(),
-                nickname: nickname.clone(),
-            };
-
-            {
-                let mut parts = st.participants.lock().unwrap();
-                parts.insert(socket.id.to_string(), info.clone());
-                
-                let others: Vec<ParticipantInfo> = parts.values()
-                    .filter(|p| p.id != socket.id.to_string())
-                    .cloned()
-                    .collect();
-                let _ = socket.emit("participants_list", others);
-            }
-
-            log::info!("Register role: {} as {}", socket.id, payload.role);
-            let _ = socket.broadcast().emit("participant_joined", info);
-        });
-
-        socket.on("update_nickname", move |socket: SocketRef, Data(payload): Data<Value>| {
-            let nickname = payload["nickname"].as_str().unwrap_or("ゲスト").to_string();
-            {
-                let mut parts = st.participants.lock().unwrap();
-                if let Some(p) = parts.get_mut(&socket.id.to_string()) {
-                    p.nickname = nickname.clone();
-                }
-            }
-            let _ = socket.broadcast().emit("participant_updated", serde_json::json!({
-                "id": socket.id.to_string(),
-                "nickname": nickname
-            }));
-        });
 
         // P2Pリレー対応シグナリング
         // `relay_signal` クロージャ自体も `st` をキャプチャするため、`st` のクローンが必要です。
