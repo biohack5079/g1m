@@ -210,3 +210,5 @@ npm run build
 git add . && \
 git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')" && \
 git push -u origin main || echo "Git push failed"
+
+./start_g1m.sh

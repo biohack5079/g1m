@@ -11,6 +11,7 @@ use socketioxide::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
@@ -28,6 +29,16 @@ pub struct AppState {
     pub hf_complex_url: String,
     pub huggingface_token: String,
     pub ollama_url: String,
+    pub participants: Arc<Mutex<HashMap<String, ParticipantInfo>>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ParticipantInfo {
+    pub id: String,
+    pub role: String,
+    #[serde(rename = "anonymousId")]
+    pub anonymous_id: Option<String>,
+    pub nickname: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -299,87 +310,98 @@ pub struct RegisterPayload {
     pub nickname: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ChatMessagePayload {
-    pub text: String,
-    pub image: Option<String>,
-    pub id: Option<String>,
-    #[serde(rename = "senderName")]
-    pub sender_name: Option<String>,
-}
-
-// SocketIO handler
-pub fn on_socket_connect(socket: SocketRef) {
-    log::info!("Socket.IO Connected: {}", socket.id);
-    
-    // Register event
-    socket.on("register_role", |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
-        log::info!("Register role: {:?}", payload);
-        
-        // Broadcast joined event
-        let joined_data = serde_json::json!({
-            "id": socket.id.to_string(),
-            "role": payload.role,
-            "anonymousId": payload.anonymous_id,
-            "nickname": payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string())
-        });
-        let _ = socket.broadcast().emit("participant_joined", joined_data);
-    });
-
-    // Nickname update
-    socket.on("update_nickname", |socket: SocketRef, Data(payload): Data<Value>| {
-        let nickname = payload["nickname"].as_str().unwrap_or("ゲスト");
-        log::info!("Nickname updated: {} -> {}", socket.id, nickname);
-        
-        let update_data = serde_json::json!({
-            "id": socket.id.to_string(),
-            "nickname": nickname
-        });
-        let _ = socket.broadcast().emit("participant_updated", update_data);
-    });
-
-    // Signaling Offer
-    socket.on("offer", |socket: SocketRef, Data(payload): Data<Value>| {
-        let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-        let sdp = payload["sdp"].clone();
-        
-        log::info!("Signaling Offer to target: {}", target_id);
-        let _ = socket.to(target_id).emit("offer", serde_json::json!({
-            "from": socket.id.to_string(),
-            "sdp": sdp
-        }));
-    });
-
-    // Signaling Answer
-    socket.on("answer", |socket: SocketRef, Data(payload): Data<Value>| {
-        let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-        let sdp = payload["sdp"].clone();
-        
-        log::info!("Signaling Answer to target: {}", target_id);
-        let _ = socket.to(target_id).emit("answer", serde_json::json!({
-            "from": socket.id.to_string(),
-            "sdp": sdp
-        }));
-    });
-
-    // Signaling ICE Candidate
-    socket.on("candidate", |socket: SocketRef, Data(payload): Data<Value>| {
-        let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-        let candidate = payload["candidate"].clone();
-        
-        let _ = socket.to(target_id).emit("candidate", serde_json::json!({
-            "from": socket.id.to_string(),
-            "candidate": candidate
-        }));
-    });
-}
-
-pub fn create_router(state: AppState) -> Router {
+pub fn create_router(state: AppState) -> (Router, SocketIo) {
     let (socketio_layer, io) = SocketIo::new_layer();
-    
-    io.ns("/", on_socket_connect);
+    let st = state.clone();
 
-    Router::new()
+    io.ns("/", move |socket: SocketRef| {
+        log::info!("Socket.IO Connected: {}", socket.id);
+        let st = st.clone();
+
+        socket.on("register_role", move |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
+            let nickname = payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string());
+            let info = ParticipantInfo {
+                id: socket.id.to_string(),
+                role: payload.role.clone(),
+                anonymous_id: payload.anonymous_id.clone(),
+                nickname: nickname.clone(),
+            };
+
+            {
+                let mut parts = st.participants.lock().unwrap();
+                parts.insert(socket.id.to_string(), info.clone());
+                
+                let others: Vec<ParticipantInfo> = parts.values()
+                    .filter(|p| p.id != socket.id.to_string())
+                    .cloned()
+                    .collect();
+                let _ = socket.emit("participants_list", others);
+            }
+
+            log::info!("Register role: {} as {}", socket.id, payload.role);
+            let _ = socket.broadcast().emit("participant_joined", info);
+        });
+
+        socket.on("update_nickname", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let nickname = payload["nickname"].as_str().unwrap_or("ゲスト").to_string();
+            {
+                let mut parts = st.participants.lock().unwrap();
+                if let Some(p) = parts.get_mut(&socket.id.to_string()) {
+                    p.nickname = nickname.clone();
+                }
+            }
+            let _ = socket.broadcast().emit("participant_updated", serde_json::json!({
+                "id": socket.id.to_string(),
+                "nickname": nickname
+            }));
+        });
+
+        // P2Pリレー対応シグナリング
+        let relay_signal = move |socket: SocketRef, event: &str, target_id: String, data_val: Value| {
+            let local_msg = serde_json::json!({ 
+                "from": socket.id.to_string(), 
+                "sdp": data_val["sdp"], 
+                "candidate": data_val["candidate"] 
+            });
+            // ローカルクライアントへの転送
+            let _ = socket.to(target_id.clone()).emit(event, local_msg.clone());
+
+            // P2Pネットワークへの転送（別のノードにターゲットがいる場合）
+            let p2p_payload = serde_json::json!({ "type": event, "from": socket.id.to_string(), "data": local_msg });
+            let _ = st.p2p_tx.try_send(P2PCommand::PublishSignal { 
+                target_id, 
+                payload: p2p_payload.to_string() 
+            });
+        };
+
+        let rs = relay_signal.clone();
+        socket.on("offer", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
+            rs(socket, "offer", target_id, payload);
+        });
+
+        let rs = relay_signal.clone();
+        socket.on("answer", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
+            rs(socket, "answer", target_id, payload);
+        });
+
+        let rs = relay_signal.clone();
+        socket.on("candidate", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
+            rs(socket, "candidate", target_id, payload);
+        });
+
+        socket.on_disconnect(move |socket: SocketRef| {
+            {
+                let mut parts = st.participants.lock().unwrap();
+                parts.remove(&socket.id.to_string());
+            }
+            let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
+        });
+    });
+
+    let router = Router::new()
         .route("/healthz", get(health_check))
         .route("/api/llm", post(handle_llm))
         .route("/api/process", post(handle_process))
@@ -389,7 +411,9 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/kampa/donate", post(handle_donate))
         .layer(socketio_layer)
         .layer(CorsLayer::permissive())
-        .with_state(state)
+        .with_state(state.clone())
         // Fallback for static assets in frontend/dist
-        .fallback_service(ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist")))
+        .fallback_service(ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist")));
+
+    (router, io)
 }
