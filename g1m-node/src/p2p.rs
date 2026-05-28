@@ -55,7 +55,7 @@ pub async fn run_p2p_node(
         .build()?;
 
     let mut gossipsub = gossipsub::Behaviour::new(
-        gossipsub::MessageAuthenticity::Signed(local_key),
+        gossipsub::MessageAuthenticity::Signed(local_key.clone()),
         gossipsub_config,
     )?;
 
