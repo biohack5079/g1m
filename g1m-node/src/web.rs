@@ -6,12 +6,11 @@ use axum::{
     Json, Router,
 };
 use socketioxide::{
-    extract::{Data, SocketRef, State as SocketState},
+    extract::{Data, SocketRef},
     SocketIo,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
@@ -19,8 +18,8 @@ use tokio::sync::mpsc;
 use std::path::PathBuf;
 use std::fs;
 
-use crate::db::{self, Message};
-use crate::p2p::{P2PCommand, P2PEvent};
+use crate::db;
+use crate::p2p::P2PCommand;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -106,7 +105,8 @@ async fn handle_llm(
         
         match req.send().await {
             Ok(resp) => {
-                if resp.status().is_success() {
+                let status = resp.status();
+                if status.is_success() {
                     if let Ok(data) = resp.json::<serde_json::Value>().await {
                         let text = data["choices"][0]["message"]["content"]
                             .as_str()
@@ -115,7 +115,7 @@ async fn handle_llm(
                         return Json(LlmResponse { response: text.clone(), text }).into_response();
                     }
                 }
-                log::warn!("HF status code not success: {:?}", resp.status());
+                log::warn!("HF status code not success: {:?}", status);
             }
             Err(e) => {
                 log::warn!("HF request failed: {:?}", e);
@@ -245,7 +245,7 @@ async fn handle_get_wallet(
     
     let result = stmt.query_row([&anonymous_id], |row| {
         let img: String = row.get(0)?;
-        let w_type: Option<String> = row.get(1);
+        let w_type: Option<String> = row.get(1)?;
         Ok((img, w_type.unwrap_or_else(|| "AirWallet".to_string())))
     });
     
@@ -315,9 +315,6 @@ pub fn on_socket_connect(socket: SocketRef) {
     // Register event
     socket.on("register_role", |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
         log::info!("Register role: {:?}", payload);
-        
-        // Save client info to custom properties
-        let _ = socket.extensions.insert(payload.clone());
         
         // Broadcast joined event
         let joined_data = serde_json::json!({

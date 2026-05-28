@@ -42,13 +42,6 @@ pub async fn run_p2p_node(
     let local_peer_id = PeerId::from(local_key.public());
     log::info!("Local peer id: {:?}", local_peer_id);
 
-    // 2. Set up TCP Transport with Noise encryption and Yamux multiplexing
-    let transport = tcp::tokio::Transport::default()
-        .upgrade(Version::V1Lazy)
-        .authenticate(noise::Config::new(&local_key)?)
-        .multiplex(yamux::Config::default())
-        .boxed();
-
     // 3. Build Gossipsub Behaviour
     // To content-address message, we can hash the message content
     let message_id_fn = |message: &gossipsub::Message| {
@@ -82,8 +75,17 @@ pub async fn run_p2p_node(
     // 5. Create Behaviour Struct
     let behaviour = G1MBehaviour { gossipsub, mdns };
 
-    // 6. Build Swarm
-    let mut swarm = libp2p::SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build();
+    // 6. Build Swarm with 0.52.x API
+    let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
+        .with_tokio()
+        .with_other_transport(|key| {
+            tcp::tokio::Transport::default()
+                .upgrade(Version::V1Lazy)
+                .authenticate(noise::Config::new(key)?)
+                .multiplex(yamux::Config::default())
+        })?
+        .with_behaviour(|_| behaviour)?
+        .build();
 
     // Listen on IPv4 and TCP port
     let listen_addr = format!("/ip4/0.0.0.0/tcp/{}", listen_port).parse::<Multiaddr>()?;
