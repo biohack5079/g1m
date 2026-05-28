@@ -8,11 +8,12 @@ tokio = { version = "1.38", features = ["full"] }
 axum = { version = "0.7.5", features = ["ws"] }
 tower-http = { version = "0.5.2", features = ["fs", "cors"] }
 socketioxide = { version = "0.13.1" }
-libp2p = { version = "0.53.2", features = ["tokio", "gossipsub", "mdns", "noise", "yamux", "tcp", "dns", "macros"] }
+libp2p = { version = "0.52.4", features = ["tokio", "gossipsub", "mdns", "noise", "yamux", "tcp", "dns", "macros"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.11", features = ["json"] }
+url = "=2.5.2"
 futures-util = "0.3"
 uuid = { version = "1.8", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
