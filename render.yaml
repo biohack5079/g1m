@@ -1,6 +1,8 @@
 services:
   - type: web
     name: g1m-webrtc-server
-    env: docker
+    env: rust
     plan: free
+    buildCommand: "cargo build --release --manifest-path g1m-node/Cargo.toml"
+    startCommand: "./g1m-node/target/release/g1m-node"
     rootDir: ./
