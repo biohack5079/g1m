@@ -26,7 +26,6 @@ use crate::p2p::P2PCommand;
 pub struct AppState {
     pub db_conn: Arc<Mutex<rusqlite::Connection>>,
     pub p2p_tx: mpsc::Sender<P2PCommand>,
-    pub llm_api_url: String,
     pub hf_complex_url: String,
     pub huggingface_token: String,
     pub ollama_url: String,
@@ -317,6 +316,23 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
 
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
+
+        // チャットメッセージの受信とブロードキャスト
+        socket.on("chat_message", {
+            let st = st.clone();
+            move |socket: SocketRef, Data(payload): Data<Value>| {
+                let _ = socket.broadcast().emit("chat_message", payload.clone());
+                
+                // P2Pネットワークへ転送
+                if let (Some(text), Some(name)) = (payload["text"].as_str(), payload["senderName"].as_str()) {
+                    let _ = st.p2p_tx.try_send(P2PCommand::PublishChat { 
+                        id: uuid::Uuid::new_v4().to_string(), 
+                        text: text.to_string(), 
+                        sender_name: name.to_string() 
+                    });
+                }
+            }
+        });
 
         // P2Pリレー対応シグナリング
         // `relay_signal` クロージャ自体も `st` をキャプチャするため、`st` のクローンが必要です。
