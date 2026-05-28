@@ -357,17 +357,17 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         });
 
         // P2Pリレー対応シグナリング
-        let relay_signal = move |socket: SocketRef, event: &str, target_id: String, data_val: Value| {
+        let relay_signal = move |socket: SocketRef, event_name: String, target_id: String, data_val: Value| {
             let local_msg = serde_json::json!({ 
                 "from": socket.id.to_string(), 
                 "sdp": data_val["sdp"], 
                 "candidate": data_val["candidate"] 
             });
             // ローカルクライアントへの転送
-            let _ = socket.to(target_id.clone()).emit(event, local_msg.clone());
+            let _ = socket.to(target_id.clone()).emit(event_name.clone(), local_msg.clone());
 
             // P2Pネットワークへの転送（別のノードにターゲットがいる場合）
-            let p2p_payload = serde_json::json!({ "type": event, "from": socket.id.to_string(), "data": local_msg });
+            let p2p_payload = serde_json::json!({ "type": event_name, "from": socket.id.to_string(), "data": local_msg });
             let _ = st.p2p_tx.try_send(P2PCommand::PublishSignal { 
                 target_id, 
                 payload: p2p_payload.to_string() 
@@ -377,19 +377,19 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         let rs = relay_signal.clone();
         socket.on("offer", move |socket: SocketRef, Data(payload): Data<Value>| {
             let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-            rs(socket, "offer", target_id, payload);
+            rs(socket, "offer".to_string(), target_id, payload);
         });
 
         let rs = relay_signal.clone();
         socket.on("answer", move |socket: SocketRef, Data(payload): Data<Value>| {
             let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-            rs(socket, "answer", target_id, payload);
+            rs(socket, "answer".to_string(), target_id, payload);
         });
 
         let rs = relay_signal.clone();
         socket.on("candidate", move |socket: SocketRef, Data(payload): Data<Value>| {
             let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-            rs(socket, "candidate", target_id, payload);
+            rs(socket, "candidate".to_string(), target_id, payload);
         });
 
         socket.on_disconnect(move |socket: SocketRef| {
