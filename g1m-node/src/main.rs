@@ -4,7 +4,6 @@ mod web;
 
 use std::sync::{Arc, Mutex};
 use dotenvy::dotenv;
-use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
