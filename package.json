@@ -4,12 +4,11 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "fuser -k 3000/tcp 3001/tcp || true && concurrently \"npm run server\" \"npm run client\"",
-    "server": "fuser -k 3000/tcp || true && node server.js",
+    "start": "./start_g1m.sh",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd g1m-node && cargo run",
     "client": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "restart": "fuser -k 3000/tcp || true; fuser -k 3001/tcp || true; npm run build && npm start"
+    "build": "cd frontend && npm run build"
   },
   "dependencies": {
     "@mediapipe/hands": "^0.4.1675469240",

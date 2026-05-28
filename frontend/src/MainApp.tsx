@@ -427,90 +427,172 @@ const App: React.FC = () => {
       return vrm.humanoid.getNormalizedBoneNode(name as any);
     };
 
-    // ポーズ適用
-    if (res.poseLandmarks) {
-      const pose = res.poseLandmarks;
-      const lUpper = getBone('leftUpperArm');
-      const lLower = getBone('leftLowerArm');
-      const rUpper = getBone('rightUpperArm');
-      const rLower = getBone('rightLowerArm');
-
-      // デバッグログ (初回のみ or 定期的に)
-      if (Math.random() < 0.01) {
-        console.log("Pose tracking active. Bones found:", { lUpper: !!lUpper, rUpper: !!rUpper });
-      }
-
-      if (lUpper && pose[11] && pose[13]) {
-        // 斜め下のデフォルト角度を考慮しつつ計算
-        const dx = pose[13].x - pose[11].x;
-        const dy = pose[13].y - pose[11].y;
-        const angle = Math.atan2(dy, dx);
-        // 左腕のマッピング修正
-        lUpper.rotation.z = angle; 
-      }
-      if (lLower && pose[13] && pose[15]) {
-        const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
-        lLower.rotation.z = angle;
-      }
-
-      if (rUpper && pose[12] && pose[14]) {
-        const dx = pose[14].x - pose[12].x;
-        const dy = pose[14].y - pose[12].y;
-        const angle = Math.atan2(dy, dx);
-        // 右腕のマッピング修正
-        rUpper.rotation.z = -angle + Math.PI;
-      }
-      if (rLower && pose[14] && pose[16]) {
-        const angle = Math.atan2(pose[16].y - pose[14].y, pose[16].x - pose[14].x);
-        rLower.rotation.z = -angle + Math.PI;
-      }
-    }
-
-    // --- Hands (Fingers) ---
-    const mapHand = (landmarks: any, side: 'left' | 'right') => {
-      const prefix = side === 'left' ? 'left' : 'right';
-      const fingers = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
-      const joints = ['Proximal', 'Intermediate', 'Distal'];
-      if (side === 'left') joints[0] = 'Metacarpal'; // 親指のみ構造が異なる場合がある
-
-      fingers.forEach((f, fIdx) => {
-        joints.forEach((j, jIdx) => {
-          const boneName = `${prefix}${f}${j}`;
-          const bone = getBone(boneName);
-          if (bone) {
-            // 関節の曲がりを簡易計算 (MediaPipeの各指の点 4つずつを使用)
-            const baseIdx = 1 + fIdx * 4;
-            const lm = landmarks;
-            const angle = Math.atan2(lm[baseIdx + jIdx + 1].y - lm[baseIdx + jIdx].y, lm[baseIdx + jIdx + 1].x - lm[baseIdx + jIdx].x);
-            bone.rotation.z = side === 'left' ? angle : -angle;
-          }
+    const kalido = (window as any).Kalidokit;
+    if (kalido) {
+      // --- KalidoKit 統合 ---
+      // 1. Face (Head Rotation, Mouth, Eyes)
+      if (res.faceLandmarks) {
+        const faceRig = kalido.Face.solve(res.faceLandmarks, {
+          runtime: 'mediapipe',
+          imageSize: { width: 320, height: 240 }
         });
-      });
-    };
-
-    if (res.leftHandLandmarks) mapHand(res.leftHandLandmarks, 'left');
-    if (res.rightHandLandmarks) mapHand(res.rightHandLandmarks, 'right');
-
-    // --- Face (Head Rotation, Mouth, Eyes) ---
-    if (res.faceLandmarks) {
-      const face = res.faceLandmarks;
-      if (vrm.expressionManager && face[13] && face[14]) {
-        // 口パク
-        const mouthOpen = Math.max(0, (face[14].y - face[13].y) * 10.0);
-        vrm.expressionManager.setValue('aa', mouthOpen);
-
-        // まばたき (159と145の距離などで判定)
-        const eyeR = 1.0 - Math.min(1.0, Math.max(0, (face[386].y - face[374].y) * 20.0));
-        
-        // 左目ウインクを維持するため、blinkLeftは常に1.0、右目のみトラッキング
-        vrm.expressionManager.setValue('blinkLeft', 1.0);
-        vrm.expressionManager.setValue('blinkRight', eyeR);
+        if (faceRig) {
+          const head = getBone('head');
+          if (head) {
+            head.rotation.y = faceRig.head.y;
+            head.rotation.x = faceRig.head.x;
+            head.rotation.z = faceRig.head.z;
+          }
+          if (vrm.expressionManager) {
+            vrm.expressionManager.setValue('blinkLeft', 1.0 - faceRig.eye.l);
+            vrm.expressionManager.setValue('blinkRight', 1.0 - faceRig.eye.r);
+            vrm.expressionManager.setValue('aa', faceRig.mouth.shape.y);
+          }
+        }
       }
 
-      const head = getBone('head');
-      if (head && face[1]) {
-        head.rotation.y = -(face[1].x - 0.5);
-        head.rotation.x = (face[1].y - 0.5) * 0.5;
+      // 2. Pose (Body & Arms)
+      if (res.poseLandmarks) {
+        const poseRig = kalido.Pose.solve(res.poseLandmarks, res.poseWorldLandmarks || res.poseLandmarks, {
+          runtime: 'mediapipe',
+          imageSize: { width: 320, height: 240 }
+        });
+        if (poseRig) {
+          const lUpper = getBone('leftUpperArm');
+          const lLower = getBone('leftLowerArm');
+          const rUpper = getBone('rightUpperArm');
+          const rLower = getBone('rightLowerArm');
+          const spine = getBone('spine');
+
+          if (lUpper && poseRig.leftUpperArm) {
+            lUpper.rotation.set(poseRig.leftUpperArm.x, poseRig.leftUpperArm.y, poseRig.leftUpperArm.z);
+          }
+          if (lLower && poseRig.leftLowerArm) {
+            lLower.rotation.set(poseRig.leftLowerArm.x, poseRig.leftLowerArm.y, poseRig.leftLowerArm.z);
+          }
+          if (rUpper && poseRig.rightUpperArm) {
+            rUpper.rotation.set(poseRig.rightUpperArm.x, poseRig.rightUpperArm.y, poseRig.rightUpperArm.z);
+          }
+          if (rLower && poseRig.rightLowerArm) {
+            rLower.rotation.set(poseRig.rightLowerArm.x, poseRig.rightLowerArm.y, poseRig.rightLowerArm.z);
+          }
+          if (spine && poseRig.spine) {
+            spine.rotation.set(poseRig.spine.x, poseRig.spine.y, poseRig.spine.z);
+          }
+        }
+      }
+
+      // 3. Left Hand (Fingers)
+      if (res.leftHandLandmarks) {
+        const leftHandRig = kalido.Hand.solve(res.leftHandLandmarks, 'Left');
+        if (leftHandRig) {
+          const fingers = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
+          const joints = ['Proximal', 'Intermediate', 'Distal'];
+          fingers.forEach(f => {
+            joints.forEach(j => {
+              const boneName = `left${f}${j}`;
+              const bone = getBone(boneName);
+              if (bone) {
+                const angleKey = `${f.toLowerCase()}${j}`;
+                const angle = leftHandRig[angleKey as keyof typeof leftHandRig] as any;
+                if (angle) {
+                  bone.rotation.set(angle.x, angle.y, angle.z);
+                }
+              }
+            });
+          });
+        }
+      }
+
+      // 4. Right Hand (Fingers)
+      if (res.rightHandLandmarks) {
+        const rightHandRig = kalido.Hand.solve(res.rightHandLandmarks, 'Right');
+        if (rightHandRig) {
+          const fingers = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
+          const joints = ['Proximal', 'Intermediate', 'Distal'];
+          fingers.forEach(f => {
+            joints.forEach(j => {
+              const boneName = `right${f}${j}`;
+              const bone = getBone(boneName);
+              if (bone) {
+                const angleKey = `${f.toLowerCase()}${j}`;
+                const angle = rightHandRig[angleKey as keyof typeof rightHandRig] as any;
+                if (angle) {
+                  bone.rotation.set(angle.x, angle.y, angle.z);
+                }
+              }
+            });
+          });
+        }
+      }
+    } else {
+      // --- Fallback manually calculated tracking (Existing design) ---
+      if (res.poseLandmarks) {
+        const pose = res.poseLandmarks;
+        const lUpper = getBone('leftUpperArm');
+        const lLower = getBone('leftLowerArm');
+        const rUpper = getBone('rightUpperArm');
+        const rLower = getBone('rightLowerArm');
+
+        if (lUpper && pose[11] && pose[13]) {
+          const dx = pose[13].x - pose[11].x;
+          const dy = pose[13].y - pose[11].y;
+          const angle = Math.atan2(dy, dx);
+          lUpper.rotation.z = angle; 
+        }
+        if (lLower && pose[13] && pose[15]) {
+          const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
+          lLower.rotation.z = angle;
+        }
+        if (rUpper && pose[12] && pose[14]) {
+          const dx = pose[14].x - pose[12].x;
+          const dy = pose[14].y - pose[12].y;
+          const angle = Math.atan2(dy, dx);
+          rUpper.rotation.z = -angle + Math.PI;
+        }
+        if (rLower && pose[14] && pose[16]) {
+          const angle = Math.atan2(pose[16].y - pose[14].y, pose[16].x - pose[14].x);
+          rLower.rotation.z = -angle + Math.PI;
+        }
+      }
+
+      const mapHand = (landmarks: any, side: 'left' | 'right') => {
+        const prefix = side === 'left' ? 'left' : 'right';
+        const fingers = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
+        const joints = ['Proximal', 'Intermediate', 'Distal'];
+        if (side === 'left') joints[0] = 'Metacarpal';
+
+        fingers.forEach((f, fIdx) => {
+          joints.forEach((j, jIdx) => {
+            const boneName = `${prefix}${f}${j}`;
+            const bone = getBone(boneName);
+            if (bone) {
+              const baseIdx = 1 + fIdx * 4;
+              const lm = landmarks;
+              const angle = Math.atan2(lm[baseIdx + jIdx + 1].y - lm[baseIdx + jIdx].y, lm[baseIdx + jIdx + 1].x - lm[baseIdx + jIdx].x);
+              bone.rotation.z = side === 'left' ? angle : -angle;
+            }
+          });
+        });
+      };
+
+      if (res.leftHandLandmarks) mapHand(res.leftHandLandmarks, 'left');
+      if (res.rightHandLandmarks) mapHand(res.rightHandLandmarks, 'right');
+
+      if (res.faceLandmarks) {
+        const face = res.faceLandmarks;
+        if (vrm.expressionManager && face[13] && face[14]) {
+          const mouthOpen = Math.max(0, (face[14].y - face[13].y) * 10.0);
+          vrm.expressionManager.setValue('aa', mouthOpen);
+          const eyeR = 1.0 - Math.min(1.0, Math.max(0, (face[386].y - face[374].y) * 20.0));
+          vrm.expressionManager.setValue('blinkLeft', 1.0);
+          vrm.expressionManager.setValue('blinkRight', eyeR);
+        }
+        const head = getBone('head');
+        if (head && face[1]) {
+          head.rotation.y = -(face[1].x - 0.5);
+          head.rotation.x = (face[1].y - 0.5) * 0.5;
+        }
       }
     }
   };
@@ -1229,6 +1311,12 @@ const App: React.FC = () => {
       const SEND_INTERVAL_MS = 66; // ~15fps
       let lastSendTime = 0;
 
+      // 低解像度化 (320x240) のためのオフスクリーンキャンバス作成
+      const offscreenCanvas = document.createElement('canvas');
+      offscreenCanvas.width = 320;
+      offscreenCanvas.height = 240;
+      const offscreenCtx = offscreenCanvas.getContext('2d');
+
       const loop = () => {
         if (!isRunning) return;
         requestAnimationFrame(loop);
@@ -1237,7 +1325,10 @@ const App: React.FC = () => {
         if (!isSending && video.readyState >= 2 && now - lastSendTime >= SEND_INTERVAL_MS) {
           isSending = true;
           lastSendTime = now;
-          holisticRef.current?.send({ image: video })
+          if (offscreenCtx) {
+            offscreenCtx.drawImage(video, 0, 0, 320, 240);
+          }
+          holisticRef.current?.send({ image: offscreenCanvas })
             .catch(() => { /* フレーム送信エラーは無視 */ })
             .finally(() => { isSending = false; });
         }
