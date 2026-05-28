@@ -357,6 +357,8 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         });
 
         // P2Pリレー対応シグナリング
+        // `relay_signal` クロージャ自体も `st` をキャプチャするため、`st` のクローンが必要です。
+        let relay_signal_st = st.clone();
         let relay_signal = move |socket: SocketRef, event_name: String, target_id: String, data_val: Value| {
             let local_msg = serde_json::json!({ 
                 "from": socket.id.to_string(), 
@@ -364,41 +366,41 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
                 "candidate": data_val["candidate"] 
             });
             // ローカルクライアントへの転送
-            let _ = socket.to(target_id.clone()).emit(event_name.clone(), local_msg.clone());
+            let _ = socket.to(target_id.clone()).emit(event_name.clone(), local_msg); // local_msg はここでムーブされます
 
             // P2Pネットワークへの転送（別のノードにターゲットがいる場合）
             let p2p_payload = serde_json::json!({ "type": event_name, "from": socket.id.to_string(), "data": local_msg });
-            let _ = st.p2p_tx.try_send(P2PCommand::PublishSignal { 
+            let _ = relay_signal_st.p2p_tx.try_send(P2PCommand::PublishSignal { 
                 target_id, 
                 payload: p2p_payload.to_string() 
             });
         };
 
-        let rs = relay_signal.clone();
-        socket.on("offer", move |socket: SocketRef, Data(payload): Data<Value>| {
-            let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-            rs(socket, "offer".to_string(), target_id, payload);
-        });
+        // `st.participants` を使用する各 `socket.on` クロージャ内で `st` をクローンします。
+        // `relay_signal` を使用するクロージャでは、`relay_signal` 自体をクローンして渡します。
 
-        let rs = relay_signal.clone();
-        socket.on("answer", move |socket: SocketRef, Data(payload): Data<Value>| {
-            let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-            rs(socket, "answer".to_string(), target_id, payload);
-        });
+        socket.on("register_role", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
+            let nickname = payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string());
+            let info = ParticipantInfo { id: socket.id.to_string(), role: payload.role.clone(), anonymous_id: payload.anonymous_id.clone(), nickname: nickname.clone(), };
+            { let mut parts = st.participants.lock().unwrap(); parts.insert(socket.id.to_string(), info.clone()); let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
+            log::info!("Register role: {} as {}", socket.id, payload.role); let _ = socket.broadcast().emit("participant_joined", info);
+        }});
 
-        let rs = relay_signal.clone();
-        socket.on("candidate", move |socket: SocketRef, Data(payload): Data<Value>| {
-            let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-            rs(socket, "candidate".to_string(), target_id, payload);
-        });
+        socket.on("update_nickname", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
+            let nickname = payload["nickname"].as_str().unwrap_or("ゲスト").to_string();
+            { let mut parts = st.participants.lock().unwrap(); if let Some(p) = parts.get_mut(&socket.id.to_string()) { p.nickname = nickname.clone(); } }
+            let _ = socket.broadcast().emit("participant_updated", serde_json::json!({ "id": socket.id.to_string(), "nickname": nickname }));
+        }});
 
-        socket.on_disconnect(move |socket: SocketRef| {
-            {
-                let mut parts = st.participants.lock().unwrap();
-                parts.remove(&socket.id.to_string());
-            }
+        socket.on("offer", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "offer".to_string(), target_id, payload); } });
+        socket.on("answer", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "answer".to_string(), target_id, payload); } });
+        socket.on("candidate", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "candidate".to_string(), target_id, payload); } });
+
+        socket.on_disconnect({ let st = st.clone(); move |socket: SocketRef| {
+            { let mut parts = st.participants.lock().unwrap(); parts.remove(&socket.id.to_string()); }
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
         });
+
     });
 
     let router = Router::new()
