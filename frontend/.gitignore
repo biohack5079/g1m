@@ -7,7 +7,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# node_modules は引き続き除外
+node_modules/
 dist-ssr
 *.local
 
@@ -21,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# frontend/dist をGit管理に含める（RenderのRust環境にはNode.jsがないため）
+!dist/

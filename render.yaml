@@ -3,6 +3,6 @@ services:
     name: g1m-webrtc-server
     env: rust
     plan: free
-    buildCommand: "cargo build --release --manifest-path g1m-node/Cargo.toml"
+    buildCommand: "cargo build --release"
     startCommand: "./g1m-node/target/release/g1m-node"
-    rootDir: ./
+    rootDir: g1m-node
