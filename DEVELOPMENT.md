@@ -103,10 +103,22 @@ npm start
 | レイヤー | 技術 |
 |---|---|
 | **3D Engine** | Three.js (VRM / MMD 対応) |
-| **Tracking** | MediaPipe Holistic (顔・体・手のキャプチャ) |
-| **AI** | Gemini API / Hugging Face Space |
-| **Signaling** | Socket.IO / WebRTC |
-| **Frontend** | React + Vite + TypeScript |
+| **Tracking** | MediaPipe Holistic + KalidoKit (3D骨格・表情・指ソルバー高速化) |
+| **AI** | Gemini API / Hugging Face / ローカル Ollama (gemma3:4b) |
+| **Signaling / P2P** | Rust (Axum + Socket.IO + Libp2p Gossipsub/Mdns) |
+| **Database** | Local SQLite (RAGベクトル検索 & コサイン類似度計算) |
+| **Frontend** | React + Vite + TypeScript (低解像度 320x240 変換バッファ経由) |
+
+### 🚀 P2P / DePIN スーパーノード・クラスター
+従来の `server.js` (Node.js) は廃止され、Rust (`g1m-node`) に移行しました。
+- **自動ピア発見**: LAN内は mDns、WANは Kademlia 経由で P2P ノードを検出。
+- **DBレプリケーション**: Gossipsub (`g1m-dbsync`) を介して、各スーパーノード間で RAG 用ナレッジベースやメッセージ履歴をリアルタイム同期。
+- **LLM冗長化 / フェイルオーバー**: Hugging Face 推論スペースへのリクエストが切断またはスロットリングされた場合、自動的にローカルの Ollama にクエリをルーティングします。
+
+### ⚡ MediaPipe ➡ KalidoKit 高速化と低解像度化
+CPU/GPU負荷による過熱・ブラウザフリーズを防ぐため、以下の最適化を行いました：
+1. **フレームの低解像度化**: カメラ映像を直接 MediaPipe に渡さず、メモリ上のオフスクリーンキャンバスで `320x240` にリサイズしてから解析。ピクセル処理量が 1/10 以下になり大幅に軽量化。
+2. **KalidoKit 3D ソルバー**: MediaPipe から得られる生の 2D/3D 座標を、3Dアバターボーンの回転角度（クォータニオン/オイラー角）に変換する処理を KalidoKit に委ねました。JSでの手動三角関数計算を削減し、滑らかな30fps〜60fpsのキネマティクスを実現（ライブラリ不在時は手動計算に安全フォールバック）。
 
 ### React StrictMode を外している理由
 `main.tsx` で `<StrictMode>` を意図的に除去しています。

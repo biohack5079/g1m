@@ -1,8 +1,6 @@
 services:
   - type: web
     name: g1m-webrtc-server
-    env: node
+    env: docker
     plan: free
-    buildCommand: "npm install && npm run build"
-    startCommand: "npm start"
     rootDir: ./
