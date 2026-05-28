@@ -328,7 +328,7 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
                 "candidate": data_val["candidate"] 
             });
             // ローカルクライアントへの転送
-            let _ = socket.to(target_id.clone()).emit(event_name.clone(), local_msg); // local_msg はここでムーブされます
+            let _ = socket.to(target_id.clone()).emit(event_name.clone(), &local_msg); 
 
             // P2Pネットワークへの転送（別のノードにターゲットがいる場合）
             let p2p_payload = serde_json::json!({ "type": event_name, "from": socket.id.to_string(), "data": local_msg });
