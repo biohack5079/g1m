@@ -393,13 +393,14 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
     let (socketio_layer, io) = SocketIo::new_layer();
     let st = state.clone();
 
+    let io_inner = io.clone();
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
         // チャットメッセージの受信とブロードキャスト
         socket.on("chat_message", {
             let st = st.clone();
-            let io_relay = io.clone();
+            let io_relay = io_inner.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
                 log::info!("Chat received from {}: {:?}", socket.id, payload["text"]);
                 
