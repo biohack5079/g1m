@@ -45,12 +45,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_conn = db::init_db("g1m.db")?;
     let db_shared = Arc::new(Mutex::new(db_conn));
 
-    // 1.5 起動時のデータベース検証 (未使用関数の活用)
+    // 1.5 起動時のデータベース検証
     {
         let db = db_shared.lock().unwrap();
         let recent = db::get_recent_messages(&db, 10).unwrap_or_default();
         log::info!("Database ready: Found {} recent messages in local store.", recent.len());
         
+        // ターミナルに過去のチャット履歴を表示
+        for (i, msg) in recent.iter().enumerate() {
+            log::info!("  [{}] {}: {}", i + 1, msg.sender_name, msg.text);
+        }
+
         // RAG機能のウォームアップ
         let dummy_vector = vec![0.0; 384]; 
         // 第3引数(threshold)を 0.5、第4引数(limit)を 1 として呼び出し

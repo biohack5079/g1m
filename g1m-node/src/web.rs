@@ -183,7 +183,7 @@ async fn handle_llm(
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
         // リクエストごとにランダム（UUIDベース）にノードを選択
         let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
-        log::info!("Delegating task to staff node (Distributed): {}", sid);
+        log::info!(">>> [Inference] Delegating task to Staff Node: {}", sid);
         let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
             "taskId": uuid::Uuid::new_v4().to_string(),
             "prompt": payload.prompt.clone()
@@ -488,6 +488,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
         socket.on_disconnect({ let st = st.clone(); move |socket: SocketRef, _reason: DisconnectReason| {
             { let mut parts = st.participants.lock().unwrap(); parts.remove(&socket.id.to_string()); }
+            log::info!("Socket disconnected: {}", socket.id);
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
         }});
 
