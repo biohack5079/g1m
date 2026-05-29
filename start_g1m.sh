@@ -5,6 +5,13 @@
 
 echo "--- G1M P2P Launcher ---"
 
+# 不要な sagbi 関連ファイルのクリーンアップ
+if [ -f "../sagbi.db" ]; then
+    echo "[Cleanup] Removing legacy sagbi.db from parent directory..."
+    rm -f ../sagbi.db
+fi
+find . -name "*sagbi*" -delete 2>/dev/null
+
 # Force local-first inference configuration
 export OLLAMA_URL="http://localhost:11434"
 export LOCAL_PYTHON_AI="http://localhost:8000"
@@ -38,7 +45,7 @@ if command -v ollama &> /dev/null; then
     MODEL="gemma3:4b-it-q4_K_M"
     if ! ollama list | grep -q "$MODEL"; then
         echo "Local Ollama found but model $MODEL is missing. Pulling now..."
-        ollama pull "$MODEL" &
+        ollama pull "$MODEL"
     fi
 
     if ! curl -s http://localhost:11434/api/tags > /dev/null; then
@@ -72,7 +79,8 @@ if command -v python3 &> /dev/null; then
     echo "Installing Python dependencies (this may take a moment)..."
     source .venv/bin/activate
     pip install -r requirements.txt > /dev/null 2>&1
-    
+
+    export SIGNALING_URL="http://127.0.0.1:3000"
     # Start the Python node in the background
     echo "Starting Python AI Node (uvicorn)..."
     uvicorn app:app --host 127.0.0.1 --port 8000 > python_node.log 2>&1 &

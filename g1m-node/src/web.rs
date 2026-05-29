@@ -112,6 +112,7 @@ async fn handle_llm(
                         .unwrap_or("回答を生成できませんでした。")
                         .to_string();
                     text = format!("【Local Node】 {}", text);
+                    // ローカル成功時は即座にリターン（排他）
                     return Json(LlmResponse { response: text.clone(), text }).into_response();
                 }
             }
@@ -146,6 +147,8 @@ async fn handle_llm(
                         .unwrap_or("回答を生成できませんでした。")
                         .to_string();
                     text = format!("【Local AI】 {}", text);
+                    // ローカル成功時は即座にリターン（排他）
+                    // ローカルAIが応答を返したら、ここで終了（HFには行かない）
                     return Json(LlmResponse { response: text.clone(), text }).into_response();
                 }
             }
@@ -156,10 +159,11 @@ async fn handle_llm(
         }
     }
 
-    // 2. Failover to Hugging Face (Only if local nodes are strictly unavailable)
-    // 排他的制御: ローカルが優先され、ここではHFを最終手段とする
-    // 開発者の意向により、ローカルが優先される場合はHFを「消す」挙動に近い形にする
-    if !state.hf_complex_url.is_empty() && state.ollama_url.is_empty() {
+    // 2. Failover to Hugging Face
+    // ローカルが全滅している場合、または負荷分散が必要な場合（実装予定）のみ実行
+    // 2. Failover to Hugging Face (排他的制御)
+    // ローカル(Ollama/Python)が両方失敗した場合のみ、HFへフォールバックする
+    if !state.hf_complex_url.is_empty() {
         log::info!("Falling back to Hugging Face LLM endpoint...");
         let api_path = if state.hf_complex_url.ends_ok() {
             "v1/chat/completions"
@@ -203,6 +207,14 @@ async fn handle_llm(
             }
         }
     }
+    
+    // 3. P2P Task Distribution (Local AI & HF failover alternative)
+    log::info!("Attempting to delegate task to P2P network...");
+    let _ = state.p2p_tx.try_send(P2PCommand::PublishTask {
+        task_id: uuid::Uuid::new_v4().to_string(),
+        task_type: "llm_inference".to_string(),
+        payload: payload.prompt.clone(),
+    });
     
     log::error!("❌ All inference nodes failed. Local AI Node might be offline.");
     (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
@@ -445,14 +457,19 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
         }});
 
-        socket.on("task_result", { move |socket: SocketRef, Data(payload): Data<Value>| {
+        socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
             let result = payload["result"].as_str().unwrap_or("").to_string();
             let msg = serde_json::json!({ "text": result, "actionName": "" });
             let _ = socket.broadcast().emit("bot_response", msg.clone());
             let _ = socket.emit("bot_response", msg);
+            
+            // タスク完了をP2P全体に通知（チャット形式でリザルトを共有）
+            let _ = st.p2p_tx.try_send(P2PCommand::PublishChat {
+                id: uuid::Uuid::new_v4().to_string(),
+                text: format!("[P2P Success] {}", result),
+                sender_name: "G1:M Distributed Node".to_string(),
+            });
         }});
-
-
     });
 
     let router = Router::new()

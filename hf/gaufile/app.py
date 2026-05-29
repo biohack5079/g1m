@@ -24,8 +24,12 @@ sio = socketio.AsyncClient()
 
 @sio.event
 async def connect():
-    logger.info("HF Node connected to Signaling Server")
-    await sio.emit('register_role', {'role': 'staff', 'nickname': 'HF Super Node'})
+    # 環境変数から自分がローカルかリモートかを判断
+    is_local = os.environ.get("SIGNALING_URL", "").find("localhost") != -1 or os.environ.get("SIGNALING_URL", "").find("127.0.0.1") != -1
+    node_name = "Local Node" if is_local else "HF Super Node"
+    
+    logger.info(f"{node_name} connected to Signaling Server")
+    await sio.emit('register_role', {'role': 'staff', 'nickname': node_name})
 
 @sio.event
 async def distribute_task(data):
