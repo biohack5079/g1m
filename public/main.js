@@ -61,6 +61,7 @@ try {
 // State
 let peers = {};
 let dataChannels = {};
+let staffNodes = new Set(); // AI推論ノードを追跡
 let vrms = {};
 let holistic = null;
 let currentStream = null;
@@ -682,11 +683,13 @@ function syncMotion(results) {
 }
 
 function updateParticipantCount() {
-    const othersCount = Object.keys(peers).length;
-    if (participantCountText) participantCountText.textContent = `参加者: ${othersCount + 1}`;
+    const staffCount = staffNodes.size;
+    if (participantCountText) participantCountText.textContent = `Nodes Active: (${staffCount})`;
+    if (statusDot) statusDot.className = staffCount > 0 ? 'status-ready' : 'status-error';
+    if (statusText && staffCount > 0) statusText.textContent = 'G1:M Distributed Node Active';
 
     // AI Agent logic: only spawn bot if alone and it doesn't already exist
-    if (othersCount === 0) {
+    if (staffCount === 0) {
         if (!vrms['bot']) spawnBot();
     } else {
         if (vrms['bot']) removeBot();

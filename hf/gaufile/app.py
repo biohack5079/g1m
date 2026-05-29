@@ -31,19 +31,29 @@ async def connect():
     
     logger.info(f"✅ {node_name} connected to Signaling Server: {sig_url}")
     
-    # Nodes Waiting を緑にするために 'staff' または 'node' ロールで登録
-    # フロントエンドの要件に合わせて role を調整
-    registration_data = {'role': 'staff', 'nickname': node_name, 'anonymousId': 'local_ai_worker'}
+    # 自分が AI 推論リソースであることを Render サーバーに登録
+    # これによりフロントエンドの Nodes Active が増えます
+    registration_data = {'role': 'staff', 'nickname': node_name, 'anonymousId': 'distributed_pc_worker'}
     await sio.emit('register_role', registration_data)
-    logger.info(f"Registered with role 'staff' for signaling.")
 
 
 @sio.event
 async def distribute_task(data):
-    logger.info(f"HF Node received task: {data}")
-    # mock processing
-    await asyncio.sleep(2)
-    await sio.emit('task_result', {'taskId': data.get('taskId'), 'result': 'HFノードで処理完了しました。'})
+    logger.info(f"📥 Received inference task: {data}")
+    prompt = data.get('prompt') or data.get('payload')
+    
+    # 実際の推論を実行（排他的ロックを使用）
+    async with inference_lock:
+        loop = asyncio.get_event_loop()
+        system_prompt = await get_system_prompt()
+        full_prompt = f"<bos><start_of_turn>system\n{system_prompt}<end_of_turn>\n<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+        
+        # llama-cpp 推論
+        output = await loop.run_in_executor(None, lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"]))
+        result_text = output["choices"][0]["text"].strip()
+
+    # 結果を Render サーバー経由でスマホへ返す
+    await sio.emit('task_result', {'taskId': data.get('taskId'), 'result': result_text})
 
 @app.on_event("startup")
 async def startup_event():

@@ -1,1 +1,1 @@
-./start_g1m.sh: 行 90: uvicorn: command not found
+./start_g1m.sh: 行 87: uvicorn: command not found
