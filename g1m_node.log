@@ -1,13 +1,32 @@
-[2026-05-29T11:53:27Z INFO  g1m_node] Initializing SQLite database...
-[2026-05-29T11:53:27Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
-[2026-05-29T11:53:27Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
-[2026-05-29T11:53:27Z INFO  g1m_node] Starting Libp2p node on port 4001...
-[2026-05-29T11:53:27Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
-[2026-05-29T11:53:27Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWR6CJc92td2wC4ZkMN8JYdbagNDmQ58bA42uiz7wigRZW")
-[2026-05-29T11:53:27Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
-[2026-05-29T11:53:27Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
-[2026-05-29T11:53:27Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
-[2026-05-29T11:53:27Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
-[2026-05-29T11:53:27Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
-[2026-05-29T11:53:27Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
-[2026-05-29T11:53:27Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-29T13:50:12Z INFO  g1m_node] Initializing SQLite database...
+[2026-05-29T13:50:12Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
+[2026-05-29T13:50:12Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
+[2026-05-29T13:50:12Z INFO  g1m_node] Starting Libp2p node on port 4001...
+[2026-05-29T13:50:12Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
+[2026-05-29T13:50:12Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWN5nE2QJWh5TfBREUEv6gM8AmApnEY1eyarVaGNfquGwX")
+[2026-05-29T13:50:12Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
+[2026-05-29T13:50:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T13:50:12Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
+[2026-05-29T13:50:12Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
+[2026-05-29T13:50:12Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
+[2026-05-29T13:50:12Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
+[2026-05-29T13:50:12Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-29T13:55:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T13:55:20Z INFO  g1m_node::web] Socket.IO Connected: -rGfjs6kDP0lVhL7
+[2026-05-29T13:55:45Z INFO  g1m_node::web] Register role: -rGfjs6kDP0lVhL7 as viewer
+[2026-05-29T13:56:51Z INFO  g1m_node::web] Chat received from -rGfjs6kDP0lVhL7: String("こんばんわ")
+[2026-05-29T13:56:51Z WARN  g1m_node::p2p] Gossipsub publish chat error: InsufficientPeers
+[2026-05-29T13:56:52Z INFO  g1m_node::web] Trying Local Ollama at http://127.0.0.1:11434...
+[2026-05-29T13:56:55Z INFO  g1m_node::web] Trying Local Python Node at http://127.0.0.1:8000...
+[2026-05-29T13:56:55Z WARN  g1m_node::web] Local Python Node query failed: reqwest::Error { kind: Request, url: Url { scheme: "http", cannot_be_a_base: false, username: "", password: None, host: Some(Ipv4(127.0.0.1)), port: Some(8000), path: "/v1/chat/completions", query: None, fragment: None }, source: hyper::Error(Connect, ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" })) }
+[2026-05-29T13:56:55Z INFO  g1m_node::web] Falling back to Hugging Face LLM endpoint...
+[2026-05-29T13:57:25Z ERROR g1m_node::web] HF request failed: reqwest::Error { kind: Request, url: Url { scheme: "https", cannot_be_a_base: false, username: "", password: None, host: Some(Domain("g1mavateruniverse-gau.hf.space")), port: None, path: "/v1/chat/completions", query: None, fragment: None }, source: TimedOut }
+[2026-05-29T13:57:25Z INFO  g1m_node::web] Attempting to delegate task to P2P network...
+[2026-05-29T13:57:25Z ERROR g1m_node::web] ❌ All inference nodes failed. Local AI Node might be offline.
+[2026-05-29T13:57:25Z WARN  g1m_node::p2p] Gossipsub publish task error: InsufficientPeers
+[2026-05-29T14:00:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T14:05:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T14:10:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T14:15:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T14:20:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T14:25:12Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers

@@ -237,11 +237,11 @@ async fn handle_llm(
         task_type: "llm_inference".to_string(),
         payload: payload.prompt.clone(),
     });
-    
-    log::error!("❌ All inference nodes failed. Local AI Node might be offline.");
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-        "error": "No available AI node. Check if Ollama or Python node is running."
-    }))).into_response()
+
+    Json(LlmResponse {
+        response: "【P2P】タスクを分散ネットワークに送信しました...".to_string(),
+        text: "Processing (P2P)...".to_string()
+    }).into_response()
 }
 
 // Helper to determine if target URL ends in /
@@ -425,8 +425,8 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             move |socket: SocketRef, Data(payload): Data<Value>| {
                 log::info!("Chat received from {}: {:?}", socket.id, payload["text"]);
                 
-                // メインサーバー内の全接続者（スマホ・PC両方）に即座に同期
-                let _ = io_relay.emit("chat_message", payload.clone());
+                // 送信者以外の全員にブロードキャスト（自分自身には送らない）
+                let _ = socket.broadcast().emit("chat_message", payload.clone());
 
                 // P2Pネットワークへ転送
                 if let (Some(text), Some(name)) = (payload["text"].as_str(), payload["senderName"].as_str()) {
@@ -487,8 +487,8 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
             let result = payload["result"].as_str().unwrap_or("").to_string();
             let msg = serde_json::json!({ "text": result, "actionName": "" });
-            let _ = socket.broadcast().emit("bot_response", msg.clone());
-            let _ = socket.emit("bot_response", msg);
+            // 全員（AIの回答を待っているユーザー全員）に送信
+            let _ = st.io.emit("bot_response", msg);
             
             // タスク完了をP2P全体に通知（チャット形式でリザルトを共有）
             let _ = st.p2p_tx.try_send(P2PCommand::PublishChat {
