@@ -88,9 +88,41 @@ async fn handle_llm(
 ) -> impl IntoResponse {
     let client = reqwest::Client::new();
     
-    // 1. Try Hugging Face first
+    // 1. Try Local Ollama First
+    log::info!("Trying Local Ollama at {}...", state.ollama_url);
+    let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
+    let req = client.post(&ollama_endpoint)
+        .json(&serde_json::json!({
+            "model": "gemma3:4b-it-q4_K_M",
+            "messages": [
+                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
+                { "role": "user", "content": payload.prompt }
+            ],
+            "stream": false
+        }));
+        
+    match req.send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                if let Ok(data) = resp.json::<serde_json::Value>().await {
+                    let mut text = data["message"]["content"]
+                        .as_str()
+                        .unwrap_or("回答を生成できませんでした。")
+                        .to_string();
+                    text = format!("【Local Node】 {}", text);
+                    return Json(LlmResponse { response: text.clone(), text }).into_response();
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("Local Ollama query failed: {:?}", e);
+        }
+    }
+
+    // 2. Failover to Hugging Face
     if !state.hf_complex_url.is_empty() {
-        log::info!("Trying Hugging Face LLM endpoint...");
+        log::info!("Falling back to Hugging Face LLM endpoint...");
         let api_path = if state.hf_complex_url.ends_ok() {
             "v1/chat/completions"
         } else {
@@ -129,40 +161,8 @@ async fn handle_llm(
                 log::warn!("HF status code not success: {:?}", status);
             }
             Err(e) => {
-                log::warn!("HF request failed: {:?}", e);
+                log::error!("HF request failed: {:?}", e);
             }
-        }
-    }
-    
-    // 2. Failover to Local Ollama
-    log::info!("Falling back to Local Ollama at {}...", state.ollama_url);
-    let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
-    let req = client.post(&ollama_endpoint)
-        .json(&serde_json::json!({
-            "model": "gemma3:4b-it-q4_K_M",
-            "messages": [
-                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
-                { "role": "user", "content": payload.prompt }
-            ],
-            "stream": false
-        }));
-        
-    match req.send().await {
-        Ok(resp) => {
-                let status = resp.status();
-                if status.is_success() {
-                if let Ok(data) = resp.json::<serde_json::Value>().await {
-                    let mut text = data["message"]["content"]
-                        .as_str()
-                        .unwrap_or("回答を生成できませんでした。")
-                        .to_string();
-                    text = format!("【Local Node】 {}", text);
-                    return Json(LlmResponse { response: text.clone(), text }).into_response();
-                }
-            }
-        }
-        Err(e) => {
-            log::error!("Local Ollama query failed: {:?}", e);
         }
     }
     
