@@ -85,6 +85,7 @@ async fn health_check() -> impl IntoResponse {
 // LLM request handler with failover (HF -> local Ollama)
 async fn handle_llm(
     State(state): State<AppState>,
+    io: SocketIo,
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build().unwrap();
@@ -209,6 +210,25 @@ async fn handle_llm(
         }
     }
     
+    // 2.5 Try to delegate directly to connected Staff Nodes (via Socket.IO)
+    let mut staff_id = None;
+    {
+        let parts = state.participants.lock().unwrap();
+        staff_id = parts.values().find(|p| p.role == "staff").map(|p| p.id.clone());
+    }
+
+    if let Some(sid) = staff_id {
+        log::info!("Delegating task to connected staff node: {}", sid);
+        let _ = io.to(sid).emit("distribute_task", serde_json::json!({
+            "taskId": uuid::Uuid::new_v4().to_string(),
+            "prompt": payload.prompt.clone()
+        }));
+        return Json(LlmResponse { 
+            response: "【Distributed】タスクをPCノードに送信しました...".to_string(), 
+            text: "Processing...".to_string() 
+        }).into_response();
+    }
+
     // 3. P2P Task Distribution (Local AI & HF failover alternative)
     log::info!("Attempting to delegate task to P2P network...");
     let _ = state.p2p_tx.try_send(P2PCommand::PublishTask {
