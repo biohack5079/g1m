@@ -15,7 +15,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tower_http::cors::CorsLayer;
-use socketioxide::SocketIoLayer;
+use socketioxide::layer::SocketIoLayer;
 use tower_http::services::ServeDir;
 use tokio::sync::mpsc;
 use std::path::PathBuf;
@@ -213,11 +213,10 @@ async fn handle_llm(
     }
     
     // 2.5 Try to delegate directly to connected Staff Nodes (via Socket.IO)
-    let mut staff_id = None;
-    {
+    let staff_id = {
         let parts = state.participants.lock().unwrap();
-        staff_id = parts.values().find(|p| p.role == "staff").map(|p| p.id.clone());
-    }
+        parts.values().find(|p| p.role == "staff").map(|p| p.id.clone())
+    };
 
     if let Some(sid) = staff_id {
         log::info!("Delegating task to connected staff node: {}", sid);
@@ -411,8 +410,8 @@ pub struct RegisterPayload {
     pub nickname: Option<String>,
 }
 
-pub fn create_router(state: AppState) -> (Router, SocketIo) {
-    let (socketio_layer, io) = SocketIo::new_layer();
+pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
+    let io = state.io.clone();
     let st = state.clone();
 
     let io_inner = io.clone();
