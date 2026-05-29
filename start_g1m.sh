@@ -5,16 +5,15 @@
 
 echo "--- G1M P2P Launcher ---"
 
-# 不要な sagbi 関連ファイルのクリーンアップ
-if [ -f "../sagbi.db" ]; then
-    echo "[Cleanup] Removing legacy sagbi.db from parent directory..."
-    rm -f ../sagbi.db
-fi
-find . -name "*sagbi*" -delete 2>/dev/null
+# sagbi 関連の完全なクリーンアップ
+echo "[Cleanup] Removing any sagbi related artifacts..."
+rm -rf ../sagbi.db ../sagbi ./sagbi.db ./sagbi 2>/dev/null
+find . -maxdepth 3 -name "*sagbi*" -exec rm -rf {} + 2>/dev/null
+find .. -maxdepth 2 -name "*sagbi*" -exec rm -rf {} + 2>/dev/null
 
 # Force local-first inference configuration
-export OLLAMA_URL="http://localhost:11434"
-export LOCAL_PYTHON_AI="http://localhost:8000"
+export OLLAMA_URL="http://127.0.0.1:11434"
+export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
 echo "[Local-First] Inference priority: 1. Ollama -> 2. Local Python Node -> 3. HF (Failover)"
 
 # 0. Check for Rust/Cargo compiler
@@ -80,7 +79,12 @@ if command -v python3 &> /dev/null; then
     source .venv/bin/activate
     pip install -r requirements.txt > /dev/null 2>&1
 
-    export SIGNALING_URL="http://127.0.0.1:3000"
+    # スマホからRenderへアクセスする場合、ローカルAIもRenderをシグナリング先にする必要がある
+    if [ -n "$REMOTE_G1M_URL" ]; then
+        export SIGNALING_URL="$REMOTE_G1M_URL"
+    else
+        export SIGNALING_URL="http://127.0.0.1:3000"
+    fi
     # Start the Python node in the background
     echo "Starting Python AI Node (uvicorn)..."
     uvicorn app:app --host 127.0.0.1 --port 8000 > python_node.log 2>&1 &
@@ -113,6 +117,13 @@ while ! curl -s http://localhost:3000/healthz > /dev/null; do
     if [ $RETRIES -gt 15 ]; then
         echo -e "\n[Error] Rust node failed to start. See g1m_node.log"
         tail -n 20 g1m_node.log
+        
+        # ポートが衝突している場合の救済
+        if grep -q "address already in use" g1m_node.log; then
+            echo "Attempting to kill ghost processes..."
+            fuser -k 3000/tcp 4001/tcp 2>/dev/null
+        fi
+        
         kill $NODE_PID 2>/dev/null
         exit 1
     fi
