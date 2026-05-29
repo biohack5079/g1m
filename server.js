@@ -52,6 +52,22 @@ const supabaseHeaders = {
 };
 
 /**
+ * メッセージをSupabaseに保存する (永続化)
+ */
+async function saveMessageToSupabase(sender, content) {
+    if (!SUPABASE_URL || !SUPABASE_KEY) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/chat_history`, {
+            method: 'POST',
+            headers: supabaseHeaders,
+            body: JSON.stringify({ sender_name: sender, content: content, created_at: new Date() })
+        });
+    } catch (e) {
+        console.error('Failed to save message to Supabase:', e);
+    }
+}
+
+/**
  * AI プロキシエンドポイント
  * 外部の AI API URL を隠蔽し、将来的な認証やレート制限の追加を容易にします。
  * 
@@ -83,23 +99,41 @@ app.post('/api/llm', async (req, res) => {
     
     try {
         const headers = { 'Content-Type': 'application/json' };
+
+        // 1. まずローカルの Ollama に試行
+        let useLocalOllama = false;
+        try {
+            const healthCheck = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(1000) });
+            if (healthCheck.ok) useLocalOllama = true;
+        } catch (e) {
+            systemLog('⚠️ Local Ollama not available. Falling back to HF Super Node.');
+        }
+
+        if (useLocalOllama) {
+            systemLog('🏠 Using Local Ollama node');
+            const localRes = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                body: JSON.stringify({ model: "gemma3:4b-it-q4_K_M", prompt: prompt, stream: false })
+            });
+            const localData = await localRes.json();
+            const aiText = localData.response;
+            io.emit('bot_response', { text: aiText, actionName: "" });
+            res.json({ response: aiText, text: aiText });
+            return;
+        }
+
+        // 2. ローカルが不在なら HF スーパーノードへ転送
         if (HUGGINGFACE_TOKEN) {
             headers.Authorization = `Bearer ${HUGGINGFACE_TOKEN}`;
         }
-
-        // --- RAG 検索ロジック (概念) ---
-        // ※ 知識ベース（personality.md等）は Supabase にベクトル化して保存済み。
-        // ここでクエリのベクトル化を行い、上位コンテキストを取得する。
         
-        // --- Dockerベース LLM (Llama 3.1) または HFへのリクエスト ---
         let targetUrl = LLM_API_URL;
         if (USE_HF_REDIRECT && HF_COMPLEX_URL) {
             targetUrl = HF_COMPLEX_URL;
-            systemLog('🔀 Proxied LLM request');
+            systemLog('☁️ Routing to HF Super Node');
         }
 
         const apiPath = targetUrl.endsWith('/') ? 'v1/chat/completions' : '/v1/chat/completions';
-        const client = new Client(targetUrl, {
             headersTimeout: 600000, // 10分
             bodyTimeout: 0 // ボディ受信中はタイムアウトしない
         });
@@ -412,6 +446,16 @@ io.on('connection', socket => {
             console.log(`👤 Nickname updated: ${socket.id} -> ${data.nickname}`);
             broadcast(socket, 'participant_updated', { id: socket.id, nickname: data.nickname });
         }
+    });
+
+    // チャットメッセージの共有と永続化
+    socket.on('chat_message', (data) => {
+        const p = participants.get(socket.id);
+        const senderName = data.senderName || (p ? p.nickname : 'ゲスト');
+        
+        // 送信者以外にブロードキャスト
+        socket.broadcast.emit('chat_message', { text: data.text, senderName: senderName, id: socket.id });
+        saveMessageToSupabase(senderName, data.text);
     });
 
     socket.on('offer', (data) => {

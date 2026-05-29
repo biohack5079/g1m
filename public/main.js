@@ -305,11 +305,9 @@ async function loadAvatar(url, id, name) {
         }
 
         vrms[id] = vrm;
-        vrm.name = name || id;
+        vrm.name = name || `参加者 ${id.slice(0, 4)}`;
         if (mainScene) {
             mainScene.add(vrm.scene);
-            // Default VRM faces +Z. Camera is at +Z. 
-            // Setting rotation to 0 to face the user (the camera).
             vrm.scene.rotation.y = 0;
         } else {
             log(`Loader Error: Scene not initialized when adding ${id}`, '#f55');
@@ -845,17 +843,14 @@ function setupDC(id, dc) {
     dc.onmessage = (e) => {
         try {
             const data = JSON.parse(e.data);
-            if (data.type === 'motion') {
-                // 最新のモーションデータを常に保存（animate ループで毎フレーム適用される）
-                // VRMがまだロード中でもデータを保持しておくことで、ロード完了後に即座に反映される
-                lastRemoteData[id] = data.payload;
-                if (!vrms[id] && !loadingIds.has(id)) {
-                    // VRMがなくロード中でもなければアバターをロード開始
-                    loadAvatar('g1-m_chan.glb', id, `参加者 ${id.slice(0, 4)}`);
-                }
-            }
+            if (data.type === 'motion') lastRemoteData[id] = data.payload;
             if (data.type === 'chat') speak(data.payload, `参加者 ${id.slice(0, 4)}`);
         } catch (err) { console.error('DC Message Error:', err); }
+
+        // アバターがまだない場合はロード (チャットのみ先行して届いた場合などの対応)
+        if (!vrms[id] && !loadingIds.has(id)) {
+            loadAvatar('g1-m_chan.glb', id, `参加者 ${id.slice(0, 4)}`);
+        }
     };
     dc.onclose = () => {
         delete lastRemoteData[id]; // クリーンアップ時に保存データも削除
@@ -1194,20 +1189,23 @@ async function handleChat(text, option = {}) {
 
     // Auto-detect language
     const detectedLang = detectLanguage(text);
-    log(`Chat: Detected language: ${detectedLang}`);
 
-    // Translation logic
-    let sendText = text;
-    if (option.translate) {
-        log('Chat: Translating to English...');
-        sendText = await translateText(text, 'en');
-        log(`Chat: Translated to: ${sendText}`);
+    // 1. ローカル表示
+    speak(text, '自分');
+
+    // 2. 他のノード（ブラウザ参加者）へ共有
+    const chatPayload = { type: 'chat', payload: text };
+    Object.values(dataChannels).forEach(dc => {
+        if (dc.readyState === 'open') dc.send(JSON.stringify(chatPayload));
+    });
+    log(`P2P Chat shared with peers`);
+
+    // 3. サーバー（Render）経由でSupabase保存 & LLM応答
+    if (socket && socket.connected) {
+        socket.emit("chat_message", { text: text, senderName: '自分' });
     }
 
-    // Show locally immediately
-    speak(sendText, '自分');
-
-    if (isAlone) {
+    if (isAlone || text.includes('ちゃん')) {
         const botResponse = handleBotCommand(text);
         if (botResponse) {
             speak(botResponse, 'G1:M');
@@ -1229,23 +1227,6 @@ async function handleChat(text, option = {}) {
             
             speak(displayText, 'G1:M');
         }
-    } else {
-        // Participants are present: Exclusive mode
-        // Instead of free-form, we could show "Help" options if requested
-        if (text.toLowerCase() === 'help') {
-            const helpMsg = detectedLang === 'ja' 
-                ? "ヘルプメニュー:\n1. ダンスモード\n2. グループ紹介\n3. システム情報"
-                : "HELP MENU:\n1. Dance Mode\n2. Group Intro\n3. System Info";
-            speak(helpMsg, 'G1:M (System)');
-        }
-
-        const data = { type: 'chat', payload: sendText };
-        Object.values(dataChannels).forEach(dc => { if (dc.readyState === 'open') dc.send(JSON.stringify(data)); });
-    }
-
-    // Socket.IO 経由でも送信（WebRTC未接続者やP2Pリレー用）
-    if (socket && socket.connected) {
-        socket.emit("chat_message", { text: sendText, senderName: '自分' });
     }
 
     if (chatInput) chatInput.value = '';
