@@ -164,21 +164,24 @@ async fn handle_llm(
         }
     }
 
-    // 1.8 Try to delegate directly to connected Staff Nodes (via Socket.IO)
+    // 1.8 Try to delegate directly to connected Staff Nodes (Distributed)
     // ローカルノードが見つからない場合、接続中のPCノード（スタッフ）を探す
-    let staff_id = {
+    let staff_ids: Vec<String> = {
         let parts = state.participants.lock().unwrap();
-        parts.values().find(|p| p.role == "staff").map(|p| p.id.clone())
+        parts.values().filter(|p| p.role == "staff").map(|p| p.id.clone()).collect()
     };
 
-    if let Some(sid) = staff_id {
-        log::info!("Delegating task to connected staff node: {}", sid);
+    if !staff_ids.is_empty() {
+        // タスクが重なった際、別のノードに振り分けるための分散ロジック
+        // リクエストごとにランダム（UUIDベース）にノードを選択
+        let sid = &staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()];
+        log::info!("Delegating task to staff node (Distributed): {}", sid);
         let _ = state.io.to(sid).emit("distribute_task", serde_json::json!({
             "taskId": uuid::Uuid::new_v4().to_string(),
             "prompt": payload.prompt.clone()
         }));
         return Json(LlmResponse { 
-            response: "【Distributed】タスクをPCノードに送信しました...".to_string(), 
+            response: format!("【Distributed】PCノード({})にタスクを送信しました...", &sid[..4]), 
             text: "Processing...".to_string() 
         }).into_response();
     }
@@ -408,14 +411,12 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
     let io = state.io.clone();
     let st = state.clone();
 
-    let io_inner = state.io.clone();
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
         // チャットメッセージの受信とブロードキャスト
         socket.on("chat_message", {
             let st = st.clone();
-            let io_relay = io_inner.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
                 log::info!("Chat received from {}: {:?}", socket.id, payload["text"]);
                 
@@ -478,7 +479,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
         }});
 
-        socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
+        socket.on("task_result", { let st = st.clone(); move |_socket: SocketRef, Data(payload): Data<Value>| {
             let result = payload["result"].as_str().unwrap_or("").to_string();
             let msg = serde_json::json!({ "text": result, "actionName": "" });
             // 全員（AIの回答を待っているユーザー全員）に送信
