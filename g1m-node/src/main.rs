@@ -122,8 +122,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let db = db_event_clone.lock().unwrap();
                         let _ = db::save_message(&db, &id, &text, None, true, &sender_name);
                     }
-                    // P2P経由のメッセージを全フロントエンドに共有
-                    let _ = io_clone.within("/").emit("chat_message", serde_json::json!({
+                    // P2P経由のメッセージを送信者以外に共有（エコー防止のため broadcast 相当の挙動を期待）
+                    // 実際にはSocket.IOサーバー全体でemitするが、フロントエンド側でID重複チェックを行うのが理想的
+                    let _ = io_clone.emit("chat_message", serde_json::json!({
                         "id": id, "text": text, "senderName": sender_name
                     }));
                 }
