@@ -4,6 +4,7 @@ mod web;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use dotenvy::dotenv;
 use tokio::sync::mpsc;
 
@@ -43,13 +44,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_conn = db::init_db("sagbi.db")?;
     let db_shared = Arc::new(Mutex::new(db_conn));
 
+    // 1.5 起動時のデータベース検証 (未使用関数の活用)
+    {
+        let db = db_shared.lock().unwrap();
+        let recent = db::get_recent_messages(&db, 10).unwrap_or_default();
+        log::info!("Database ready: Found {} recent messages in local store.", recent.len());
+        
+        // RAG機能のウォームアップ
+        let dummy_vector = vec![0.0; 384]; 
+        // 第3引数(threshold)を 0.5、第4引数(limit)を 1 として呼び出し
+        let _ = db::match_knowledge(&db, &dummy_vector, 0.5, 1);
+    }
+
     // 2. Set up communication channels between Axum and Libp2p
     let (p2p_tx, p2p_rx) = mpsc::channel(100);
     let (event_tx, mut event_rx) = mpsc::channel(100);
 
+    log::info!("LLM Routes: Local={}, Fallback={}, HF_SuperNode={}", ollama_url, llm_api_url, hf_complex_url);
+
     let state = web::AppState {
         db_conn: db_shared.clone(),
-        p2p_tx,
+        p2p_tx: p2p_tx.clone(),
         hf_complex_url,
         huggingface_token,
         ollama_url,
@@ -63,6 +78,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move {
         if let Err(e) = p2p::run_p2p_node(p2p_rx, event_tx, p2p_port).await {
             log::error!("P2P swarm loop terminated with error: {:?}", e);
+        }
+    });
+
+    // 4.5 データベース同期タスク (SyncDatabaseの構築)
+    let p2p_tx_sync = p2p_tx.clone();
+    let db_sync = db_shared.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(300)); // 5分ごとに同期
+        loop {
+            interval.tick().await;
+
+            // データベースから同期用データを抽出 (ロックをこのブロック内で完結させる)
+            let sync_data = {
+                let db = db_sync.lock().unwrap();
+                db::get_recent_messages(&db, 50).ok()
+                    .and_then(|messages| serde_json::to_string(&messages).ok())
+            }; // ここで MutexGuard がドロップされる
+
+            if let Some(data) = sync_data {
+                let _ = p2p_tx_sync.send(p2p::P2PCommand::SyncDatabase {
+                    table: "chat_history".to_string(),
+                    data,
+                }).await; // ロックを保持していないので安全に await 可能
+            }
         }
     });
 
@@ -103,7 +142,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let _ = io_clone.to(target_id).emit(event_type, data);
                     }
                 }
-                _ => {}
+                p2p::P2PEvent::PeerDiscovered(peer_id) => {
+                    log::info!("📡 New P2P Node discovered: {:?}", peer_id);
+                }
+                p2p::P2PEvent::PeerExpired(peer_id) => {
+                    log::warn!("🔌 P2P Node expired/disconnected: {:?}", peer_id);
+                }
             }
         }
     });

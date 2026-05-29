@@ -37,15 +37,30 @@ except Exception as e:
 url = os.environ.get("SUPABASE_URL")
 key = os.environ.get("SUPABASE_KEY")
 supabase = create_client(url, key) if url and key else None
+NODE_ID = "hf_super_node"
+
+# システムプロンプトのキャッシュ（1分間有効）
+_prompt_cache = {"content": "You are a helpful assistant.", "expires": 0}
 
 async def get_system_prompt(slug="default"):
     """Supabaseから現在のシステムプロンプトを取得"""
-    if not supabase: return "You are a helpful assistant."
+    global _prompt_cache
+    import time
+    
+    # キャッシュが有効ならそれを返す
+    if time.time() < _prompt_cache["expires"]:
+        return _prompt_cache["content"]
+
+    if not supabase: return _prompt_cache["content"]
+    
     try:
         res = supabase.table("system_prompts").select("content").eq("slug", slug).single().execute()
-        return res.data.get("content") if res.data else "You are a helpful assistant."
+        content = res.data.get("content") if res.data else _prompt_cache["content"]
+        # キャッシュを更新
+        _prompt_cache = {"content": content, "expires": time.time() + 60}
+        return content
     except Exception:
-        return "You are a helpful assistant."
+        return _prompt_cache["content"]
 
 async def update_system_prompt(new_content, slug="default"):
     """AIが生成した新しいプロンプトでSupabaseを更新（進化）"""
@@ -53,8 +68,23 @@ async def update_system_prompt(new_content, slug="default"):
     try:
         supabase.table("system_prompts").update({"content": new_content}).eq("slug", slug).execute()
         logger.info(f"System prompt evolved: {slug}")
+        # 書き込み後はキャッシュを即時無効化して次回の取得で最新を読み込むようにする
+        _prompt_cache["expires"] = 0
     except Exception as e:
         logger.error(f"Failed to evolve prompt: {e}")
+
+async def save_chat_to_supabase(sender, content):
+    """チャット履歴をSupabaseに保存（Renderノードと同等の永続化）"""
+    if not supabase: return
+    try:
+        # Render側の server.js と同じスキーマで保存
+        supabase.table("chat_history").insert({
+            "sender_name": f"{sender} ({NODE_ID})",
+            "content": content,
+            "created_at": "now()" # PostgreSQL側で時間を振る
+        }).execute()
+    except Exception as e:
+        logger.error(f"Failed to record chat from HF Node: {e}")
 
 async def evolve_logic(user_query, ai_response, current_prompt):
     """
@@ -132,6 +162,8 @@ async def universal_handler(request: Request, prompt: str = None):
                 None, 
                 lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"], echo=False)
             )
+            # AIの回答をSupabaseに保存（ログとして）
+            asyncio.create_task(save_chat_to_supabase("G1:M", output["choices"][0]["text"].strip()))
             res_text = output["choices"][0]["text"].strip()
         except Exception as e:
             logger.error(f"Inference error: {e}")
