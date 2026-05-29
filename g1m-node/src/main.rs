@@ -5,6 +5,7 @@ mod web;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use socketioxide::SocketIo;
 use dotenvy::dotenv;
 use tokio::sync::mpsc;
 
@@ -60,6 +61,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (p2p_tx, p2p_rx) = mpsc::channel(100);
     let (event_tx, mut event_rx) = mpsc::channel(100);
 
+    // 3. Set up Socket.IO
+    let (socketio_layer, io) = SocketIo::new_layer();
+
     log::info!("LLM Routes: Local={}, Fallback={}, HF_SuperNode={}", ollama_url, llm_api_url, hf_complex_url);
 
     let state = web::AppState {
@@ -70,9 +74,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ollama_url,
         participants: Arc::new(Mutex::new(HashMap::new())),
         help_gauge: Arc::new(Mutex::new(50)), // 初期値 50%
+        io: io.clone(), // SocketIoインスタンスをAppStateに含める
     };
     
-    let (app, io) = web::create_router(state);
+    let app = web::create_router(state, socketio_layer);
 
     // 4. Start Libp2p node
     log::info!("Starting Libp2p node on port {}...", p2p_port);
