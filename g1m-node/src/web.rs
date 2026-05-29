@@ -400,12 +400,15 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         socket.on("chat_message", {
             let st = st.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
-                let _ = socket.broadcast().emit("chat_message", payload.clone());
+                log::info!("Chat received from {}: {:?}", socket.id, payload["text"]);
                 
+                // 同一サーバー内の全クライアントに配信（自分以外へのブロードキャスト）
+                let _ = socket.broadcast().emit("chat_message", payload.clone());
+
                 // P2Pネットワークへ転送
                 if let (Some(text), Some(name)) = (payload["text"].as_str(), payload["senderName"].as_str()) {
                     let _ = st.p2p_tx.try_send(P2PCommand::PublishChat { 
-                        id: uuid::Uuid::new_v4().to_string(), 
+                        id: payload["id"].as_str().unwrap_or(&uuid::Uuid::new_v4().to_string()).to_string(), 
                         text: text.to_string(), 
                         sender_name: name.to_string() 
                     });
