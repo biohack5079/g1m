@@ -1,17 +1,13 @@
-[2026-05-29T06:18:02Z INFO  g1m_node] Initializing SQLite database...
-[2026-05-29T06:18:02Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
-[2026-05-29T06:18:02Z INFO  g1m_node] LLM Routes: Local=http://localhost:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
-[2026-05-29T06:18:02Z INFO  g1m_node] Starting Libp2p node on port 4001...
-[2026-05-29T06:18:02Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
-[2026-05-29T06:18:02Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWMspo3o3HSpQXV6PKZ9xbUS4JnLB6tYBnxZfS3dR4Sxmv")
-[2026-05-29T06:18:02Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
-[2026-05-29T06:18:02Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
-[2026-05-29T06:18:02Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
-[2026-05-29T06:18:02Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
-[2026-05-29T06:18:02Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
-[2026-05-29T06:18:02Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
-[2026-05-29T06:18:02Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
-[2026-05-29T06:20:24Z INFO  g1m_node::web] Trying Local Ollama at http://localhost:11434...
-[2026-05-29T06:20:28Z INFO  g1m_node::web] Trying Local Python Node at http://localhost:8000...
-[2026-05-29T06:20:28Z WARN  g1m_node::web] Local Python Node query failed: reqwest::Error { kind: Request, url: Url { scheme: "http", cannot_be_a_base: false, username: "", password: None, host: Some(Domain("localhost")), port: Some(8000), path: "/v1/chat/completions", query: None, fragment: None }, source: hyper::Error(Connect, ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" })) }
-[2026-05-29T06:20:28Z INFO  g1m_node::web] Falling back to Hugging Face LLM endpoint...
+[2026-05-29T06:28:34Z INFO  g1m_node] Initializing SQLite database...
+[2026-05-29T06:28:34Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
+[2026-05-29T06:28:34Z INFO  g1m_node] LLM Routes: Local=http://localhost:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
+[2026-05-29T06:28:34Z INFO  g1m_node] Starting Libp2p node on port 4001...
+[2026-05-29T06:28:34Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
+[2026-05-29T06:28:34Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWKcHAJwz8yyFasSEUwqGQMn7QkMFPoYJsH8LsCJfgK15x")
+[2026-05-29T06:28:34Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
+[2026-05-29T06:28:34Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T06:28:34Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
+[2026-05-29T06:28:34Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
+[2026-05-29T06:28:34Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
+[2026-05-29T06:28:34Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
+[2026-05-29T06:28:34Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001

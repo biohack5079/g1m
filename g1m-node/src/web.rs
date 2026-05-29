@@ -87,7 +87,7 @@ async fn handle_llm(
     State(state): State<AppState>,
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build().unwrap();
     
     // 1. Try Local Ollama First
     log::info!("Trying Local Ollama at {}...", state.ollama_url);
@@ -156,8 +156,10 @@ async fn handle_llm(
         }
     }
 
-    // 2. Failover to Hugging Face
-    if !state.hf_complex_url.is_empty() {
+    // 2. Failover to Hugging Face (Only if local nodes are strictly unavailable)
+    // 排他的制御: ローカルが優先され、ここではHFを最終手段とする
+    // 開発者の意向により、ローカルが優先される場合はHFを「消す」挙動に近い形にする
+    if !state.hf_complex_url.is_empty() && state.ollama_url.is_empty() {
         log::info!("Falling back to Hugging Face LLM endpoint...");
         let api_path = if state.hf_complex_url.ends_ok() {
             "v1/chat/completions"
@@ -202,8 +204,9 @@ async fn handle_llm(
         }
     }
     
+    log::error!("❌ All inference nodes failed. Local AI Node might be offline.");
     (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-        "error": "LLM failed both remote HF and local Ollama failover"
+        "error": "No available AI node. Check if Ollama or Python node is running."
     }))).into_response()
 }
 
