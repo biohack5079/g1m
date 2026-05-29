@@ -4,6 +4,12 @@
 # This script starts the local signaling server, P2P syncer, and front-end interface.
 
 echo "--- G1M P2P Launcher ---"
+
+# 接続先のデフォルトをRenderに設定
+if [ -z "$REMOTE_G1M_URL" ]; then
+    export REMOTE_G1M_URL="https://dj-g1m.onrender.com"
+fi
+
 # Force local-first inference configuration
 export OLLAMA_URL="http://127.0.0.1:11434"
 export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
