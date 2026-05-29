@@ -117,7 +117,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let db = db_event_clone.lock().unwrap();
                         let _ = db::save_message(&db, &id, &text, None, true, &sender_name);
                     }
-                    let _ = io_clone.emit("chat_message", serde_json::json!({
+                    // P2P経由のメッセージを全フロントエンドに共有
+                    let _ = io_clone.within("/").emit("chat_message", serde_json::json!({
                         "id": id, "text": text, "senderName": sender_name
                     }));
                 }

@@ -399,11 +399,12 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         // チャットメッセージの受信とブロードキャスト
         socket.on("chat_message", {
             let st = st.clone();
+            let io_relay = io.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
                 log::info!("Chat received from {}: {:?}", socket.id, payload["text"]);
                 
-                // 同一サーバー内の全クライアントに配信（自分以外へのブロードキャスト）
-                let _ = socket.broadcast().emit("chat_message", payload.clone());
+                // メインサーバー内の全接続者（スマホ・PC両方）に即座に同期
+                let _ = io_relay.emit("chat_message", payload.clone());
 
                 // P2Pネットワークへ転送
                 if let (Some(text), Some(name)) = (payload["text"].as_str(), payload["senderName"].as_str()) {
@@ -487,11 +488,10 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         .route("/api/kampa/wallet/:anonymousId", get(handle_get_wallet))
         .route("/api/kampa/wallet/register", post(handle_register_wallet))
         .route("/api/kampa/donate", post(handle_donate))
-        .layer(socketio_layer)
+        .fallback_service(static_dir)
+        .with_state(state)
         .layer(CorsLayer::permissive())
-        .with_state(state.clone())
-        // Fallback for static assets in frontend/dist
-        .fallback_service(ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist")));
+        .layer(socketio_layer); // 最外層に置くことで /socket.io/ パスを確実にキャッチする
 
     (router, io)
 }
