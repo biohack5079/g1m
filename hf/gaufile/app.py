@@ -24,12 +24,19 @@ sio = socketio.AsyncClient()
 
 @sio.event
 async def connect():
-    # 環境変数から自分がローカルかリモートかを判断
-    is_local = os.environ.get("SIGNALING_URL", "").find("localhost") != -1 or os.environ.get("SIGNALING_URL", "").find("127.0.0.1") != -1
-    node_name = "Local Node" if is_local else "HF Super Node"
+    sig_url = os.environ.get("SIGNALING_URL", "")
+    # localhost以外に接続している場合は外部ノードとして振る舞う
+    is_remote = "localhost" not in sig_url and "127.0.0.1" not in sig_url
+    node_name = "Distributed AI Node" if is_remote else "Local AI Node"
     
-    logger.info(f"{node_name} connected to Signaling Server")
-    await sio.emit('register_role', {'role': 'staff', 'nickname': node_name})
+    logger.info(f"✅ {node_name} connected to Signaling Server: {sig_url}")
+    
+    # Nodes Waiting を緑にするために 'staff' または 'node' ロールで登録
+    # フロントエンドの要件に合わせて role を調整
+    registration_data = {'role': 'staff', 'nickname': node_name, 'anonymousId': 'local_ai_worker'}
+    await sio.emit('register_role', registration_data)
+    logger.info(f"Registered with role 'staff' for signaling.")
+
 
 @sio.event
 async def distribute_task(data):

@@ -90,8 +90,9 @@ async fn handle_llm(
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build().unwrap();
     
     // 1. Try Local Ollama First
-    log::info!("Trying Local Ollama at {}...", state.ollama_url);
-    let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
+    let ollama_url = state.ollama_url.replace("localhost", "127.0.0.1");
+    log::info!("Trying Local Ollama at {}...", ollama_url);
+    let ollama_endpoint = format!("{}/api/chat", ollama_url);
     let req = client.post(&ollama_endpoint)
         .json(&serde_json::json!({
             "model": "gemma3:4b-it-q4_K_M",
@@ -123,8 +124,8 @@ async fn handle_llm(
     }
 
     // 1.5 Try Local Python AI Node (Internal logic priority)
-    log::info!("Trying Local Python Node at http://localhost:8000...");
-    let python_endpoint = "http://localhost:8000/v1/chat/completions";
+    log::info!("Trying Local Python Node at http://127.0.0.1:8000...");
+    let python_endpoint = "http://127.0.0.1:8000/v1/chat/completions";
     let req = client.post(python_endpoint)
         .json(&serde_json::json!({
             "model": "google_gemma-3-4b-it",
