@@ -1,13 +1,14 @@
-[2026-05-29T17:09:15Z INFO  g1m_node] Initializing SQLite database...
-[2026-05-29T17:09:15Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
-[2026-05-29T17:09:15Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
-[2026-05-29T17:09:15Z INFO  g1m_node] Starting Libp2p node on port 4001...
-[2026-05-29T17:09:15Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
-[2026-05-29T17:09:15Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWMoq42WBfMmBA7ti5NQAifssTyqGRkjsy9msyUdde7RPV")
-[2026-05-29T17:09:15Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
-[2026-05-29T17:09:15Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
-[2026-05-29T17:09:15Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
-[2026-05-29T17:09:15Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
-[2026-05-29T17:09:15Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
-[2026-05-29T17:09:15Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
-[2026-05-29T17:09:15Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-29T23:24:08Z INFO  g1m_node] Initializing SQLite database...
+[2026-05-29T23:24:08Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
+[2026-05-29T23:24:08Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
+[2026-05-29T23:24:08Z INFO  g1m_node] Starting Libp2p node on port 4001...
+[2026-05-29T23:24:08Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
+[2026-05-29T23:24:08Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWRRS4EB7jqGL2eaqnk4mZeEZzAUFkU9mvhdwXWUayvLr5")
+[2026-05-29T23:24:08Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
+[2026-05-29T23:24:08Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-29T23:24:08Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
+[2026-05-29T23:24:08Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
+[2026-05-29T23:24:08Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
+[2026-05-29T23:24:08Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
+[2026-05-29T23:24:08Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-29T23:29:08Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
