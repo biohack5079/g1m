@@ -1,17 +1,46 @@
 import os
 import logging
 import asyncio
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request
+# pyrefly: ignore [missing-import]
 from llama_cpp import Llama
+# pyrefly: ignore [missing-import]
 from huggingface_hub import hf_hub_download
+# pyrefly: ignore [missing-import]
 from supabase import create_client
+# pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
+import socketio
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 app = FastAPI()
+
+sio = socketio.AsyncClient()
+
+@sio.event
+async def connect():
+    logger.info("HF Node connected to Signaling Server")
+    await sio.emit('register_role', {'role': 'staff', 'nickname': 'HF Super Node'})
+
+@sio.event
+async def distribute_task(data):
+    logger.info(f"HF Node received task: {data}")
+    # mock processing
+    await asyncio.sleep(2)
+    await sio.emit('task_result', {'taskId': data.get('taskId'), 'result': 'HFノードで処理完了しました。'})
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        url = os.environ.get("SIGNALING_URL", "http://localhost:3000")
+        await sio.connect(url)
+    except Exception as e:
+        logger.error(f"Failed to connect to signaling server: {e}")
 
 # 推論の競合を防ぐためのロック
 inference_lock = asyncio.Lock()

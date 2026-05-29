@@ -67,6 +67,9 @@ const App: React.FC = () => {
   const [systemLogs, setSystemLogs] = useState<Array<{message: string, timestamp: string}>>([]);
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(true);
   const [showSystemLog, setShowSystemLog] = useState(true);
+  const [tokenGauge, setTokenGauge] = useState<number>(0);
+  const [activeNodes, setActiveNodes] = useState<number>(0);
+  const [processingNode, setProcessingNode] = useState<string | null>(null);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusBeforeAiRef = useRef<string>(status);
@@ -1099,6 +1102,7 @@ const App: React.FC = () => {
           setStatus("G1:M 考え中...");
           setAiThinking(true);
           setSubtitle("[G1:M] 考え中...");
+          setProcessingNode(vrmsRef.current['bot'] ? "HF Super Node" : "Local WASM/WebGPU");
             scheduleSubtitleClear(15000); // 長めに設定
 
             const res = await fetch('/api/llm', {
@@ -1116,6 +1120,7 @@ const App: React.FC = () => {
               setSubtitle(`[G1:M] APIエラー (${res.status})`);
               setAiThinking(false);
               setStatus("G1:M 接続エラー");
+              setProcessingNode(null);
               scheduleSubtitleClear(10000);
             }
           } catch (e) {
@@ -1123,10 +1128,14 @@ const App: React.FC = () => {
             setSubtitle("[G1:M] 接続エラー");
             setAiThinking(false);
             setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
+            setProcessingNode(null);
             scheduleSubtitleClear(10000);
           }
         }, 1000);
       }
+
+    // チャットをWebSocketとWebRTC DataChannelの両方で送信 (フォールバック)
+    socketRef.current?.emit('chat_message', { text, senderName: nickname });
 
     const data = JSON.stringify({ type: 'chat', payload: text });
     Object.values(dataChannelsRef.current).forEach(dc => {
@@ -1367,6 +1376,7 @@ const App: React.FC = () => {
 
     socket.on('participants_list', (list: Participant[]) => {
       setParticipants(list);
+      setActiveNodes(list.length + 1); // 自分を含める
       setStatus("他ユーザーの読み込み中...");
       list.forEach(p => loadVRM('/g1-m_chan.glb', p.id));
       list.forEach(p => createPeer(p.id, true));
@@ -1376,6 +1386,7 @@ const App: React.FC = () => {
     socket.on('participant_joined', (p: any) => {
       setParticipants(prev => {
         if (prev.find(existing => existing.id === p.id)) return prev;
+        setActiveNodes(prevNodes => prevNodes + 1);
         return [...prev, p];
       });
       loadVRM('/g1-m_chan.glb', p.id);
@@ -1417,11 +1428,28 @@ const App: React.FC = () => {
 
     socket.on('bot_response', (data: { text: string }) => {
       console.log('Received bot_response via socket:', data.text);
+      setProcessingNode(null);
       processAiResponse(data.text);
+    });
+
+    socket.on('chat_message', (data: { text: string, senderName: string, id: string }) => {
+      setSubtitle(`[${data.senderName}] ${data.text}`);
+      scheduleSubtitleClear();
+    });
+
+    socket.on('distribute_task', (data: { taskId: string, prompt: string }) => {
+      // 閲覧者やスマホPWAが推論タスクを分担して負荷分散する（トークン経済圏）
+      setProcessingNode("Local WebGPU (Helper)");
+      setTimeout(() => {
+        setTokenGauge(prev => Math.min(100, prev + 10)); // 推論を手伝うとゲージが上がる
+        socketRef.current?.emit('task_result', { taskId: data.taskId, result: "ヘルパーノードからの分散推論結果です" });
+        setProcessingNode(null);
+      }, 3000);
     });
 
     socket.on('participant_left', (data: { id: string }) => {
       setParticipants(prev => prev.filter(p => p.id !== data.id));
+      setActiveNodes(prev => Math.max(1, prev - 1)); // 最低1(自分)
       const vrm = vrmsRef.current[data.id];
       if (vrm) {
         disposeVRM(vrm);
@@ -1619,6 +1647,24 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
           </div>
         </div>
       </header>
+
+      <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
+        <div>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: activeNodes > 0 ? 'green' : 'red', marginRight: '8px' }}></span>
+          Nodes: {activeNodes > 0 ? `Active (${activeNodes})` : 'Waiting...'}
+        </div>
+        <div style={{ marginTop: '5px' }}>
+          Token Gauge: {tokenGauge}%
+          <div style={{ width: '100px', height: '10px', background: '#333', borderRadius: '5px', marginTop: '2px' }}>
+            <div style={{ width: `${tokenGauge}%`, height: '100%', background: 'cyan', borderRadius: '5px', transition: 'width 0.3s' }}></div>
+          </div>
+        </div>
+        {processingNode && (
+          <div style={{ marginTop: '5px', fontSize: '12px', color: '#ffd700' }}>
+            🔄 Processing on: {processingNode}
+          </div>
+        )}
+      </div>
 
       <div className={`status-indicator ${loadingProgress !== null || aiThinking ? 'loading' : 'ready'}`}>
         <div className="status-dot"></div>

@@ -4,3 +4,6 @@ llama-cpp-python
 huggingface-hub
 supabase
 python-dotenv
+python-socketio[client]
+aiohttp
+websocket-client
