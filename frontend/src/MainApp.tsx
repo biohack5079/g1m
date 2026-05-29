@@ -1099,11 +1099,13 @@ const App: React.FC = () => {
       setTimeout(async () => {
         try {
           statusBeforeAiRef.current = status;
+          // 自らの推論リクエスト時にゲージを消費する（スマホ等ではマイナスにもなる）
+          setTokenGauge(prev => prev - 5);
           setStatus("G1:M 考え中...");
           setAiThinking(true);
           setSubtitle("[G1:M] 考え中...");
           setProcessingNode(vrmsRef.current['bot'] ? "HF Super Node" : "Local WASM/WebGPU");
-            scheduleSubtitleClear(15000); // 長めに設定
+          scheduleSubtitleClear(15000); // 長めに設定
 
             const res = await fetch('/api/llm', {
               method: 'POST',
