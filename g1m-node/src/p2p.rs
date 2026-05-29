@@ -14,7 +14,6 @@ pub enum P2PCommand {
     PublishChat { id: String, text: String, sender_name: String },
     PublishSignal { target_id: String, payload: String },
     SyncDatabase { table: String, data: String },
-    PublishTask { task_id: String, task_type: String, payload: String },
 }
 
 // P2P Event sent from the P2P swarm to the Web Server
@@ -25,7 +24,6 @@ pub enum P2PEvent {
     ChatMessageReceived { id: String, text: String, sender_name: String },
     SignalReceived { target_id: String, payload: String },
     DatabaseSyncReceived { table: String, data: String },
-    TaskReceived { task_id: String, task_type: String, payload: String },
 }
 
 #[derive(libp2p::swarm::NetworkBehaviour)]
@@ -65,11 +63,9 @@ pub async fn run_p2p_node(
     let chat_topic = gossipsub::IdentTopic::new("g1m-chat");
     let signal_topic = gossipsub::IdentTopic::new("g1m-signaling");
     let sync_topic = gossipsub::IdentTopic::new("g1m-dbsync");
-    let task_topic = gossipsub::IdentTopic::new("g1m-tasks");
     gossipsub.subscribe(&chat_topic)?;
     gossipsub.subscribe(&signal_topic)?;
     gossipsub.subscribe(&sync_topic)?;
-    gossipsub.subscribe(&task_topic)?;
 
     // 4. Build Mdns Behaviour
     let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?;
@@ -131,17 +127,6 @@ pub async fn run_p2p_node(
                             log::warn!("Gossipsub publish db sync error: {:?}", e);
                         }
                     }
-                    P2PCommand::PublishTask { task_id, task_type, payload } => {
-                        let json_payload = serde_json::json!({
-                            "task_id": task_id,
-                            "task_type": task_type,
-                            "payload": payload
-                        });
-                        let data = serde_json::to_vec(&json_payload).unwrap_or_default();
-                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(task_topic.clone(), data) {
-                            log::warn!("Gossipsub publish task error: {:?}", e);
-                        }
-                    }
                 }
             }
             // Receive libp2p swarm event
@@ -187,13 +172,6 @@ pub async fn run_p2p_node(
                                 let table = val["table"].as_str().unwrap_or_default().to_string();
                                 let data = val["data"].as_str().unwrap_or_default().to_string();
                                 let _ = event_tx.send(P2PEvent::DatabaseSyncReceived { table, data }).await;
-                            }
-                        } else if message.topic == task_topic.hash() {
-                            if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&message.data) {
-                                let task_id = val["task_id"].as_str().unwrap_or_default().to_string();
-                                let task_type = val["task_type"].as_str().unwrap_or_default().to_string();
-                                let payload = val["payload"].as_str().unwrap_or_default().to_string();
-                                let _ = event_tx.send(P2PEvent::TaskReceived { task_id, task_type, payload }).await;
                             }
                         }
                     }

@@ -156,14 +156,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 p2p::P2PEvent::PeerExpired(peer_id) => {
                     log::warn!("🔌 P2P Node expired/disconnected: {:?}", peer_id);
                 }
-                p2p::P2PEvent::TaskReceived { task_id, task_type, payload } => {
-                    log::info!("Relaying P2P task to local agents: {} ({})", task_id, task_type);
-                    let _ = io_clone.emit("distribute_task", serde_json::json!({
-                        "taskId": task_id,
-                        "taskType": task_type,
-                        "payload": payload
-                    }));
-                }
             }
         }
     });
