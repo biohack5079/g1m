@@ -477,6 +477,8 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         }});
     });
 
+    let static_dir = ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist"));
+
     let router = Router::new()
         .route("/healthz", get(health_check))
         .route("/api/llm", post(handle_llm))
