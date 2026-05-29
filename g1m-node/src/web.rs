@@ -90,7 +90,8 @@ async fn handle_llm(
     // io: SocketIo, // SocketIoはAppStateから取得するため削除
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
-    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build().unwrap();
+    // タイムアウトを設けない設定でクライアントを生成
+    let client = reqwest::Client::builder().build().unwrap();
     
     // 1. Try Local Ollama First
     let ollama_url = state.ollama_url.replace("localhost", "127.0.0.1");
@@ -163,13 +164,30 @@ async fn handle_llm(
         }
     }
 
-    // 2. Failover to Hugging Face
-    // ローカルが全滅している場合、または負荷分散が必要な場合（実装予定）のみ実行
-    // 2. Failover to Hugging Face (排他的制御)
-    // ローカル(Ollama/Python)が両方失敗した場合のみ、HFへフォールバックする
+    // 1.8 Try to delegate directly to connected Staff Nodes (via Socket.IO)
+    // ローカルノードが見つからない場合、接続中のPCノード（スタッフ）を探す
+    let staff_id = {
+        let parts = state.participants.lock().unwrap();
+        parts.values().find(|p| p.role == "staff").map(|p| p.id.clone())
+    };
+
+    if let Some(sid) = staff_id {
+        log::info!("Delegating task to connected staff node: {}", sid);
+        let _ = state.io.to(sid).emit("distribute_task", serde_json::json!({
+            "taskId": uuid::Uuid::new_v4().to_string(),
+            "prompt": payload.prompt.clone()
+        }));
+        return Json(LlmResponse { 
+            response: "【Distributed】タスクをPCノードに送信しました...".to_string(), 
+            text: "Processing...".to_string() 
+        }).into_response();
+    }
+
+    // 2. Failover to Hugging Face (助け舟)
+    // どこにもノードが無い場合に初めてHFが助け舟を出す
     if !state.hf_complex_url.is_empty() {
         log::info!("Falling back to Hugging Face LLM endpoint...");
-        let api_path = if state.hf_complex_url.ends_ok() {
+        let api_path = if state.hf_complex_url.ends_with('/') {
             "v1/chat/completions"
         } else {
             "/v1/chat/completions"
@@ -211,37 +229,13 @@ async fn handle_llm(
             }
         }
     }
-    
-    // 2.5 Try to delegate directly to connected Staff Nodes (via Socket.IO)
-    let staff_id = {
-        let parts = state.participants.lock().unwrap();
-        parts.values().find(|p| p.role == "staff").map(|p| p.id.clone())
-    };
 
-    if let Some(sid) = staff_id {
-        log::info!("Delegating task to connected staff node: {}", sid);
-        let _ = state.io.to(sid).emit("distribute_task", serde_json::json!({
-            "taskId": uuid::Uuid::new_v4().to_string(),
-            "prompt": payload.prompt.clone()
-        }));
-        return Json(LlmResponse { 
-            response: "【Distributed】タスクをPCノードに送信しました...".to_string(), 
-            text: "Processing...".to_string() 
-        }).into_response();
-    }
-
-    // 3. P2P Task Distribution (Local AI & HF failover alternative)
-    log::info!("Attempting to delegate task to P2P network...");
-    let _ = state.p2p_tx.try_send(P2PCommand::PublishTask {
-        task_id: uuid::Uuid::new_v4().to_string(),
-        task_type: "llm_inference".to_string(),
-        payload: payload.prompt.clone(),
-    });
-
-    Json(LlmResponse {
-        response: "【P2P】タスクを分散ネットワークに送信しました...".to_string(),
-        text: "Processing (P2P)...".to_string()
-    }).into_response()
+    // 全ての手段が失敗した場合
+    log::error!("❌ No inference nodes available (Local, Staff, or HF).");
+    (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+        "error": "No available AI node found anywhere.",
+        "response": "現在、応答できるAIノードがありません。"
+    }))).into_response()
 }
 
 // Helper to determine if target URL ends in /
@@ -410,11 +404,11 @@ pub struct RegisterPayload {
     pub nickname: Option<String>,
 }
 
-pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
+pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router { // socketio_layerを引数で受け取る
     let io = state.io.clone();
     let st = state.clone();
 
-    let io_inner = io.clone();
+    let io_inner = state.io.clone();
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
