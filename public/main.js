@@ -62,6 +62,7 @@ try {
 let peers = {};
 let dataChannels = {};
 let staffNodes = new Set(); // AI推論ノードを追跡
+let myRole = 'viewer';      // 自分の現在の役割
 let vrms = {};
 let holistic = null;
 let currentStream = null;
@@ -694,7 +695,8 @@ function syncMotion(results) {
 }
 
 function updateParticipantCount() {
-    const staffCount = staffNodes.size;
+    // 他のスタッフノード数 + 自分自身がスタッフなら+1
+    const staffCount = staffNodes.size + (myRole === 'staff' ? 1 : 0);
 
     if (participantCountText) {
         participantCountText.textContent = `Nodes Active: (${staffCount})`;
@@ -960,8 +962,18 @@ async function startCamera(mode = 'user') {
     }
 }
 
-if (startFrontBtn) startFrontBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('user'); };
-if (startBackBtn) startBackBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('environment'); };
+if (startFrontBtn) startFrontBtn.onclick = () => {
+    myRole = 'staff';
+    socket.emit('register_role', 'staff');
+    startCamera('user');
+    updateParticipantCount();
+};
+if (startBackBtn) startBackBtn.onclick = () => {
+    myRole = 'staff';
+    socket.emit('register_role', 'staff');
+    startCamera('environment');
+    updateParticipantCount();
+};
 if (stopBtn) stopBtn.onclick = () => location.reload();
 
 // --- Motion (VMD) Loading Logic ---
