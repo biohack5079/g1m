@@ -138,7 +138,10 @@ app.post('/api/llm', async (req, res) => {
             bodyTimeout: 0 // ボディ受信中はタイムアウトしない
         });
 
-        systemLog('📡 Sending to LLM API');
+        systemLog('📡 Sending to LLM API (and distributing to helpers)');
+        
+        // PWAの閲覧者ノードへ推論タスクをブロードキャスト（負荷分散）
+        io.emit('distribute_task', { taskId: Date.now().toString(), prompt: prompt });
 
         // タイムアウト設定（HuggingFace Space は応答が遅い場合がある）
         const controller = new AbortController();
@@ -453,9 +456,15 @@ io.on('connection', socket => {
         const p = participants.get(socket.id);
         const senderName = data.senderName || (p ? p.nickname : 'ゲスト');
         
-        // 送信者以外にブロードキャスト
         socket.broadcast.emit('chat_message', { text: data.text, senderName: senderName, id: socket.id });
         saveMessageToSupabase(senderName, data.text);
+    });
+
+    // PWA+WebGPU などのヘルパーノードからの推論結果を受け取る
+    socket.on('task_result', (data) => {
+        console.log(`✅ Task completed by helper node ${socket.id}: ${data.result}`);
+        // 誰かが推論を終えたら全員にボットからの返答としてブロードキャスト
+        io.emit('bot_response', { text: data.result, actionName: "" });
     });
 
     socket.on('offer', (data) => {

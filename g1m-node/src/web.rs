@@ -118,10 +118,11 @@ async fn handle_llm(
                 let status = resp.status();
                 if status.is_success() {
                     if let Ok(data) = resp.json::<serde_json::Value>().await {
-                        let text = data["choices"][0]["message"]["content"]
+                        let mut text = data["choices"][0]["message"]["content"]
                             .as_str()
                             .unwrap_or("回答を生成できませんでした。")
                             .to_string();
+                        text = format!("【HF Node】 {}", text);
                         return Json(LlmResponse { response: text.clone(), text }).into_response();
                     }
                 }
@@ -151,10 +152,11 @@ async fn handle_llm(
                 let status = resp.status();
                 if status.is_success() {
                 if let Ok(data) = resp.json::<serde_json::Value>().await {
-                    let text = data["message"]["content"]
+                    let mut text = data["message"]["content"]
                         .as_str()
                         .unwrap_or("回答を生成できませんでした。")
                         .to_string();
+                    text = format!("【Local Node】 {}", text);
                     return Json(LlmResponse { response: text.clone(), text }).into_response();
                 }
             }
@@ -378,6 +380,14 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
             { let mut parts = st.participants.lock().unwrap(); parts.remove(&socket.id.to_string()); }
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
         }});
+
+        socket.on("task_result", { move |socket: SocketRef, Data(payload): Data<Value>| {
+            let result = payload["result"].as_str().unwrap_or("").to_string();
+            let msg = serde_json::json!({ "text": result, "actionName": "" });
+            let _ = socket.broadcast().emit("bot_response", msg.clone());
+            let _ = socket.emit("bot_response", msg);
+        }});
+
 
     });
 

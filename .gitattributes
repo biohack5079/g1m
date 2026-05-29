@@ -1,0 +1,3 @@
+# Ignore Makefiles in GitHub language statistics
+Makefile linguist-detectable=false
+*.mk linguist-detectable=false

@@ -45,6 +45,40 @@ else
     echo "[Warning] Ollama is not installed. LLM requests will failover to Hugging Face if configured."
 fi
 
+# 2.5 Setup Python Environment for HF/Python Node
+echo "[*] Setting up Python environment for HF/Local AI Node..."
+if command -v python3 &> /dev/null; then
+    cd hf/gaufile
+    if [ ! -d ".venv" ] || [ ! -f ".venv/bin/activate" ]; then
+        echo "Creating virtual environment (.venv)..."
+        # 失敗したときのために残骸を消す
+        rm -rf .venv
+        if ! python3 -m venv .venv; then
+            echo "[Info] python3-venv is missing. Attempting to install it..."
+            if command -v apt-get &> /dev/null; then
+                sudo apt-get update && sudo apt-get install -y python3-venv
+                python3 -m venv .venv
+            else
+                echo "[Error] Please install python3-venv manually (e.g. apt install python3-venv) and run again."
+                exit 1
+            fi
+        fi
+    fi
+    echo "Installing Python dependencies (this may take a moment)..."
+    source .venv/bin/activate
+    pip install -r requirements.txt > /dev/null 2>&1
+    
+    # Start the Python node in the background
+    echo "Starting Python AI Node (uvicorn)..."
+    uvicorn app:app --host 127.0.0.1 --port 8000 > python_node.log 2>&1 &
+    PYTHON_PID=$!
+    deactivate
+    cd ../..
+else
+    echo "[Warning] python3 is not installed. Skipping Python node setup."
+fi
+
+
 # 3. Start the compiled Rust P2P Node
 echo "[2/3] Launching Rust P2P node..."
 # Kill any existing process on port 3000
@@ -86,5 +120,5 @@ echo "P2P Port: 4001"
 echo "Press Ctrl+C to shut down all local processes."
 
 # Maintain running processes
-trap "echo -e '\nStopping all services...'; kill $NODE_PID; exit" INT TERM
+trap "echo -e '\nStopping all services...'; kill $NODE_PID 2>/dev/null; kill $PYTHON_PID 2>/dev/null; exit" INT TERM
 wait
