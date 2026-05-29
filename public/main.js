@@ -345,8 +345,8 @@ function animate() {
                 // 初期ポーズ: 右手は前、左手は上
                 const getBone = (name) => vrm.humanoid?.getRawBoneNode(name) || vrm.humanoid?.getRawBoneNode(name.charAt(0).toUpperCase() + name.slice(1));
                 const lUpper = getBone('leftUpperArm');
-                const rUpper = getBone( 'rightUpperArm');
-                if (lUpper) lUpper.rotation.set(0, 0, -Math.PI / 2); 
+                const rUpper = getBone('rightUpperArm');
+                if (lUpper) lUpper.rotation.set(0, 0, -Math.PI / 2);
                 if (rUpper) rUpper.rotation.set(-Math.PI / 2, 0, 0);
             }
         }
@@ -580,7 +580,7 @@ function mapMotionToVRM(vrm, res) {
         if (lUpper && pose[11] && pose[13]) {
             const angle = Math.atan2(pose[13].y - pose[11].y, pose[13].x - pose[11].x);
             // VRMの左腕はZ軸正の方向が「下」
-            lUpper.rotation.z = angle; 
+            lUpper.rotation.z = angle;
         }
         if (lLower && pose[13] && pose[15]) {
             const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
@@ -761,7 +761,7 @@ if (socket) {
 
     // 新しい参加者が来た時に接続を開始
     socket.on('participant_joined', (p) => {
-        log(`Signaling: New participant joined ${p.id.slice(0,4)}`);
+        log(`Signaling: New participant joined ${p.id.slice(0, 4)}`);
         createPeer(p.id, true);
     });
 
@@ -996,11 +996,11 @@ function initSpeechRecognition() {
     recognition.interimResults = false;
     recognition.continuous = false;
 
-    recognition.onstart = () => { 
-        isListening = true; 
-        micBtn.classList.add('listening'); 
-        log('Speech: Listening...'); 
-        updateStatus('音声入力中...', 'running'); 
+    recognition.onstart = () => {
+        isListening = true;
+        micBtn.classList.add('listening');
+        log('Speech: Listening...');
+        updateStatus('音声入力中...', 'running');
     };
     recognition.onend = () => { isListening = false; micBtn.classList.remove('listening'); log('Speech: Stopped'); updateStatus('G1:M 準備完了', 'ready'); };
     recognition.onerror = (e) => {
@@ -1044,7 +1044,7 @@ if (micBtn) {
         } else {
             // 2. 認識オブジェクトを毎回フレッシュに生成（iOSのバグ回避）
             initSpeechRecognition();
-            
+
             if (recognition) {
                 try {
                     // 3. カメラストリームのマイクを完全にオフにする
@@ -1120,10 +1120,10 @@ function detectLanguage(text) {
     const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3001-\u3008]/g;
     // English: Latin letters and common punctuation
     const englishRegex = /[a-zA-Z0-9\s.,!?\-'":;]/g;
-    
+
     const japaneseMatches = (text.match(japaneseRegex) || []).length;
     const englishMatches = (text.match(englishRegex) || []).length;
-    
+
     if (japaneseMatches > englishMatches && japaneseMatches > text.length * 0.1) {
         return 'ja';
     }
@@ -1218,7 +1218,7 @@ async function handleChat(text, option = {}) {
             const systemPrompt = generateSystemPrompt(detectedLang);
             const fullPrompt = `${systemPrompt}\n\nUser: ${text}`;
             const answer = await performLlmRequest(fullPrompt);
-            
+
             // If response was in Japanese, add English translation
             let displayText = answer;
             if (detectedLang === 'ja') {
@@ -1227,7 +1227,7 @@ async function handleChat(text, option = {}) {
                 displayText = `${answer}\n\n[EN] ${englishTranslation}`;
                 log(`Chat: English translation: ${englishTranslation}`);
             }
-            
+
             speak(displayText, 'G1:M');
         }
     }
