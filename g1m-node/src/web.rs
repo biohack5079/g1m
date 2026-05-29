@@ -15,6 +15,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tower_http::cors::CorsLayer;
+use socketioxide::SocketIoLayer;
 use tower_http::services::ServeDir;
 use tokio::sync::mpsc;
 use std::path::PathBuf;
@@ -31,6 +32,7 @@ pub struct AppState {
     pub ollama_url: String,
     pub participants: Arc<Mutex<HashMap<String, ParticipantInfo>>>,
     pub help_gauge: Arc<Mutex<i32>>,
+    pub io: SocketIo, // SocketIoインスタンスをAppStateに含める
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -85,7 +87,7 @@ async fn health_check() -> impl IntoResponse {
 // LLM request handler with failover (HF -> local Ollama)
 async fn handle_llm(
     State(state): State<AppState>,
-    io: SocketIo,
+    // io: SocketIo, // SocketIoはAppStateから取得するため削除
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build().unwrap();
@@ -219,7 +221,7 @@ async fn handle_llm(
 
     if let Some(sid) = staff_id {
         log::info!("Delegating task to connected staff node: {}", sid);
-        let _ = io.to(sid).emit("distribute_task", serde_json::json!({
+        let _ = state.io.to(sid).emit("distribute_task", serde_json::json!({
             "taskId": uuid::Uuid::new_v4().to_string(),
             "prompt": payload.prompt.clone()
         }));
@@ -516,5 +518,5 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
         .layer(CorsLayer::permissive())
         .layer(socketio_layer); // 最外層に置くことで /socket.io/ パスを確実にキャッチする
 
-    (router, io)
+    router
 }
