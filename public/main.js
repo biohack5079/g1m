@@ -685,9 +685,22 @@ function syncMotion(results) {
 
 function updateParticipantCount() {
     const staffCount = staffNodes.size;
-    if (participantCountText) participantCountText.textContent = `Nodes Active: (${staffCount})`;
-    if (statusDot) statusDot.className = staffCount > 0 ? 'status-ready' : 'status-error';
-    if (statusText && staffCount > 0) statusText.textContent = 'G1:M Distributed Node Active';
+
+    if (participantCountText) {
+        participantCountText.textContent = `Nodes Active: (${staffCount})`;
+        // 左側（PCノード）インジケータ：PCがいれば緑、いなければグレー
+        participantCountText.style.color = staffCount > 0 ? '#0f0' : '#888';
+        participantCountText.style.textShadow = staffCount > 0 ? '0 0 10px #0f0' : 'none';
+    }
+
+    // 右側（HF）インジケータ：PCノードがいれば「赤（PC優先）」、いなければ「緑（HF待機）」
+    if (statusDot) {
+        statusDot.className = staffCount > 0 ? 'status-error' : 'status-ready';
+    }
+
+    if (statusText) {
+        statusText.textContent = staffCount > 0 ? 'PC Node Active (Local First)' : 'G1:M Ready (HF Fallback)';
+    }
 
     // AI Agent logic: only spawn bot if alone and it doesn't already exist
     if (staffCount === 0) {
