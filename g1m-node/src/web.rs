@@ -174,9 +174,9 @@ async fn handle_llm(
     if !staff_ids.is_empty() {
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
         // リクエストごとにランダム（UUIDベース）にノードを選択
-        let sid = &staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()];
+        let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
         log::info!("Delegating task to staff node (Distributed): {}", sid);
-        let _ = state.io.to(sid).emit("distribute_task", serde_json::json!({
+        let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
             "taskId": uuid::Uuid::new_v4().to_string(),
             "prompt": payload.prompt.clone()
         }));
