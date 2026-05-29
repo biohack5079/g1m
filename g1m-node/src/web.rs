@@ -30,6 +30,7 @@ pub struct AppState {
     pub huggingface_token: String,
     pub ollama_url: String,
     pub participants: Arc<Mutex<HashMap<String, ParticipantInfo>>>,
+    pub help_gauge: Arc<Mutex<i32>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -117,6 +118,41 @@ async fn handle_llm(
         }
         Err(e) => {
             log::warn!("Local Ollama query failed: {:?}", e);
+        }
+    }
+
+    // 1.5 Try Local Python AI Node (Internal logic priority)
+    log::info!("Trying Local Python Node at http://localhost:8000...");
+    let python_endpoint = "http://localhost:8000/v1/chat/completions";
+    let req = client.post(python_endpoint)
+        .json(&serde_json::json!({
+            "model": "google_gemma-3-4b-it",
+            "messages": [
+                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
+                { "role": "user", "content": payload.prompt }
+            ],
+            "max_tokens": 512,
+            "temperature": 0.8
+        }));
+
+    match req.send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                if let Ok(data) = resp.json::<serde_json::Value>().await {
+                    let mut text = data["choices"][0]["message"]["content"]
+                        .as_str()
+                        .or_else(|| data["response"].as_str())
+                        .unwrap_or("回答を生成できませんでした。")
+                        .to_string();
+                    text = format!("【Local AI】 {}", text);
+                    return Json(LlmResponse { response: text.clone(), text }).into_response();
+                }
+            }
+            log::warn!("Local Python Node returned status: {:?}", status);
+        }
+        Err(e) => {
+            log::warn!("Local Python Node query failed: {:?}", e);
         }
     }
 
@@ -303,6 +339,31 @@ async fn handle_donate(Json(payload): Json<DonateRequest>) -> impl IntoResponse 
     }))
 }
 
+async fn handle_get_history(State(state): State<AppState>) -> impl IntoResponse {
+    let db = state.db_conn.lock().unwrap();
+    // Retrieve recent messages from g1m.db
+    match crate::db::get_recent_messages(&db, 50) {
+        Ok(messages) => Json(messages).into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to load history from g1m.db").into_response(),
+    }
+}
+
+async fn handle_help_action(State(state): State<AppState>) -> impl IntoResponse {
+    let mut gauge = state.help_gauge.lock().unwrap();
+    // Helping someone restores the gauge
+    *gauge = (*gauge + 20).min(100);
+    Json(serde_json::json!({
+        "status": "success",
+        "current_gauge": *gauge,
+        "message": "Helping hand acknowledged! Gauge restored."
+    }))
+}
+
+async fn handle_get_gauge(State(state): State<AppState>) -> impl IntoResponse {
+    let gauge = state.help_gauge.lock().unwrap();
+    Json(serde_json::json!({ "help_gauge": *gauge }))
+}
+
 // SocketIO Signaling & Relay Logic
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct RegisterPayload {
@@ -394,6 +455,9 @@ pub fn create_router(state: AppState) -> (Router, SocketIo) {
     let router = Router::new()
         .route("/healthz", get(health_check))
         .route("/api/llm", post(handle_llm))
+        .route("/api/history", get(handle_get_history))
+        .route("/api/help", post(handle_help_action))
+        .route("/api/gauge", get(handle_get_gauge))
         .route("/api/process", post(handle_process))
         .route("/api/kampa/wallet/bot", get(handle_bot_wallet))
         .route("/api/kampa/wallet/:anonymousId", get(handle_get_wallet))

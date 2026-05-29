@@ -5,6 +5,11 @@
 
 echo "--- G1M P2P Launcher ---"
 
+# Force local-first inference configuration
+export OLLAMA_URL="http://localhost:11434"
+export LOCAL_PYTHON_AI="http://localhost:8000"
+echo "[Local-First] Inference priority: 1. Ollama -> 2. Local Python Node -> 3. HF (Failover)"
+
 # 0. Check for Rust/Cargo compiler
 if ! command -v cargo &> /dev/null; then
     echo "[Info] Rust/Cargo not found. Attempting auto-installation..."

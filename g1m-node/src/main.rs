@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 1. Initialize SQLite Database
     log::info!("Initializing SQLite database...");
-    let db_conn = db::init_db("sagbi.db")?;
+    let db_conn = db::init_db("g1m.db")?;
     let db_shared = Arc::new(Mutex::new(db_conn));
 
     // 1.5 起動時のデータベース検証 (未使用関数の活用)
@@ -69,6 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         huggingface_token,
         ollama_url,
         participants: Arc::new(Mutex::new(HashMap::new())),
+        help_gauge: Arc::new(Mutex::new(50)), // 初期値 50%
     };
     
     let (app, io) = web::create_router(state);
