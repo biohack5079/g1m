@@ -4,13 +4,6 @@
 # This script starts the local signaling server, P2P syncer, and front-end interface.
 
 echo "--- G1M P2P Launcher ---"
-
-# sagbi 関連の完全なクリーンアップ
-echo "[Cleanup] Removing any sagbi related artifacts..."
-rm -rf ../sagbi.db ../sagbi ./sagbi.db ./sagbi 2>/dev/null
-find . -maxdepth 3 -name "*sagbi*" -exec rm -rf {} + 2>/dev/null
-find .. -maxdepth 2 -name "*sagbi*" -exec rm -rf {} + 2>/dev/null
-
 # Force local-first inference configuration
 export OLLAMA_URL="http://127.0.0.1:11434"
 export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
@@ -79,12 +72,10 @@ if command -v python3 &> /dev/null; then
     source .venv/bin/activate
     pip install -r requirements.txt > /dev/null 2>&1
 
-    # スマホからRenderへアクセスする場合、ローカルAIもRenderをシグナリング先にする必要がある
-    if [ -n "$REMOTE_G1M_URL" ]; then
-        export SIGNALING_URL="$REMOTE_G1M_URL"
-    else
-        export SIGNALING_URL="http://127.0.0.1:3000"
-    fi
+    # メインのRenderサーバーへ接続してAIリソースとして登録
+    echo "[Bridge] Connecting local AI Node to Remote Hub: $REMOTE_G1M_URL"
+    export SIGNALING_URL="$REMOTE_G1M_URL"
+
     # Start the Python node in the background
     echo "Starting Python AI Node (uvicorn)..."
     uvicorn app:app --host 127.0.0.1 --port 8000 > python_node.log 2>&1 &
