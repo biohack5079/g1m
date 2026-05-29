@@ -117,6 +117,10 @@ async fn handle_llm(
                         .unwrap_or("回答を生成できませんでした。")
                         .to_string();
                     text = format!("【Local Node】 {}", text);
+                    
+                    // AIの回答を全クライアントにブロードキャスト
+                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": text, "actionName": "" }));
+
                     // ローカル成功時は即座にリターン（排他）
                     return Json(LlmResponse { response: text.clone(), text }).into_response();
                 }
@@ -152,6 +156,10 @@ async fn handle_llm(
                         .unwrap_or("回答を生成できませんでした。")
                         .to_string();
                     text = format!("【Local AI】 {}", text);
+                    
+                    // AIの回答を全クライアントにブロードキャスト
+                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": text, "actionName": "" }));
+
                     // ローカル成功時は即座にリターン（排他）
                     // ローカルAIが応答を返したら、ここで終了（HFには行かない）
                     return Json(LlmResponse { response: text.clone(), text }).into_response();
@@ -222,6 +230,10 @@ async fn handle_llm(
                             .unwrap_or("回答を生成できませんでした。")
                             .to_string();
                         text = format!("【HF Node】 {}", text);
+
+                        // AIの回答を全クライアントにブロードキャスト
+                        let _ = state.io.emit("bot_response", serde_json::json!({ "text": text, "actionName": "" }));
+
                         return Json(LlmResponse { response: text.clone(), text }).into_response();
                     }
                 }

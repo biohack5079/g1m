@@ -124,6 +124,17 @@ function stopPeerReconnect(id) {
     }
 }
 
+function cleanupPeer(id) {
+    log(`WebRTC: Cleaning up peer ${id.slice(0, 4)}`);
+    if (peers[id]) {
+        try { peers[id].close(); } catch (e) { }
+        delete peers[id];
+    }
+    delete dataChannels[id];
+    staffNodes.delete(id);
+    updateParticipantCount();
+}
+
 // Loading management
 let loadingIds = new Set();
 
@@ -579,25 +590,24 @@ function mapMotionToVRM(vrm, res) {
         const lUpper = getBone('leftUpperArm');
         const lLower = getBone('leftLowerArm');
         if (lUpper && pose[11] && pose[13]) {
-            const angle = Math.atan2(pose[13].y - pose[11].y, pose[13].x - pose[11].x);
-            // VRMの左腕はZ軸正の方向が「下」
+            // MediaPipeはY+が下、VRMはY+が上。座標の差分をとる際に調整
+            const angle = Math.atan2(-(pose[13].y - pose[11].y), pose[13].x - pose[11].x);
             lUpper.rotation.z = angle;
         }
         if (lLower && pose[13] && pose[15]) {
-            const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
+            const angle = Math.atan2(-(pose[15].y - pose[13].y), pose[15].x - pose[13].x);
             lLower.rotation.z = angle;
         }
 
         const rUpper = getBone('rightUpperArm');
         const rLower = getBone('rightLowerArm');
         if (rUpper && pose[12] && pose[14]) {
-            const angle = Math.atan2(pose[14].y - pose[12].y, pose[14].x - pose[12].x);
-            // VRMの右腕はZ軸負の方向が「下」なので反転
-            rUpper.rotation.z = -angle + Math.PI;
+            const angle = Math.atan2(-(pose[14].y - pose[12].y), pose[14].x - pose[12].x);
+            rUpper.rotation.z = angle - Math.PI;
         }
         if (rLower && pose[14] && pose[16]) {
-            const angle = Math.atan2(pose[16].y - pose[14].y, pose[16].x - pose[14].x);
-            rLower.rotation.z = -angle + Math.PI;
+            const angle = Math.atan2(-(pose[16].y - pose[14].y), pose[16].x - pose[14].x);
+            rLower.rotation.z = angle - Math.PI;
         }
     }
 
@@ -688,12 +698,13 @@ function updateParticipantCount() {
 
     if (participantCountText) {
         participantCountText.textContent = `Nodes Active: (${staffCount})`;
-        // 左側（PCノード）インジケータ：PCがいれば緑、いなければグレー
-        participantCountText.style.color = staffCount > 0 ? '#0f0' : '#888';
+        // 左側（PCノード）インジケータ：PCがいれば緑、いなければ赤
+        participantCountText.style.color = staffCount > 0 ? '#0f0' : '#f00';
         participantCountText.style.textShadow = staffCount > 0 ? '0 0 10px #0f0' : 'none';
     }
 
-    // 右側（HF）インジケータ：PCノードがいれば「赤（PC優先）」、いなければ「緑（HF待機）」
+    // 右側（HF）インジケータ：PCノードがいれば「赤（HF停止/PC優先）」、いなければ「緑（HF待機中）」
+    // HFの状態はこれが緑なら動作中とみなす設計
     if (statusDot) {
         statusDot.className = staffCount > 0 ? 'status-error' : 'status-ready';
     }
@@ -792,538 +803,532 @@ if (socket) {
     socket.on('offer', async (d) => {
         log(`WebRTC: Offer from ${d.from}`);
         const pc = await createPeer(d.from, false);
-        if (peers[id]) peers[id].close();
-        loadingIds.delete(id);
-        if (vrms[id]) {
-            disposeVRM(vrms[id]);
-            if (mainScene) mainScene.remove(vrms[id].scene);
-            const l = document.getElementById(`label-${id}`); if (l) l.remove(); delete vrms[id];
-        }
-        delete peers[id]; delete dataChannels[id];
-        stopPeerReconnect(id);
-        updateParticipantCount();
-    }
+        await pc.setRemoteDescription(new RTCSessionDescription(d.sdp));
+        const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
+        socket.emit('answer', { targetId: d.from, sdp: ans });
+    });
+}
 
 async function createPeer(id, isInitiator) {
-            const pc = new RTCPeerConnection({
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' }
-                ]
-            });
-            peers[id] = pc;
-            pc.onicecandidate = (e) => { if (e.candidate) socket.emit('candidate', { targetId: id, candidate: e.candidate }); };
+    const pc = new RTCPeerConnection({
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
+        ]
+    });
+    peers[id] = pc;
+    pc.onicecandidate = (e) => { if (e.candidate) socket.emit('candidate', { targetId: id, candidate: e.candidate }); };
 
-            if (isInitiator) {
-                const dc = pc.createDataChannel('motion');
-                setupDC(id, dc);
-                const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-                socket.emit('offer', { targetId: id, sdp: offer });
-            } else {
-                pc.ondatachannel = (e) => setupDC(id, e.channel);
-            }
-
-            pc.oniceconnectionstatechange = () => {
-                log(`WebRTC: ${id.slice(0, 4)} ICE state: ${pc.iceConnectionState}`);
-                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-                    log(`WebRTC Error: Connection to ${id.slice(0, 4)} lost`, '#f55');
-                }
-            };
-
-            pc.onconnectionstatechange = () => {
-                log(`WebRTC: ${id.slice(0, 4)} Connection state: ${pc.connectionState}`);
-                if (pc.connectionState === 'connected') {
-                    stopPeerReconnect(id);
-                } else if (pc.connectionState === 'failed') {
-                    log(`WebRTC Error: Connection to ${id.slice(0, 4)} failed`, '#f55');
-                    // Reconnect only if we are the initiator or if the connection was established once
-                    startPeerReconnect(id);
-                } else if (pc.connectionState === 'disconnected') {
-                    // Disconnected might be temporary, but if it takes too long it turns to failed
-                    // We can optionally start a timer here
-                }
-            };
-
-            return pc;
-        }
-
-function setupDC(id, dc) {
-            dataChannels[id] = dc;
-            dc.onopen = () => log(`DC Open: ${id.slice(0, 4)}`, '#0f0');
-            dc.onerror = (e) => log(`DC Error: ${id.slice(0, 4)} - ${e.message || 'Unknown'}`, '#f55');
-            dc.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.type === 'motion') lastRemoteData[id] = data.payload;
-                    if (data.type === 'chat') speak(data.payload, `参加者 ${id.slice(0, 4)}`);
-                } catch (err) { console.error('DC Message Error:', err); }
-
-                // アバターがまだない場合はロード (チャットのみ先行して届いた場合などの対応)
-                if (!vrms[id] && !loadingIds.has(id)) {
-                    loadAvatar('g1-m_chan.glb', id, `参加者 ${id.slice(0, 4)}`);
-                }
-            };
-            dc.onclose = () => {
-                delete lastRemoteData[id]; // クリーンアップ時に保存データも削除
-                cleanupPeer(id);
-            };
-        }
-
-
-async function startCamera(mode = 'user') {
-            log(`Camera: Requesting ${mode}...`);
-            try {
-                // Robust Constraints for Mobile/PC
-                const constraints = {
-                    video: {
-                        facingMode: { ideal: mode },
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        frameRate: { ideal: 30 }
-                    }
-                    // audio: true を削除（iOS Safariで音声認識サービスと衝突するため）
-                };
-
-                if (currentStream) {
-                    currentStream.getTracks().forEach(track => track.stop());
-                }
-
-                let stream;
-                try {
-                    log(`Camera: Requesting Video...`);
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                } catch (err) {
-                    log(`Camera: Ideal constraints failed: ${err.name}. Retrying with video only...`, '#ff0');
-                    // マイクが使えない場合でもカメラだけは起動を試みる
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                }
-
-                currentStream = stream;
-                videoElement.srcObject = stream;
-
-                // iOS Safari requirements for camera stream
-                videoElement.setAttribute('playsinline', '');
-                videoElement.muted = true;
-                videoElement.playsInline = true;
-
-                return new Promise((resolve, reject) => {
-                    videoElement.onloadedmetadata = async () => {
-                        try {
-                            await videoElement.play();
-                            log('Camera: Video stream playing');
-
-                            videoElement.width = videoElement.videoWidth;
-                            videoElement.height = videoElement.videoHeight;
-                            log(`Camera: Dimensions ${videoElement.width}x${videoElement.height}`);
-
-                            isRunning = true;
-                            let lastProcessingTime = 0;
-                            const loop = async () => {
-                                if (!isRunning) return;
-
-                                // 音声入力中(isListening)はAI解析を一時停止してCPU負荷を下げる（iOS Safari対策）
-                                if (!isListening) {
-                                    try {
-                                        // 処理負荷を抑えるため、iPhoneでは少しだけ間隔をあける (Max 20fps程度)
-                                        const now = performance.now();
-                                        if (videoElement.readyState >= 2 && videoElement.currentTime > 0 && now - lastProcessingTime > 50) {
-                                            await holistic.send({ image: videoElement });
-                                            lastProcessingTime = now;
-                                        }
-                                    } catch (e) { /* Silent fail for single frame */ }
-                                }
-                                requestAnimationFrame(loop);
-                            };
-                            loop();
-                            log('Tracking: Loop started');
-                            resolve();
-                        } catch (playErr) {
-                            log(`Camera: Play promise rejected: ${playErr.message}`, '#f55');
-                            reject(playErr);
-                        }
-                    };
-                    videoElement.onerror = (e) => reject(new Error('Video element error'));
-                });
-
-            } catch (e) {
-                log('Camera Fatal Error: ' + e.message, '#f55');
-                alert('カメラの起動に失敗しました。ブラウザの設定と権限を確認してください。');
-                throw e;
-            }
-        }
-
-if (startFrontBtn) startFrontBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('user'); };
-    if (startBackBtn) startBackBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('environment'); };
-    if (stopBtn) stopBtn.onclick = () => location.reload();
-
-    // --- Motion (VMD) Loading Logic ---
-    const vmdInput = document.getElementById('vmd-file-input');
-
-    if (vmdBtn && vmdInput) {
-        vmdBtn.onclick = () => vmdInput.click();
-        vmdInput.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file || !vrms['local']) return;
-
-            log(`MMD: Loading motion ${file.name}...`);
-            try {
-                const loader = new MMDLoader();
-                const url = URL.createObjectURL(file);
-
-                loader.loadAnimation(url, vrms['local'].scene, (mmd) => {
-                    log('MMD: Motion loaded, playing...');
-                    mmdHelper.add(vrms['local'].scene, { animation: mmd });
-                    // Note: Tracking might conflict, so we might need a toggle
-                }, (xhr) => {
-                    log(`MMD: ${(xhr.loaded / xhr.total * 100).toFixed(0)}%`);
-                }, (err) => {
-                    log('MMD Error: ' + err.message, '#f55');
-                });
-            } catch (err) { log('MMD Loader Error: ' + err.message, '#f55'); }
-        };
+    if (isInitiator) {
+        const dc = pc.createDataChannel('motion');
+        setupDC(id, dc);
+        const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+        socket.emit('offer', { targetId: id, sdp: offer });
+    } else {
+        pc.ondatachannel = (e) => setupDC(id, e.channel);
     }
 
-    // --- Voice Recognition ---
-    let recognition = null; // Global recognition object
-
-    function initSpeechRecognition() {
-        // 既存の認識セッションがあれば停止し、オブジェクトをクリア
-        if (recognition) {
-            try { recognition.stop(); } catch (e) { log('Speech: Error stopping old recognition: ' + e.message, '#ff0'); }
-            recognition = null; // 古いオブジェクトをクリア
-        }
-
-        const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognitionAPI) {
-            log('Speech API: Not supported in this browser.', '#f55');
-            return;
-        }
-
-        recognition = new SpeechRecognitionAPI();
-        recognition.lang = 'ja'; // ja-JP より ja のほうがiOSでは安定する場合があります
-        recognition.interimResults = false;
-        recognition.continuous = false;
-
-        recognition.onstart = () => {
-            isListening = true;
-            micBtn.classList.add('listening');
-            log('Speech: Listening...');
-            updateStatus('音声入力中...', 'running');
-        };
-        recognition.onend = () => { isListening = false; micBtn.classList.remove('listening'); log('Speech: Stopped'); updateStatus('G1:M 準備完了', 'ready'); };
-        recognition.onerror = (e) => {
-            let errorMsg = `Speech Error: ${e.error}`;
-            if (e.error === 'service-not-allowed') {
-                errorMsg += ' - AI解析の負荷が高いか、OSの設定を確認してください。';
-            } else if (e.error === 'not-allowed') {
-                errorMsg += ' - マイクの使用が許可されていません。ブラウザ設定を確認してください。';
-            }
-            log(errorMsg, '#f55');
-            isListening = false; micBtn.classList.remove('listening');
-            // エラー発生時は、次の試行のために認識オブジェクトを再初期化
-        };
-
-        recognition.onresult = (e) => {
-            const text = e.results[0][0].transcript;
-            if (chatInput) chatInput.value = text;
-            log(`Speech Result: ${text}`);
-            handleChat(text);
-        };
-
-        log('Speech: Recognition object initialized.');
-    }
-
-    // スクリプト読み込み時に一度初期化
-    initSpeechRecognition();
-
-    if (micBtn) {
-        micBtn.onclick = () => {
-            log('Mic clicked');
-
-            // 1. オーディオコンテキストの有効化
-            if (!window.audioInitialized) {
-                const dummyContext = new (window.AudioContext || window.webkitAudioContext)();
-                dummyContext.resume();
-                window.audioInitialized = true;
-            }
-
-            if (isListening) {
-                try { recognition.stop(); } catch (err) { }
-            } else {
-                // 2. 認識オブジェクトを毎回フレッシュに生成（iOSのバグ回避）
-                initSpeechRecognition();
-
-                if (recognition) {
-                    try {
-                        // 3. カメラストリームのマイクを完全にオフにする
-                        if (currentStream) {
-                            currentStream.getAudioTracks().forEach(t => t.stop());
-                        }
-                        // ユーザーのジェスチャーコンテキストを維持するため、setTimeoutなしで直接開始
-                        recognition.start();
-                    } catch (err) {
-                        log('Speech Start Failed: ' + err.message, '#f55');
-                    }
-                } else {
-                    log('Speech: Recognition object not available to start.', '#f55');
-                }
-            };
-        }
-    }
-
-    // --- i18n Support ---
-    const labels = {
-        ja: {
-            logo: "G1:m Dance Floor",
-            chatPlaceholder: "G1:mちゃんに話しかける...",
-            micLabel: "マイク",
-            cameraLabel: "カメラ",
-            frontLabel: "前面",
-            backLabel: "背面",
-            stopLabel: "終了",
-            motionLabel: "モーション",
-            participants: "参加者: "
-        },
-        en: {
-            logo: "G1:m Dance Floor",
-            chatPlaceholder: "Talk to G1:m-chan...",
-            micLabel: "Mic",
-            cameraLabel: "Camera",
-            frontLabel: "Front",
-            backLabel: "Back",
-            stopLabel: "Stop",
-            motionLabel: "Motion",
-            participants: "Participants: "
+    pc.oniceconnectionstatechange = () => {
+        log(`WebRTC: ${id.slice(0, 4)} ICE state: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+            log(`WebRTC Error: Connection to ${id.slice(0, 4)} lost`, '#f55');
         }
     };
 
-    function applyI18n() {
-        const lang = navigator.language.startsWith('ja') ? 'ja' : 'en';
-        const t = labels[lang];
-
-        if (chatInput) chatInput.placeholder = t.chatPlaceholder;
-        const logoEl = document.getElementById('main-logo');
-        if (logoEl) logoEl.textContent = t.logo;
-
-        // Update button labels
-        const btnLabels = document.querySelectorAll('.btn-label');
-        btnLabels.forEach(el => {
-            if (el.textContent === 'カメラ') el.textContent = t.cameraLabel;
-            if (el.textContent === 'マイク') el.textContent = t.micLabel;
-            if (el.textContent === '前面') el.textContent = t.frontLabel;
-            if (el.textContent === '背面') el.textContent = t.backLabel;
-            if (el.textContent === '終了') el.textContent = t.stopLabel;
-            if (el.textContent === 'モーション') el.textContent = t.motionLabel;
-        });
-    }
-
-    applyI18n();
-
-    // --- Language Detection & Translation ---
-    /**
-     * Detect language: 'ja' for Japanese, 'en' for English
-     */
-    function detectLanguage(text) {
-        // Japanese characters: Hiragana, Katakana, Kanji, Japanese punctuation
-        const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3001-\u3008]/g;
-        // English: Latin letters and common punctuation
-        const englishRegex = /[a-zA-Z0-9\s.,!?\-'":;]/g;
-
-        const japaneseMatches = (text.match(japaneseRegex) || []).length;
-        const englishMatches = (text.match(englishRegex) || []).length;
-
-        if (japaneseMatches > englishMatches && japaneseMatches > text.length * 0.1) {
-            return 'ja';
+    pc.onconnectionstatechange = () => {
+        log(`WebRTC: ${id.slice(0, 4)} Connection state: ${pc.connectionState}`);
+        if (pc.connectionState === 'connected') {
+            stopPeerReconnect(id);
+        } else if (pc.connectionState === 'failed') {
+            log(`WebRTC Error: Connection to ${id.slice(0, 4)} failed`, '#f55');
+            // Reconnect only if we are the initiator or if the connection was established once
+            startPeerReconnect(id);
+        } else if (pc.connectionState === 'disconnected') {
+            // Disconnected might be temporary, but if it takes too long it turns to failed
+            // We can optionally start a timer here
         }
-        return 'en';
-    }
+    };
 
-    /**
-     * Translate text to another language
-     */
-    async function translateText(text, targetLang) {
-        if (targetLang === 'en') {
-            const prompt = `Translate the following Japanese text to English. Return ONLY the translation without any explanation.\n\nText: ${text}`;
-            return await performLlmRequest(prompt);
-        } else if (targetLang === 'ja') {
-            const prompt = `次の英文を日本語に翻訳してください。説明なしで翻訳のみを返してください。\n\nText: ${text}`;
-            return await performLlmRequest(prompt);
-        }
-        return text;
-    }
+    return pc;
+}
 
-    /**
-     * Generate system prompt based on detected language
-     */
-    function generateSystemPrompt(language) {
-        if (language === 'ja') {
-            return `あなたは「G1:Mちゃん」というキャラクターです。ユーザーが日本語で話しかけてくれました。親切で、楽しく、サポーティブな性格で日本語で答えてください。短く、会話的な応答を心がけてください。`;
-        } else {
-            return `You are "G1:M-chan", a cheerful and supportive character. The user is speaking to you in English. Please respond in English with a friendly and conversational tone. Keep your response concise and engaging.`;
-        }
-    }
-
-    async function speak(text, sender = '') {
-        if (!subtitleArea) return;
-
-        subtitleArea.style.opacity = 1;
-        subtitleArea.style.transform = 'translate(-50%, -50%) scale(1)';
-        isSpeaking = true;
-
-        let current = sender ? `[${sender}] ` : '';
-        // If text is too long, we might want to truncate or wrap (CSS handles wrap)
-
-        subtitleArea.textContent = current;
-
-        // Typewriter effect
-        for (const char of text.split('')) {
-            current += char;
-            subtitleArea.textContent = current;
-            await new Promise(r => setTimeout(r, 30));
-        }
-
-        // Keep visible for at least 3 seconds
-        await new Promise(r => setTimeout(r, 3000));
-
-        subtitleArea.style.opacity = 0;
-        subtitleArea.style.transform = 'translate(-50%, -50%) scale(0.95)';
-        isSpeaking = false;
-    }
-
-    // Update handleChat to use speak for own messages too
-    async function handleChat(text, option = {}) {
-        if (!text) return;
-        log(`Chat: ${text}`);
-
-        const openChannels = Object.values(dataChannels).filter(dc => dc.readyState === 'open');
-        const isAlone = openChannels.length === 0;
-
-        // Auto-detect language
-        const detectedLang = detectLanguage(text);
-
-        // 1. ローカル表示
-        speak(text, '自分');
-
-        // 2. 他のノード（ブラウザ参加者）へ共有
-        const chatPayload = { type: 'chat', payload: text };
-        Object.values(dataChannels).forEach(dc => {
-            if (dc.readyState === 'open') dc.send(JSON.stringify(chatPayload));
-        });
-        log(`P2P Chat shared with peers`);
-
-        // 3. サーバー（Render）経由でSupabase保存 & LLM応答
-        if (socket && socket.connected) {
-            socket.emit("chat_message", { text: text, senderName: '自分' });
-        }
-
-        if (isAlone || text.includes('ちゃん')) {
-            const botResponse = handleBotCommand(text);
-            if (botResponse) {
-                speak(botResponse, 'G1:M');
-            } else {
-                log('Chat: AI (G1:M) processing...');
-                // Generate system prompt based on detected language
-                const systemPrompt = generateSystemPrompt(detectedLang);
-                const fullPrompt = `${systemPrompt}\n\nUser: ${text}`;
-                const answer = await performLlmRequest(fullPrompt);
-
-                // If response was in Japanese, add English translation
-                let displayText = answer;
-                if (detectedLang === 'ja') {
-                    log('Chat: Translating response to English...');
-                    const englishTranslation = await translateText(answer, 'en');
-                    displayText = `${answer}\n\n[EN] ${englishTranslation}`;
-                    log(`Chat: English translation: ${englishTranslation}`);
-                }
-
-                speak(displayText, 'G1:M');
-            }
-        }
-
-        if (chatInput) chatInput.value = '';
-    }
-
-    // --- Recording Logic ---
-    if (recordBtn) {
-        recordBtn.onclick = () => {
-            if (!isRecording) {
-                startRecording();
-            } else {
-                stopRecording();
-            }
-        };
-    }
-
-    function startRecording() {
-        recordedChunks = [];
-        const stream = threeCanvas.captureStream(30); // Capture Three.js canvas at 30fps
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) recordedChunks.push(e.data);
-        };
-
-        mediaRecorder.onstop = () => {
-            log('Recording: Stopped');
-        };
-
-        mediaRecorder.start();
-        isRecording = true;
-        recordIcon.textContent = '🔴';
-        recordBtn.style.background = 'rgba(255, 0, 0, 0.4)';
-        log('Recording: Started');
-    }
-
-    function stopRecording() {
-        if (mediaRecorder && isRecording) {
-            mediaRecorder.stop();
-            isRecording = false;
-            recordIcon.textContent = '⚪️';
-            recordBtn.style.background = 'var(--glass)';
-        }
-    }
-
-    if (exportBtn) {
-        exportBtn.onclick = () => {
-            if (recordedChunks.length === 0) {
-                alert('録画データがありません。');
-                return;
-            }
-            const blob = new Blob(recordedChunks, { type: 'video/webm' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `G1M_Session_${Date.now()}.webm`;
-            a.click();
-            log('Export: Download started');
-        };
-    }
-
-    if (translateBtn) {
-        translateBtn.onclick = () => handleChat(chatInput.value, { translate: true });
-    }
-
-    sendBtn.onclick = () => handleChat(chatInput.value);
-    chatInput.onkeydown = (e) => { if (e.key === 'Enter') handleChat(chatInput.value); };
-
-    async function performLlmRequest(prompt) {
-        // 外部URLを隠蔽するため、自前のサーバーエンドポイントを経由させる
-        let endpoint = '/api/llm';
+function setupDC(id, dc) {
+    dataChannels[id] = dc;
+    dc.onopen = () => log(`DC Open: ${id.slice(0, 4)}`, '#0f0');
+    dc.onerror = (e) => log(`DC Error: ${id.slice(0, 4)} - ${e.message || 'Unknown'}`, '#f55');
+    dc.onmessage = (e) => {
         try {
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
-            });
-            if (res.ok) {
-                const s = await res.json();
-                return s.response || s.answer || s.result || "うまく答えられません。";
+            const data = JSON.parse(e.data);
+            if (data.type === 'motion') lastRemoteData[id] = data.payload;
+            if (data.type === 'chat') speak(data.payload, `参加者 ${id.slice(0, 4)}`);
+        } catch (err) { console.error('DC Message Error:', err); }
+
+        // アバターがまだない場合はロード (チャットのみ先行して届いた場合などの対応)
+        if (!vrms[id] && !loadingIds.has(id)) {
+            loadAvatar('g1-m_chan.glb', id, `参加者 ${id.slice(0, 4)}`);
+        }
+    };
+    dc.onclose = () => {
+        delete lastRemoteData[id]; // クリーンアップ時に保存データも削除
+        cleanupPeer(id);
+    };
+}
+
+
+async function startCamera(mode = 'user') {
+    log(`Camera: Requesting ${mode}...`);
+    try {
+        // Robust Constraints for Mobile/PC
+        const constraints = {
+            video: {
+                facingMode: { ideal: mode },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                frameRate: { ideal: 30 }
             }
-        } catch (e) { log('LLM Error: ' + e.message, '#f55'); }
-        return "接続エラー。";
+            // audio: true を削除（iOS Safariで音声認識サービスと衝突するため）
+        };
+
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+
+        let stream;
+        try {
+            log(`Camera: Requesting Video...`);
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+            log(`Camera: Ideal constraints failed: ${err.name}. Retrying with video only...`, '#ff0');
+            // マイクが使えない場合でもカメラだけは起動を試みる
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+
+        currentStream = stream;
+        videoElement.srcObject = stream;
+
+        // iOS Safari requirements for camera stream
+        videoElement.setAttribute('playsinline', '');
+        videoElement.muted = true;
+        videoElement.playsInline = true;
+
+        return new Promise((resolve, reject) => {
+            videoElement.onloadedmetadata = async () => {
+                try {
+                    await videoElement.play();
+                    log('Camera: Video stream playing');
+
+                    videoElement.width = videoElement.videoWidth;
+                    videoElement.height = videoElement.videoHeight;
+                    log(`Camera: Dimensions ${videoElement.width}x${videoElement.height}`);
+
+                    isRunning = true;
+                    let lastProcessingTime = 0;
+                    const loop = async () => {
+                        if (!isRunning) return;
+
+                        // 音声入力中(isListening)はAI解析を一時停止してCPU負荷を下げる（iOS Safari対策）
+                        if (!isListening) {
+                            try {
+                                // 処理負荷を抑えるため、iPhoneでは少しだけ間隔をあける (Max 20fps程度)
+                                const now = performance.now();
+                                if (videoElement.readyState >= 2 && videoElement.currentTime > 0 && now - lastProcessingTime > 50) {
+                                    await holistic.send({ image: videoElement });
+                                    lastProcessingTime = now;
+                                }
+                            } catch (e) { /* Silent fail for single frame */ }
+                        }
+                        requestAnimationFrame(loop);
+                    };
+                    loop();
+                    log('Tracking: Loop started');
+                    resolve();
+                } catch (playErr) {
+                    log(`Camera: Play promise rejected: ${playErr.message}`, '#f55');
+                    reject(playErr);
+                }
+            };
+            videoElement.onerror = (e) => reject(new Error('Video element error'));
+        });
+
+    } catch (e) {
+        log('Camera Fatal Error: ' + e.message, '#f55');
+        alert('カメラの起動に失敗しました。ブラウザの設定と権限を確認してください。');
+        throw e;
+    }
+}
+
+if (startFrontBtn) startFrontBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('user'); };
+if (startBackBtn) startBackBtn.onclick = () => { socket.emit('register_role', 'staff'); startCamera('environment'); };
+if (stopBtn) stopBtn.onclick = () => location.reload();
+
+// --- Motion (VMD) Loading Logic ---
+const vmdInput = document.getElementById('vmd-file-input');
+
+if (vmdBtn && vmdInput) {
+    vmdBtn.onclick = () => vmdInput.click();
+    vmdInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !vrms['local']) return;
+
+        log(`MMD: Loading motion ${file.name}...`);
+        try {
+            const loader = new MMDLoader();
+            const url = URL.createObjectURL(file);
+
+            loader.loadAnimation(url, vrms['local'].scene, (mmd) => {
+                log('MMD: Motion loaded, playing...');
+                mmdHelper.add(vrms['local'].scene, { animation: mmd });
+                // Note: Tracking might conflict, so we might need a toggle
+            }, (xhr) => {
+                log(`MMD: ${(xhr.loaded / xhr.total * 100).toFixed(0)}%`);
+            }, (err) => {
+                log('MMD Error: ' + err.message, '#f55');
+            });
+        } catch (err) { log('MMD Loader Error: ' + err.message, '#f55'); }
+    };
+}
+
+// --- Voice Recognition ---
+let recognition = null; // Global recognition object
+
+function initSpeechRecognition() {
+    // 既存の認識セッションがあれば停止し、オブジェクトをクリア
+    if (recognition) {
+        try { recognition.stop(); } catch (e) { log('Speech: Error stopping old recognition: ' + e.message, '#ff0'); }
+        recognition = null; // 古いオブジェクトをクリア
     }
 
-    startApp();
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+        log('Speech API: Not supported in this browser.', '#f55');
+        return;
+    }
+
+    recognition = new SpeechRecognitionAPI();
+    recognition.lang = 'ja'; // ja-JP より ja のほうがiOSでは安定する場合があります
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+        isListening = true;
+        micBtn.classList.add('listening');
+        log('Speech: Listening...');
+        updateStatus('音声入力中...', 'running');
+    };
+    recognition.onend = () => { isListening = false; micBtn.classList.remove('listening'); log('Speech: Stopped'); updateStatus('G1:M 準備完了', 'ready'); };
+    recognition.onerror = (e) => {
+        let errorMsg = `Speech Error: ${e.error}`;
+        if (e.error === 'service-not-allowed') {
+            errorMsg += ' - AI解析の負荷が高いか、OSの設定を確認してください。';
+        } else if (e.error === 'not-allowed') {
+            errorMsg += ' - マイクの使用が許可されていません。ブラウザ設定を確認してください。';
+        }
+        log(errorMsg, '#f55');
+        isListening = false; micBtn.classList.remove('listening');
+        // エラー発生時は、次の試行のために認識オブジェクトを再初期化
+    };
+
+    recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript;
+        if (chatInput) chatInput.value = text;
+        log(`Speech Result: ${text}`);
+        handleChat(text);
+    };
+
+    log('Speech: Recognition object initialized.');
+}
+
+// スクリプト読み込み時に一度初期化
+initSpeechRecognition();
+
+if (micBtn) {
+    micBtn.onclick = () => {
+        log('Mic clicked');
+
+        // 1. オーディオコンテキストの有効化
+        if (!window.audioInitialized) {
+            const dummyContext = new (window.AudioContext || window.webkitAudioContext)();
+            dummyContext.resume();
+            window.audioInitialized = true;
+        }
+
+        if (isListening) {
+            try { recognition.stop(); } catch (err) { }
+        } else {
+            // 2. 認識オブジェクトを毎回フレッシュに生成（iOSのバグ回避）
+            initSpeechRecognition();
+
+            if (recognition) {
+                try {
+                    // 3. カメラストリームのマイクを完全にオフにする
+                    if (currentStream) {
+                        currentStream.getAudioTracks().forEach(t => t.stop());
+                    }
+                    // ユーザーのジェスチャーコンテキストを維持するため、setTimeoutなしで直接開始
+                    recognition.start();
+                } catch (err) {
+                    log('Speech Start Failed: ' + err.message, '#f55');
+                }
+            } else {
+                log('Speech: Recognition object not available to start.', '#f55');
+            }
+        };
+    }
+}
+
+// --- i18n Support ---
+const labels = {
+    ja: {
+        logo: "G1:m Dance Floor",
+        chatPlaceholder: "G1:mちゃんに話しかける...",
+        micLabel: "マイク",
+        cameraLabel: "カメラ",
+        frontLabel: "前面",
+        backLabel: "背面",
+        stopLabel: "終了",
+        motionLabel: "モーション",
+        participants: "参加者: "
+    },
+    en: {
+        logo: "G1:m Dance Floor",
+        chatPlaceholder: "Talk to G1:m-chan...",
+        micLabel: "Mic",
+        cameraLabel: "Camera",
+        frontLabel: "Front",
+        backLabel: "Back",
+        stopLabel: "Stop",
+        motionLabel: "Motion",
+        participants: "Participants: "
+    }
+};
+
+function applyI18n() {
+    const lang = navigator.language.startsWith('ja') ? 'ja' : 'en';
+    const t = labels[lang];
+
+    if (chatInput) chatInput.placeholder = t.chatPlaceholder;
+    const logoEl = document.getElementById('main-logo');
+    if (logoEl) logoEl.textContent = t.logo;
+
+    // Update button labels
+    const btnLabels = document.querySelectorAll('.btn-label');
+    btnLabels.forEach(el => {
+        if (el.textContent === 'カメラ') el.textContent = t.cameraLabel;
+        if (el.textContent === 'マイク') el.textContent = t.micLabel;
+        if (el.textContent === '前面') el.textContent = t.frontLabel;
+        if (el.textContent === '背面') el.textContent = t.backLabel;
+        if (el.textContent === '終了') el.textContent = t.stopLabel;
+        if (el.textContent === 'モーション') el.textContent = t.motionLabel;
+    });
+}
+
+applyI18n();
+
+// --- Language Detection & Translation ---
+/**
+ * Detect language: 'ja' for Japanese, 'en' for English
+ */
+function detectLanguage(text) {
+    // Japanese characters: Hiragana, Katakana, Kanji, Japanese punctuation
+    const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3001-\u3008]/g;
+    // English: Latin letters and common punctuation
+    const englishRegex = /[a-zA-Z0-9\s.,!?\-'":;]/g;
+
+    const japaneseMatches = (text.match(japaneseRegex) || []).length;
+    const englishMatches = (text.match(englishRegex) || []).length;
+
+    if (japaneseMatches > englishMatches && japaneseMatches > text.length * 0.1) {
+        return 'ja';
+    }
+    return 'en';
+}
+
+/**
+ * Translate text to another language
+ */
+async function translateText(text, targetLang) {
+    if (targetLang === 'en') {
+        const prompt = `Translate the following Japanese text to English. Return ONLY the translation without any explanation.\n\nText: ${text}`;
+        return await performLlmRequest(prompt);
+    } else if (targetLang === 'ja') {
+        const prompt = `次の英文を日本語に翻訳してください。説明なしで翻訳のみを返してください。\n\nText: ${text}`;
+        return await performLlmRequest(prompt);
+    }
+    return text;
+}
+
+/**
+ * Generate system prompt based on detected language
+ */
+function generateSystemPrompt(language) {
+    if (language === 'ja') {
+        return `あなたは「G1:Mちゃん」というキャラクターです。ユーザーが日本語で話しかけてくれました。親切で、楽しく、サポーティブな性格で日本語で答えてください。短く、会話的な応答を心がけてください。`;
+    } else {
+        return `You are "G1:M-chan", a cheerful and supportive character. The user is speaking to you in English. Please respond in English with a friendly and conversational tone. Keep your response concise and engaging.`;
+    }
+}
+
+async function speak(text, sender = '') {
+    if (!subtitleArea) return;
+
+    subtitleArea.style.opacity = 1;
+    subtitleArea.style.transform = 'translate(-50%, -50%) scale(1)';
+    isSpeaking = true;
+
+    let current = sender ? `[${sender}] ` : '';
+    // If text is too long, we might want to truncate or wrap (CSS handles wrap)
+
+    subtitleArea.textContent = current;
+
+    // Typewriter effect
+    for (const char of text.split('')) {
+        current += char;
+        subtitleArea.textContent = current;
+        await new Promise(r => setTimeout(r, 30));
+    }
+
+    // Keep visible for at least 3 seconds
+    await new Promise(r => setTimeout(r, 3000));
+
+    subtitleArea.style.opacity = 0;
+    subtitleArea.style.transform = 'translate(-50%, -50%) scale(0.95)';
+    isSpeaking = false;
+}
+
+// Update handleChat to use speak for own messages too
+async function handleChat(text, option = {}) {
+    if (!text) return;
+    log(`Chat: ${text}`);
+
+    const openChannels = Object.values(dataChannels).filter(dc => dc.readyState === 'open');
+    const isAlone = openChannels.length === 0;
+
+    // Auto-detect language
+    const detectedLang = detectLanguage(text);
+
+    // 1. ローカル表示
+    speak(text, '自分');
+
+    // 2. 他のノード（ブラウザ参加者）へ共有
+    const chatPayload = { type: 'chat', payload: text };
+    Object.values(dataChannels).forEach(dc => {
+        if (dc.readyState === 'open') dc.send(JSON.stringify(chatPayload));
+    });
+    log(`P2P Chat shared with peers`);
+
+    // 3. サーバー（Render）経由でSupabase保存 & LLM応答
+    if (socket && socket.connected) {
+        socket.emit("chat_message", { text: text, senderName: '自分' });
+    }
+
+    if (isAlone || text.includes('ちゃん')) {
+        const botResponse = handleBotCommand(text);
+        if (botResponse) {
+            speak(botResponse, 'G1:M');
+        } else {
+            log('Chat: AI (G1:M) processing...');
+            // Generate system prompt based on detected language
+            const systemPrompt = generateSystemPrompt(detectedLang);
+            const fullPrompt = `${systemPrompt}\n\nUser: ${text}`;
+            const answer = await performLlmRequest(fullPrompt);
+
+            // If response was in Japanese, add English translation
+            let displayText = answer;
+            if (detectedLang === 'ja') {
+                log('Chat: Translating response to English...');
+                const englishTranslation = await translateText(answer, 'en');
+                displayText = `${answer}\n\n[EN] ${englishTranslation}`;
+                log(`Chat: English translation: ${englishTranslation}`);
+            }
+
+            speak(displayText, 'G1:M');
+        }
+    }
+
+    if (chatInput) chatInput.value = '';
+}
+
+// --- Recording Logic ---
+if (recordBtn) {
+    recordBtn.onclick = () => {
+        if (!isRecording) {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+    };
+}
+
+function startRecording() {
+    recordedChunks = [];
+    const stream = threeCanvas.captureStream(30); // Capture Three.js canvas at 30fps
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        log('Recording: Stopped');
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    recordIcon.textContent = '🔴';
+    recordBtn.style.background = 'rgba(255, 0, 0, 0.4)';
+    log('Recording: Started');
+}
+
+function stopRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        recordIcon.textContent = '⚪️';
+        recordBtn.style.background = 'var(--glass)';
+    }
+}
+
+if (exportBtn) {
+    exportBtn.onclick = () => {
+        if (recordedChunks.length === 0) {
+            alert('録画データがありません。');
+            return;
+        }
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `G1M_Session_${Date.now()}.webm`;
+        a.click();
+        log('Export: Download started');
+    };
+}
+
+if (translateBtn) {
+    translateBtn.onclick = () => handleChat(chatInput.value, { translate: true });
+}
+
+sendBtn.onclick = () => handleChat(chatInput.value);
+chatInput.onkeydown = (e) => { if (e.key === 'Enter') handleChat(chatInput.value); };
+
+async function performLlmRequest(prompt) {
+    // 外部URLを隠蔽するため、自前のサーバーエンドポイントを経由させる
+    let endpoint = '/api/llm';
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        if (res.ok) {
+            const s = await res.json();
+            return s.response || s.answer || s.result || "うまく答えられません。";
+        }
+    } catch (e) { log('LLM Error: ' + e.message, '#f55'); }
+    return "接続エラー。";
+}
+
+startApp();
