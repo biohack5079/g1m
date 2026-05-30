@@ -182,8 +182,7 @@ const register = (s, name) => {
         console.log(`✅ [BRIDGE] ${name} に接続完了。推論タスクの待機を開始します。`);
     });
     s.on('connect_error', (err) => {
-        console.error(`❌ [BRIDGE] ${name} connection error: ${err.message}`);
-        console.log(`   (ヒント: ${name === 'Local Node' ? 'Rustノードが起動しているか確認してください。' : 'インターネット接続を確認してください。'})`);
+        console.error(`❌ [BRIDGE] ${name} 接続エラー: ${err.message}`);
     });
 };
 
@@ -192,9 +191,7 @@ register(localSocket, 'Local Node');
 
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 const handleTask = async (s, data) => {
-    console.log('\n' + '━'.repeat(40));
-    console.log(`📥 [BRIDGE] 逆流タスク受信 (${s === socket ? 'Remote' : 'Local'}): "${data.prompt.substring(0,30)}..."`);
-    process.stdout.write('   ⚙️ 推論中... ');
+    console.log(`\n📥 [BRIDGE] 逆流タスク受信: "${data.prompt.substring(0,50)}..."`);
 
     try {
         const controller = new AbortController();
@@ -206,7 +203,7 @@ const handleTask = async (s, data) => {
             body: JSON.stringify({ 
                 model: 'gemma3:4b-it-q4_K_M',
                 messages: [
-                    { role: 'system', content: 'あなたはG1:Mちゃんです。親しみやすい日本語で簡潔に回答してください。' },
+                    { role: 'system', content: 'あなたはG1:Mちゃんです。親しみやすい日本語で回答してください。' },
                     { role: 'user', content: data.prompt }
                 ]
             }),
@@ -214,15 +211,12 @@ const handleTask = async (s, data) => {
         });
         clearTimeout(timeoutId);
         const json = await res.json();
-        const text = json.choices ? json.choices[0].message.content : (json.response || json.text);
-        console.log('✅ 完了');
-        console.log(`   Result: "${text.substring(0,50)}..."`);
+        const text = json.choices ? json.choices[0].message.content : (json.response || json.text || "応答なし");
+        console.log(`✅ [BRIDGE] 推論成功。結果を返送します。`);
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {
-        console.log('❌ 失敗');
-        console.error(`   Error: ${e.message}`);
+        console.error(`❌ [BRIDGE] 逆流処理エラー: ${e.message}`);
     }
-    console.log('━'.repeat(40));
 };
 
 socket.on('distribute_task', (data) => handleTask(socket, data));
