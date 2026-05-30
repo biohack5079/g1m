@@ -708,11 +708,11 @@ function updateParticipantCount() {
     // 右側（HF）インジケータ：PCノードがいれば「赤（HF停止/PC優先）」、いなければ「緑（HF待機中）」
     // HFの状態はこれが緑なら動作中とみなす設計
     if (statusDot) {
-        statusDot.className = staffCount > 0 ? 'status-error' : 'status-ready';
+        statusDot.className = staffCount > 0 ? 'status-ready' : 'status-error';
     }
 
     if (statusText) {
-        statusText.textContent = staffCount > 0 ? 'PC Node Active (Local First)' : 'G1:M Ready (HF Fallback)';
+        statusText.textContent = staffCount > 0 ? '✅ PC Node Active (Local First)' : 'G1:M Ready (HF Fallback)';
     }
 
     // AI Agent logic: only spawn bot if alone and it doesn't already exist

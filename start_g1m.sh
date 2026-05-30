@@ -97,7 +97,7 @@ if command -v python3 &> /dev/null; then
     # Wait for Python node to be ready
     echo "Waiting for Python AI Node to start..."
     RETRIES=0
-    until curl -s http://127.0.0.1:8000/health > /dev/null 2>&1 || [ $RETRIES -gt 10 ]; do
+    until curl -s http://127.0.0.1:8000/health > /dev/null 2>&1 || [ "$RETRIES" -gt 10 ]; do
         sleep 1
         ((RETRIES++))
     done
