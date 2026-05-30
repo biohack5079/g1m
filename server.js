@@ -96,7 +96,7 @@ app.post('/api/llm', async (req, res) => {
     }
 
     systemLog('🤖 AI Request received');
-    
+
     try {
         const headers = { 'Content-Type': 'application/json' };
 
@@ -126,7 +126,7 @@ app.post('/api/llm', async (req, res) => {
         if (HUGGINGFACE_TOKEN) {
             headers.Authorization = `Bearer ${HUGGINGFACE_TOKEN}`;
         }
-        
+
         let targetUrl = LLM_API_URL;
         if (USE_HF_REDIRECT && HF_COMPLEX_URL) {
             targetUrl = HF_COMPLEX_URL;
@@ -134,86 +134,86 @@ app.post('/api/llm', async (req, res) => {
         }
 
         const apiPath = targetUrl.endsWith('/') ? 'v1/chat/completions' : '/v1/chat/completions';
-            headersTimeout: 600000, // 10分
+        headersTimeout: 600000, // 10分
             bodyTimeout: 0 // ボディ受信中はタイムアウトしない
-        });
+    });
 
-        systemLog('📡 Sending to LLM API (and distributing to helpers)');
-        
-        // PWAの閲覧者ノードへ推論タスクをブロードキャスト（負荷分散）
-        io.emit('distribute_task', { taskId: Date.now().toString(), prompt: prompt });
+systemLog('📡 Sending to LLM API (and distributing to helpers)');
 
-        // タイムアウト設定（HuggingFace Space は応答が遅い場合がある）
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分（以前の動作時間）
+// PWAの閲覧者ノードへ推論タスクをブロードキャスト（負荷分散）
+io.emit('distribute_task', { taskId: Date.now().toString(), prompt: prompt });
 
-        const { statusCode, body } = await client.request({
-            path: apiPath,
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                model: "llama-3.1-8b",
-                messages: [
-                    { 
-                      role: "system", 
-                      content: "あなたはG1:Mちゃんです。知識ベースの情報に基づき、フレンドリーで親しみやすい日本語で回答してください。紋切り型の返答は避け、対話を楽しんでください。" 
-                    },
-                    { role: "user", content: prompt }
-                ],
-                max_tokens: 512,
-                temperature: 0.8
-            }),
-            signal: controller.signal
-        });
+// タイムアウト設定（HuggingFace Space は応答が遅い場合がある）
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分（以前の動作時間）
 
-        const responseText = await body.text();
-        clearTimeout(timeoutId);
-        await client.close();
+const { statusCode, body } = await client.request({
+    path: apiPath,
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+        model: "llama-3.1-8b",
+        messages: [
+            {
+                role: "system",
+                content: "あなたはG1:Mちゃんです。知識ベースの情報に基づき、フレンドリーで親しみやすい日本語で回答してください。紋切り型の返答は避け、対話を楽しんでください。"
+            },
+            { role: "user", content: prompt }
+        ],
+        max_tokens: 512,
+        temperature: 0.8
+    }),
+    signal: controller.signal
+});
 
-        const response = {
-            ok: statusCode >= 200 && statusCode < 300,
-            status: statusCode,
-            text: async () => responseText,
-            json: async () => JSON.parse(responseText)
-        };
+const responseText = await body.text();
+clearTimeout(timeoutId);
+await client.close();
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`❌ Docker LLM API Error (${response.status}):`, errorText);
-            res.status(response.status).json({ error: 'LLM API Error', details: errorText });
-            return;
-        }
+const response = {
+    ok: statusCode >= 200 && statusCode < 300,
+    status: statusCode,
+    text: async () => responseText,
+    json: async () => JSON.parse(responseText)
+};
 
-        const data = await response.json();
-        systemLog('✅ AI Response received');
-        
-        // OpenAI 形式 (choices[0].message.content) から抽出
-        const aiText = data.choices?.[0]?.message?.content || data.generated_text || data.text || "回答を生成できませんでした。";
-        
-        systemLog(`💬 AI Answer: ${aiText.slice(0, 50)}...`);
-        
-        // タイムアウト対策：Socket.io経由でも全クライアントに送信（または送信者のみ）
-        io.emit('bot_response', { text: aiText, actionName: "" }); // actionNameはクライアント側で抽出
+if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`❌ Docker LLM API Error (${response.status}):`, errorText);
+    res.status(response.status).json({ error: 'LLM API Error', details: errorText });
+    return;
+}
 
-        res.json({ response: aiText, text: aiText });
+const data = await response.json();
+systemLog('✅ AI Response received');
+
+// OpenAI 形式 (choices[0].message.content) から抽出
+const aiText = data.choices?.[0]?.message?.content || data.generated_text || data.text || "回答を生成できませんでした。";
+
+systemLog(`💬 AI Answer: ${aiText.slice(0, 50)}...`);
+
+// タイムアウト対策：Socket.io経由でも全クライアントに送信（または送信者のみ）
+io.emit('bot_response', { text: aiText, actionName: "" }); // actionNameはクライアント側で抽出
+
+res.json({ response: aiText, text: aiText });
 
     } catch (error) {
-        console.error('LLM Proxy Error:', error);
-        
-        // タイムアウトエラーの詳細ログ
-        if (error.name === 'AbortError') {
-            console.error('⏱️  Request timeout: HuggingFace Space API response took too long (>3min)');
-            console.error('💡 Try: 1) Wait for HF Space to wake up (cold start), 2) Check HF Space status, 3) Verify USE_HF_REDIRECT setting');
-            res.status(504).json({ 
-                error: 'API Timeout', 
-                details: 'HuggingFace Space API response timeout (3min). Please try again later.',
-                suggestion: 'HF Spaces may have cold-start delays. First request may take 3-5min.'
-            });
-            return;
-        }
-        
-        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    console.error('LLM Proxy Error:', error);
+
+    // タイムアウトエラーの詳細ログ
+    if (error.name === 'AbortError') {
+        console.error('⏱️  Request timeout: HuggingFace Space API response took too long (>3min)');
+        console.error('💡 Try: 1) Wait for HF Space to wake up (cold start), 2) Check HF Space status, 3) Verify USE_HF_REDIRECT setting');
+        res.status(504).json({
+            error: 'API Timeout',
+            details: 'HuggingFace Space API response timeout (3min). Please try again later.',
+            suggestion: 'HF Spaces may have cold-start delays. First request may take 3-5min.'
+        });
+        return;
     }
+
+    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+}
 });
 
 /**
@@ -222,7 +222,7 @@ app.post('/api/llm', async (req, res) => {
  */
 app.post('/api/process', async (req, res) => {
     const { uuid, base64_data } = req.body;
-    
+
     if (!uuid || !base64_data) {
         return res.status(400).json({ error: 'uuid and base64_data are required' });
     }
@@ -269,14 +269,21 @@ app.post('/api/process', async (req, res) => {
  */
 app.get('/api/kampa/wallet/bot', (req, res) => {
     try {
-        const filePath = path.join(__dirname, 'z1m', 'AirWallet', 'g1-m_chan.jpeg');
-        if (fs.existsSync(filePath)) {
+        const possiblePaths = [
+            path.join(__dirname, 'z1m', 'AirWallet', 'g1-m_chan.jpeg'),
+            path.join(__dirname, 'public', 'z1m', 'AirWallet', 'g1-m_chan.jpeg'),
+            path.join(__dirname, 'G1M', 'Assets', 'g1-m_chan.jpeg')
+        ];
+
+        const filePath = possiblePaths.find(p => fs.existsSync(p));
+
+        if (filePath) {
             // 画像をバイナリとして読み込む
             const bitmap = fs.readFileSync(filePath);
             // Base64に変換し、ログでデータサイズを確認可能にする
             const base64Data = bitmap.toString('base64');
             // QRログ出力を抑制
-            
+
             const dataUrl = `data:image/jpeg;base64,${base64Data}`;
             res.json({
                 anonymous_id: 'bot',
@@ -396,7 +403,7 @@ function broadcast(socket, event, data) {
 
 io.on('connection', socket => {
     console.log(`🔗 New socket connected: ${socket.id}`);
-    
+
     // クライアントに設定を送信
     socket.emit('config', { showSystemLog: SHOW_SYSTEM_LOG });
 
@@ -455,7 +462,7 @@ io.on('connection', socket => {
     socket.on('chat_message', (data) => {
         const p = participants.get(socket.id);
         const senderName = data.senderName || (p ? p.nickname : 'ゲスト');
-        
+
         socket.broadcast.emit('chat_message', { text: data.text, senderName: senderName, id: socket.id });
         saveMessageToSupabase(senderName, data.text);
     });
