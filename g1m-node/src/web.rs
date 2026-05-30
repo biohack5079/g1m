@@ -124,10 +124,12 @@ async fn handle_llm(
                     // ローカル成功時は即座にリターン（排他）
                     return Json(LlmResponse { response: text.clone(), text }).into_response();
                 }
+            } else {
+                log::warn!("Local Ollama returned error status: {:?}", status);
             }
         }
         Err(e) => {
-            log::warn!("Local Ollama query failed: {:?}", e);
+            log::warn!("Local Ollama connection failed (Check if service is down): {:?}", e);
         }
     }
 
@@ -425,6 +427,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
+
+        // サーバー自体の推論能力（Ollama設定の有無）を通知
+        let _ = socket.emit("server_capabilities", serde_json::json!({
+            "has_local_llm": !st.ollama_url.is_empty()
+        }));
 
         // チャットメッセージの受信とブロードキャスト
         socket.on("chat_message", {
