@@ -96,13 +96,13 @@ async fn handle_llm(
     let client = reqwest::Client::builder().build().unwrap();
     
     // 1. Try Local Ollama First
-    log::info!("Trying Local Ollama at {} with model {}...", state.ollama_url, state.ollama_model);
+    log::info!("🤖 [LLM] Requesting Local Ollama: {}", payload.prompt);
     let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
     if let Ok(resp) = client.post(&ollama_endpoint)
         .json(&serde_json::json!({
             "model": state.ollama_model,
             "messages": [
-                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
+                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。" },
                 { "role": "user", "content": payload.prompt }
             ],
             "stream": false
@@ -126,7 +126,7 @@ async fn handle_llm(
     // 1.5 Try Local Python AI Node (Internal logic priority)
     log::info!("Trying Local Python Node at http://127.0.0.1:8000...");
     let python_endpoint = "http://127.0.0.1:8000/v1/chat/completions";
-    let req = client.post(python_endpoint)
+    if let Ok(resp) = client.post(python_endpoint)
         .json(&serde_json::json!({
             "model": "google_gemma-3-4b-it",
             "messages": [
@@ -135,31 +135,24 @@ async fn handle_llm(
             ],
             "max_tokens": 512,
             "temperature": 0.8
-        }));
-
-    match req.send().await {
-        Ok(resp) => {
-            let status = resp.status();
-            if status.is_success() {
-                if let Ok(data) = resp.json::<serde_json::Value>().await {
-                    let text = data["choices"][0]["message"]["content"]
-                        .as_str()
-                        .or_else(|| data["response"].as_str())
-                        .unwrap_or("回答を生成できませんでした。")
-                        .to_string();
-                    log::info!("✅ [Python Node] Inference successful: {}", text);
-                    let display_text = format!("【Local Python Node】 {}", text);
-                    
-                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text, "actionName": "" }));
-
-                    return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
-                }
+        })).send().await 
+    {
+        let status = resp.status();
+        if status.is_success() {
+            if let Ok(data) = resp.json::<serde_json::Value>().await {
+                let text = data["choices"][0]["message"]["content"]
+                    .as_str()
+                    .or_else(|| data["response"].as_str())
+                    .unwrap_or_default().to_string();
+                log::info!("✅ [Python] Result: {}", text);
+                let display_text = format!("【Local Python Node】 {}", text);
+                let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
+                return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
             }
-            log::warn!("Local Python Node returned status: {:?}", status);
         }
-        Err(e) => {
-            log::warn!("Local Python Node query failed: {:?}", e);
-        }
+        log::warn!("Local Python Node returned status: {:?}", status);
+    } else {
+        log::warn!("Local Python Node unavailable...");
     }
 
     // 1.8 Try to delegate directly to connected Staff Nodes (Distributed)
