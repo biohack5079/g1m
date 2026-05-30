@@ -1042,7 +1042,13 @@ const App: React.FC = () => {
     console.log('Final UI Answer:', displayAnswer);
     setSubtitle(`[G1:M] ${displayAnswer}`);
     setAiThinking(false);
-    setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
+
+    // 実際の回答元タグに基づいてノード名を表示
+    if (rawText.includes("【Local PC Node】")) setProcessingNode("PC Node (Brain)");
+    else if (rawText.includes("【HF Super Node】")) setProcessingNode("HF Super Node");
+    else setProcessingNode("Staff Node (Distributed)");
+
+    setStatus("回答完了");
 
     const botVrm = vrmsRef.current['bot'];
     if (botVrm) {
@@ -1108,8 +1114,7 @@ const App: React.FC = () => {
           setStatus("G1:M 考え中...");
           setAiThinking(true);
           setSubtitle("[G1:M] 考え中...");
-          const activeResource = (hasServerLlm || activeNodes > 0) ? "PC Node (Brain)" : "HF Super Node";
-          setProcessingNode(activeResource);
+          setProcessingNode("Routing...");
           scheduleSubtitleClear(15000); // 長めに設定
 
           const res = await fetch('/api/llm', {
@@ -1648,8 +1653,8 @@ const App: React.FC = () => {
   return (
     <div className="container">
       {/* 3D Scene Container (Background) */}
-      <div id="scene-container" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', zIndex: 0, overflow: 'hidden', backgroundColor: '#000', display: 'flex' }}>
-        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', touchAction: 'none' }}></canvas>
+      <div id="scene-container" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', zIndex: 0, overflow: 'hidden', backgroundColor: '#000' }}>
+        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', touchAction: 'none', background: 'transparent' }}></canvas>
         <canvas
           ref={debugCanvasRef}
           width={640}
@@ -1680,9 +1685,9 @@ const App: React.FC = () => {
       </header>
 
       <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', transition: 'all 0.5s' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (hasServerLlm || activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (hasServerLlm || activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
-          <span style={{ fontWeight: 'bold' }}>PC NODE: {(hasServerLlm || activeNodes > 0) ? 'ONLINE' : 'OFFLINE'}</span>
+          <span style={{ fontWeight: 'bold' }}>PC NODE: {(hasServerLlm || activeNodes > 0) ? 'ACTIVE' : 'DISCONNECTED'}</span>
         </div>
         <div style={{ marginTop: '5px' }}>
           Token Gauge: {tokenGauge}%
@@ -1701,12 +1706,12 @@ const App: React.FC = () => {
         <div className="status-dot" style={{
           backgroundColor: loadingProgress !== null ? '#fff' :
             aiThinking ? '#ffd700' :
-              (hasServerLlm || activeNodes > 0 ? '#00aaff' : '#0f0')
+              (hasServerLlm || activeNodes > 0 ? '#0f0' : '#888')
         }}></div>
         <span>
           {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
             aiThinking ? `推論中: ${processingNode}` :
-              (hasServerLlm || activeNodes > 0 ? "PC Node Ready (HF Standby)" : status)}
+              (hasServerLlm || activeNodes > 0 ? "PC Node Standby" : status)}
         </span>
       </div>
 
