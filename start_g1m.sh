@@ -171,7 +171,13 @@ echo "P2P Port: 4001"
 # これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
 echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
 node <<EOF > bridge.log 2>&1 &
-const io = require('socket.io-client');
+const path = require('path');
+const libPath = path.join(process.cwd(), 'frontend', 'node_modules', 'socket.io-client');
+if (!require('fs').existsSync(libPath)) {
+    console.error('Error: socket.io-client not found at ' + libPath);
+    process.exit(1);
+}
+const io = require(libPath);
 const socket = io('$REMOTE_G1M_URL');
 
 socket.on('connect', () => {
