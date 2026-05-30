@@ -62,6 +62,7 @@ try {
 let peers = {};
 let dataChannels = {};
 let staffNodes = new Set(); // AI推論ノードを追跡
+let serverHasLlm = false;   // 接続先サーバーがLLMを持っているか
 let myRole = 'viewer';      // 自分の現在の役割
 let vrms = {};
 let holistic = null;
@@ -695,8 +696,8 @@ function syncMotion(results) {
 }
 
 function updateParticipantCount() {
-    // 他のスタッフノード数 + 自分自身がスタッフなら+1
-    const staffCount = staffNodes.size + (myRole === 'staff' ? 1 : 0);
+    // 他のP2Pスタッフ + 自分(カメラ起動時) + ローカルサーバー(Ollama)
+    const staffCount = staffNodes.size + (myRole === 'staff' ? 1 : 0) + (serverHasLlm ? 1 : 0);
 
     if (participantCountText) {
         participantCountText.textContent = `Nodes Active: (${staffCount})`;
@@ -789,10 +790,19 @@ if (socket) {
     // 新しい参加者が来た時に接続を開始
     socket.on('participant_joined', (p) => {
         log(`Signaling: New participant joined ${p.id.slice(0, 4)}`);
+        if (p.role === 'staff') staffNodes.add(p.id);
         createPeer(p.id, true);
+        updateParticipantCount();
     });
 
-    socket.on('participants_list', (l) => l.filter(p => p.id !== socket.id).forEach(p => createPeer(p.id, true)));
+    socket.on('participants_list', (l) => {
+        l.filter(p => p.id !== socket.id).forEach(p => {
+            if (p.role === 'staff') staffNodes.add(p.id);
+            createPeer(p.id, true);
+        });
+        updateParticipantCount();
+    });
+
     socket.on('participant_left', (d) => cleanupPeer(d.id));
 
     socket.on('chat_message', (d) => {
