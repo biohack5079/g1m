@@ -15,6 +15,7 @@ export OLLAMA_URL="http://127.0.0.1:11434"
 export OLLAMA_HOST="http://127.0.0.1:11434"
 export OLLAMA_MODEL="gemma3:4b-it-q4_K_M"
 export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
+export G1M_POC_TOKEN="[PC-BRAIN-POC-ACTIVE]"
 echo "[Local-First] Inference priority: 1. Ollama -> 2. Local Python Node -> 3. Staff PC Nodes -> 4. HF (Last Resort)"
 
 # 0. Check for Rust/Cargo compiler
@@ -88,6 +89,7 @@ if command -v python3 &> /dev/null; then
     # メインのRenderサーバーへ接続してAIリソースとして登録
     echo "[Bridge] Connecting local AI Node to Remote Hub: $REMOTE_G1M_URL"
     export SIGNALING_URL="$REMOTE_G1M_URL"
+    # Pythonノード側でもこのトークンを参照して登録するように設定（要Python側対応）
 
     # Start the Python node in the background
     echo "[Python] Starting Python AI Node (uvicorn)..."

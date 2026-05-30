@@ -42,6 +42,7 @@ pub struct ParticipantInfo {
     pub role: String,
     #[serde(rename = "anonymousId")]
     pub anonymous_id: Option<String>,
+    pub poc_token: Option<String>,
     pub nickname: String,
 }
 
@@ -418,6 +419,8 @@ pub struct RegisterPayload {
     pub role: String,
     #[serde(rename = "anonymousId")]
     pub anonymous_id: Option<String>,
+    #[serde(rename = "pocToken")]
+    pub poc_token: Option<String>,
     pub nickname: Option<String>,
 }
 
@@ -479,7 +482,14 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
         socket.on("register_role", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
             let nickname = payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string());
-            let info = ParticipantInfo { id: socket.id.to_string(), role: payload.role.clone(), anonymous_id: payload.anonymous_id.clone(), nickname: nickname.clone(), };
+            let info = ParticipantInfo { 
+                id: socket.id.to_string(), 
+                role: payload.role.clone(), 
+                anonymous_id: payload.anonymous_id.clone(), 
+                poc_token: payload.poc_token.clone(),
+                nickname: nickname.clone(), 
+            };
+            
             { let mut parts = st.participants.lock().unwrap(); parts.insert(socket.id.to_string(), info.clone()); let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
             log::info!("Register role: {} as {}", socket.id, payload.role); let _ = socket.broadcast().emit("participant_joined", info);
         }});
@@ -500,16 +510,30 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
         }});
 
-        socket.on("task_result", { let st = st.clone(); move |_socket: SocketRef, Data(payload): Data<Value>| {
+        socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
             let result = payload["result"].as_str().unwrap_or("").to_string();
-            let msg = serde_json::json!({ "text": result, "actionName": "" });
+            
+            // タスクを返してきたクライアントの poc_token を取得
+            let poc_token = {
+                let parts = st.participants.lock().unwrap();
+                parts.get(&socket.id.to_string()).and_then(|p| p.poc_token.clone())
+            };
+
+            // トークンがあれば結果の先頭に付与
+            let final_result = if let Some(token) = poc_token {
+                format!("{} {}", token, result)
+            } else {
+                result
+            };
+
+            let msg = serde_json::json!({ "text": final_result, "actionName": "" });
             // 全員（AIの回答を待っているユーザー全員）に送信
             let _ = st.io.emit("bot_response", msg);
             
             // タスク完了をP2P全体に通知（チャット形式でリザルトを共有）
             let _ = st.p2p_tx.try_send(P2PCommand::PublishChat {
                 id: uuid::Uuid::new_v4().to_string(),
-                text: format!("[P2P Success] {}", result),
+                text: format!("[P2P Success] {}", final_result),
                 sender_name: "G1:M Distributed Node".to_string(),
             });
         }});
