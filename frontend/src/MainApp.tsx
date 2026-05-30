@@ -109,11 +109,6 @@ const App: React.FC = () => {
   const participantsRef = useRef<Participant[]>([]);
   useEffect(() => {
     participantsRef.current = participants;
-    // スタッフノード（PC）がいるかどうかでアクティブノード数を更新
-    if (Array.isArray(participants)) {
-      const staffCount = participants.filter(p => p && p.role === 'staff').length;
-      setActiveNodes(staffCount);
-    }
   }, [participants]);
 
   const scheduleSubtitleClear = useCallback((delay = 3000) => {
@@ -431,13 +426,10 @@ const App: React.FC = () => {
   const mapMotionToVRM = (vrm: VRM, res: any) => {
     if (!vrm || !res || !vrm.humanoid) return;
 
-    // ボーン取得ヘルパー (正規化されたボーンを取得)
+    // ボーン取得ヘルパー: VRM 0.x / 1.0 / Raw のAPI差異を吸収し、確実にノードを取得する
     const getBone = (name: string) => {
-      // VRM 1.0 と 0.x の両方のAPIに対応
-      return (
-        (vrm.humanoid as any).getNormalizedBoneNode?.(name) ||
-        (vrm.humanoid as any).getBoneNode?.(name)
-      );
+      const h = vrm.humanoid as any;
+      return h.getNormalizedBoneNode?.(name) || h.getBoneNode?.(name) || h.getRawBoneNode?.(name);
     };
 
     const kalido = (window as any).Kalidokit;
@@ -616,9 +608,13 @@ const App: React.FC = () => {
     const vrm = vrmsRef.current['local'];
     const poseDots = poseDotsRef.current;
     const handDots = handDotsRef.current;
+    if (!vrm?.humanoid) return;
 
-    // VRMの仕様に依存せずボーンを取得
-    const getB = (name: string) => (vrm.humanoid as any).getNormalizedBoneNode?.(name) || (vrm.humanoid as any).getBoneNode?.(name);
+    // VRMボーン取得ヘルパー (デジタルツイン描画用フォールバック)
+    const getB = (name: string) => {
+      const h = vrm.humanoid as any;
+      return h.getNormalizedBoneNode?.(name) || h.getBoneNode?.(name) || h.getRawBoneNode?.(name);
+    };
 
     // アバターのワールドポジションに合わせる
     const headPos = new THREE.Vector3(); getB('head')?.getWorldPosition(headPos);

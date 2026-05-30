@@ -171,19 +171,19 @@ echo "P2P Port: 4001"
 # これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
 echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
 export NODE_PATH="$(pwd)/frontend/node_modules"
-node <<EOF 2>&1 | tee -a bridge.log &
+node <<'EOF' 2>&1 | tee -a bridge.log &
 const io = require('socket.io-client');
-const socket = io('$REMOTE_G1M_URL');
+const socket = io(process.env.REMOTE_G1M_URL);
 const localSocket = io('http://localhost:3000');
 
 const register = (s, name) => {
     s.on('connect', () => {
-        s.emit('register_role', { role: 'staff', pocToken: '$G1M_POC_TOKEN', nickname: 'Local-PC' });
-        console.log(\`✅ [BRIDGE] \${name} に接続完了。推論タスクの待機を開始します。\`);
+        s.emit('register_role', { role: 'staff', pocToken: process.env.G1M_POC_TOKEN, nickname: 'Local-PC' });
+        console.log(`✅ [BRIDGE] ${name} に接続完了。推論タスクの待機を開始します。`);
     });
     s.on('connect_error', (err) => {
-        console.error(\`❌ [BRIDGE] \${name} connection error: \${err.message}\`);
-        console.log(\`   (ヒント: \${name === 'Local Node' ? 'Rustノードが起動しているか確認してください。' : 'インターネット接続を確認してください。'})\`);
+        console.error(`❌ [BRIDGE] ${name} connection error: ${err.message}`);
+        console.log(`   (ヒント: ${name === 'Local Node' ? 'Rustノードが起動しているか確認してください。' : 'インターネット接続を確認してください。'})`);
     });
 };
 
@@ -216,11 +216,11 @@ const handleTask = async (s, data) => {
         const json = await res.json();
         const text = json.choices ? json.choices[0].message.content : (json.response || json.text);
         console.log('✅ 完了');
-        console.log(`   Result: "\${text.substring(0,50)}..."`);
+        console.log(`   Result: "${text.substring(0,50)}..."`);
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {
         console.log('❌ 失敗');
-        console.error(`   Error: \${e.message}`);
+        console.error(`   Error: ${e.message}`);
     }
     console.log('━'.repeat(40));
 };
