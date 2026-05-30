@@ -171,10 +171,11 @@ echo "P2P Port: 4001"
 # これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
 echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
 node -e "
-const io = require('../frontend/node_modules/socket.io-client');
+const io = require('./frontend/node_modules/socket.io-client');
 const socket = io('$REMOTE_G1M_URL');
 socket.on('connect', () => {
     socket.emit('register_role', { role: 'staff', pocToken: '$G1M_POC_TOKEN', nickname: 'Local-PC' });
+    console.log('Successfully bridged to Remote Hub.');
 });
 " > bridge.log 2>&1 &
 BRIDGE_PID=$!
