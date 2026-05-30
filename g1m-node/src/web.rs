@@ -102,22 +102,23 @@ async fn handle_llm(
         .json(&serde_json::json!({
             "model": state.ollama_model,
             "messages": [
-                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。" },
+                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
                 { "role": "user", "content": payload.prompt }
             ],
             "stream": false
         })).send().await 
     {
-        if resp.status().is_success() {
+        let status = resp.status();
+        if status.is_success() {
             if let Ok(data) = resp.json::<serde_json::Value>().await {
                 let text = data["message"]["content"].as_str().unwrap_or_default().to_string();
-                log::info!("✅ [Ollama] Success: {}", text);
+                log::info!("✅ [Ollama] Result: {}", text);
                 let display_text = format!("【Local PC Node】 {}", text);
                 let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
                 return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
             }
         }
-        log::warn!("Local Ollama returned error status: {:?}", resp.status());
+        log::warn!("Local Ollama returned error status: {:?}", status);
     } else {
         log::warn!("Local Ollama unavailable, trying next node...");
     }

@@ -1706,7 +1706,7 @@ const App: React.FC = () => {
         <div className="status-dot" style={{
           backgroundColor: loadingProgress !== null ? '#fff' :
             aiThinking ? '#ffd700' :
-              (hasServerLlm || activeNodes > 0 ? '#0f0' : '#888')
+              (hasServerLlm || activeNodes > 0 ? '#0f0' : '#0f0')
         }}></div>
         <span>
           {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
