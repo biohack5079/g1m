@@ -64,7 +64,7 @@ const App: React.FC = () => {
   const [tappedSocketId, setTappedSocketId] = useState<string>("");
   const [nickname, setNickname] = useState<string>("ゲスト");
   const [aiThinking, setAiThinking] = useState(false);
-  const [systemLogs, setSystemLogs] = useState<Array<{message: string, timestamp: string}>>([]);
+  const [systemLogs, setSystemLogs] = useState<Array<{ message: string, timestamp: string }>>([]);
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(true);
   const [showSystemLog, setShowSystemLog] = useState(true);
   const [tokenGauge, setTokenGauge] = useState<number>(0);
@@ -101,13 +101,16 @@ const App: React.FC = () => {
   const landmarkGroupRef = useRef<THREE.Group>(new THREE.Group());
   const poseDotsRef = useRef<THREE.Mesh[]>([]);
   const poseLinesRef = useRef<THREE.Line[]>([]);
-  const handDotsRef = useRef<{left: THREE.Mesh[], right: THREE.Mesh[]}>({ left: [], right: [] });
-  const handLinesRef = useRef<{left: THREE.Line[], right: THREE.Line[]}>({ left: [], right: [] });
+  const handDotsRef = useRef<{ left: THREE.Mesh[], right: THREE.Mesh[] }>({ left: [], right: [] });
+  const handLinesRef = useRef<{ left: THREE.Line[], right: THREE.Line[] }>({ left: [], right: [] });
 
   // 最新の参加者リストをRefで保持（Socket通信のクロージャ対策）
   const participantsRef = useRef<Participant[]>([]);
   useEffect(() => {
     participantsRef.current = participants;
+    // スタッフノード（PC）がいるかどうかでアクティブノード数を更新
+    const staffCount = participants.filter(p => p.role === 'staff').length;
+    setActiveNodes(staffCount);
   }, [participants]);
 
   const scheduleSubtitleClear = useCallback((delay = 3000) => {
@@ -208,12 +211,12 @@ const App: React.FC = () => {
   const spawnBot = useCallback(async () => {
     if (vrmsRef.current['bot'] || !vrmsRef.current['local']) return;
     setStatus("G1:Mちゃん (AI) 接続中...");
-    
+
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
     const gltf = await loader.loadAsync('/g1-m_chan.glb');
     const vrm = gltf.userData.vrm as VRM;
-    
+
     vrmsRef.current['bot'] = vrm;
     sceneRef.current?.add(vrm.scene);
     updateLayout();
@@ -233,7 +236,7 @@ const App: React.FC = () => {
           }
         })
         .catch(_err => console.log("Wallet fetch failed."));
-      
+
       // ニックネームをIndexedDBから取得
       const dbRequest = indexedDB.open("G1M_DB", 1);
       dbRequest.onsuccess = (e: any) => {
@@ -264,9 +267,9 @@ const App: React.FC = () => {
     const voices = window.speechSynthesis.getVoices();
     // 1. 日本語(ja-JP)かつ名前に "Google" や "Haruka", "Nanami" などの女性名が含まれるものを優先
     // Ubuntu/Linuxなら "Japanese (Japan)" や特定のエンジン名を検索
-    return voices.find(v => v.lang.includes('ja') && (v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Microsoft'))) 
-           || voices.find(v => v.lang.includes('ja')) 
-           || null;
+    return voices.find(v => v.lang.includes('ja') && (v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Microsoft')))
+      || voices.find(v => v.lang.includes('ja'))
+      || null;
   };
 
   // カンパ処理
@@ -280,11 +283,11 @@ const App: React.FC = () => {
       });
       const message = await res.text();
       setSubtitle(message);
-      
+
       // お礼のアニメーション
       setIsDancing(true);
       setTimeout(() => setIsDancing(false), 5000); // 5秒間踊る
-      
+
       // 音声合成でお礼
       if ('speechSynthesis' in window) {
         const uttr = new SpeechSynthesisUtterance(message);
@@ -293,7 +296,7 @@ const App: React.FC = () => {
         uttr.pitch = 1.2; // 少し高くして女性らしく
         window.speechSynthesis.speak(uttr);
       }
-      
+
       setIsKampaModalOpen(false);
       setStatus("G1:M 準備完了");
     } catch (e) {
@@ -315,7 +318,7 @@ const App: React.FC = () => {
     reader.onload = async (ev) => {
       const base64 = ev.target?.result as string;
       setUserWalletImage(base64);
-      
+
       // Javaバックエンドへ登録
       try {
         await fetch("/api/kampa/wallet/register", {
@@ -395,7 +398,7 @@ const App: React.FC = () => {
           const participant = participantsRef.current.find(p => p.id === id);
           setTappedModelId(id === 'local' ? nickname : (participant?.nickname || id.slice(0, 6)));
           setTappedSocketId(id);
-          
+
           // Supabase経由でWallet情報を取得
           fetch(`/api/kampa/wallet/${targetAnonymousId}`)
             .then(res => res.ok ? res.json() : null)
@@ -424,7 +427,7 @@ const App: React.FC = () => {
   // モーション適用
   const mapMotionToVRM = (vrm: VRM, res: any) => {
     if (!vrm || !res || !vrm.humanoid) return;
-    
+
     // ボーン取得ヘルパー (正規化されたボーンを取得)
     const getBone = (name: string) => {
       return vrm.humanoid.getNormalizedBoneNode(name as any);
@@ -541,7 +544,7 @@ const App: React.FC = () => {
           const dx = pose[13].x - pose[11].x;
           const dy = pose[13].y - pose[11].y;
           const angle = Math.atan2(dy, dx);
-          lUpper.rotation.z = angle; 
+          lUpper.rotation.z = angle;
         }
         if (lLower && pose[13] && pose[15]) {
           const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
@@ -606,7 +609,7 @@ const App: React.FC = () => {
     const vrm = vrmsRef.current['local'];
     const poseDots = poseDotsRef.current;
     const handDots = handDotsRef.current;
-    
+
     // アバターのワールドポジションに合わせる
     const headPos = new THREE.Vector3();
     vrm.humanoid.getRawBoneNode('head' as any)?.getWorldPosition(headPos);
@@ -668,8 +671,8 @@ const App: React.FC = () => {
       connections.forEach(([start, end]: [number, number], idx: number) => {
         if (poseLinesRef.current[idx] && poseDots[start] && poseDots[end]) {
           updateLine(
-            poseLinesRef.current[idx], 
-            poseDots[start].position, 
+            poseLinesRef.current[idx],
+            poseDots[start].position,
             poseDots[end].position,
             poseDots[start].visible,
             poseDots[end].visible
@@ -781,7 +784,7 @@ const App: React.FC = () => {
         const humanBones = (vrm.humanoid as any).humanBones || {};
         // オブジェクトまたは配列の両方に対応
         if (Array.isArray(humanBones)) {
-          humanBones.forEach((b: any) => { if(b?.node) boneNames.push(b.node.name) });
+          humanBones.forEach((b: any) => { if (b?.node) boneNames.push(b.node.name) });
         } else {
           Object.entries(humanBones).forEach(([key, b]: [string, any]) => {
             if (b && b.node) boneNames.push(`${key}:${b.node.name}`);
@@ -822,10 +825,10 @@ const App: React.FC = () => {
     const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3001-\u3008]/g;
     // English: Latin letters and common punctuation
     const englishRegex = /[a-zA-Z0-9\s.,!?\-'":;]/g;
-    
+
     const japaneseMatches = (text.match(japaneseRegex) || []).length;
     const englishMatches = (text.match(englishRegex) || []).length;
-    
+
     if (japaneseMatches > englishMatches && japaneseMatches > text.length * 0.1) {
       return 'ja';
     }
@@ -843,13 +846,13 @@ const App: React.FC = () => {
       } else if (targetLang === 'ja') {
         prompt = `次の英文を日本語に翻訳してください。説明なしで翻訳のみを返してください。\n\nText: ${text}`;
       }
-      
+
       const res = await fetch('/api/llm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         return data.response || data.answer || data.result || text;
@@ -863,7 +866,7 @@ const App: React.FC = () => {
   const getUserPoseDescription = useCallback(() => {
     const res = smoothedResultsRef.current;
     if (!res || !res.poseLandmarks) return "";
-    
+
     // poseLandmarks[15] is left wrist, [16] is right wrist
     // poseLandmarks[11] is left shoulder, [12] is right shoulder
     // MediaPipe Y is down, so lower Y means higher up.
@@ -874,7 +877,7 @@ const App: React.FC = () => {
     if (res.poseLandmarks[16] && res.poseLandmarks[12] && res.poseLandmarks[16].y < res.poseLandmarks[12].y) {
       desc.push("右手を挙げています"); // 16 is Right
     }
-    
+
     if (desc.length > 0) {
       return `(ユーザーの現在の状態: ${desc.join('、')})`;
     }
@@ -883,14 +886,14 @@ const App: React.FC = () => {
 
   const executeBotAction = useCallback((action: string, botVrm: any) => {
     if (!botVrm || !botVrm.humanoid) return;
-    
+
     const getBone = (name: string) => botVrm.humanoid.getNormalizedBoneNode(name as any);
     const rUp = getBone('rightUpperArm');
     const lUp = getBone('leftUpperArm');
     const head = getBone('head');
     const spine = getBone('spine');
 
-    const arms = [lUp, rUp].filter(Boolean) 
+    const arms = [lUp, rUp].filter(Boolean)
     console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
     // アクションのキーワード判定 (日本語・英語両方)
     const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || /手|腕|振|上げ/.test(action);
@@ -915,7 +918,7 @@ const App: React.FC = () => {
           const isRightArm = arm === rUp;
           const downZ = isRightArm ? 1.4 : -1.4;
           const upZ = isRightArm ? -1.5 : 1.5;
-          
+
           if (progress < 0.2) {
             arm.rotation.z = downZ + ((progress / 0.2) * (upZ - downZ));
           } else if (progress > 0.8) {
@@ -967,7 +970,7 @@ const App: React.FC = () => {
         botVrm.scene.position.y = 0;
       }
     };
-    
+
     animate();
   }, []);
 
@@ -983,7 +986,7 @@ const App: React.FC = () => {
    */
   const processAiResponse = useCallback((rawText: string) => {
     let rawAnswer = rawText;
-    
+
     // Extract action tag
     let actionName = "";
     const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
@@ -1046,7 +1049,7 @@ const App: React.FC = () => {
         console.log('Executing bot action:', actionName);
         executeBotAction(actionName, botVrm);
       }
-      
+
       if (botVrm.expressionManager) {
         let startTime = Date.now();
         const lipSync = () => {
@@ -1088,7 +1091,7 @@ const App: React.FC = () => {
 
     setSubtitle(`[自分] ${text}`);
     setChatInput("");
-    
+
     // AI Bot 対応 (一人の時)
     if (Object.keys(dataChannelsRef.current).length === 0 && vrmsRef.current['bot']) {
       // Generate system prompt based on detected language
@@ -1107,34 +1110,34 @@ const App: React.FC = () => {
           setProcessingNode(vrmsRef.current['bot'] ? "HF Super Node" : "Local WASM/WebGPU");
           scheduleSubtitleClear(15000); // 長めに設定
 
-            const res = await fetch('/api/llm', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt: fullPrompt })
-            });
-            
-            if (res.ok) {
-              const data = await res.json();
-              processAiResponse(data.text || data.response || data.answer || data.result || "");
-            } else {
-              const errText = await res.text();
-              console.error('LLM API Error:', errText);
-              setSubtitle(`[G1:M] APIエラー (${res.status})`);
-              setAiThinking(false);
-              setStatus("G1:M 接続エラー");
-              setProcessingNode(null);
-              scheduleSubtitleClear(10000);
-            }
-          } catch (e) {
-            console.error('LLM Error:', e);
-            setSubtitle("[G1:M] 接続エラー");
+          const res = await fetch('/api/llm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: fullPrompt })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            processAiResponse(data.text || data.response || data.answer || data.result || "");
+          } else {
+            const errText = await res.text();
+            console.error('LLM API Error:', errText);
+            setSubtitle(`[G1:M] APIエラー (${res.status})`);
             setAiThinking(false);
-            setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
+            setStatus("G1:M 接続エラー");
             setProcessingNode(null);
             scheduleSubtitleClear(10000);
           }
-        }, 1000);
-      }
+        } catch (e) {
+          console.error('LLM Error:', e);
+          setSubtitle("[G1:M] 接続エラー");
+          setAiThinking(false);
+          setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
+          setProcessingNode(null);
+          scheduleSubtitleClear(10000);
+        }
+      }, 1000);
+    }
 
     // チャットをWebSocketとWebRTC DataChannelの両方で送信 (フォールバック)
     socketRef.current?.emit('chat_message', { text, senderName: nickname });
@@ -1189,12 +1192,12 @@ const App: React.FC = () => {
     try {
       // 既存ストリームとMediaPipeループ・インスタンスを停止
       if (cameraRef.current) {
-        try { (cameraRef.current as any)._stopLoop?.(); } catch(e) {}
-        try { (cameraRef.current as any).stop?.(); } catch(e) {}
+        try { (cameraRef.current as any)._stopLoop?.(); } catch (e) { }
+        try { (cameraRef.current as any).stop?.(); } catch (e) { }
         cameraRef.current = null;
       }
       if (holisticRef.current) {
-        try { holisticRef.current.close(); } catch(e) {}
+        try { holisticRef.current.close(); } catch (e) { }
         holisticRef.current = null;
       }
 
@@ -1236,13 +1239,13 @@ const App: React.FC = () => {
           const utils = (window as any);
           if (utils.drawConnectors && utils.drawLandmarks) {
             if (currentRes.poseLandmarks) {
-              utils.drawConnectors(canvasCtx, currentRes.poseLandmarks, (window as any).POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
+              utils.drawConnectors(canvasCtx, currentRes.poseLandmarks, (window as any).POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 4 });
             }
             if (currentRes.leftHandLandmarks) {
-              utils.drawConnectors(canvasCtx, currentRes.leftHandLandmarks, (window as any).HAND_CONNECTIONS, {color: '#CC0000', lineWidth: 5});
+              utils.drawConnectors(canvasCtx, currentRes.leftHandLandmarks, (window as any).HAND_CONNECTIONS, { color: '#CC0000', lineWidth: 5 });
             }
             if (currentRes.rightHandLandmarks) {
-              utils.drawConnectors(canvasCtx, currentRes.rightHandLandmarks, (window as any).HAND_CONNECTIONS, {color: '#00CC00', lineWidth: 5});
+              utils.drawConnectors(canvasCtx, currentRes.rightHandLandmarks, (window as any).HAND_CONNECTIONS, { color: '#00CC00', lineWidth: 5 });
             }
           }
           canvasCtx.restore();
@@ -1257,7 +1260,7 @@ const App: React.FC = () => {
             (vrm.humanoid as any).update();
           }
         }
-        
+
         // WebRTCでモーション送信
         const payload = {
           faceLandmarks: currentRes.faceLandmarks ?? null,
@@ -1378,20 +1381,26 @@ const App: React.FC = () => {
 
     socket.on('participants_list', (list: Participant[]) => {
       setParticipants(list);
-      setActiveNodes(list.length + 1); // 自分を含める
       setStatus("他ユーザーの読み込み中...");
-      list.forEach(p => loadVRM('/g1-m_chan.glb', p.id));
-      list.forEach(p => createPeer(p.id, true));
+      // role が staff 以外の参加者のみ 3D表示とP2P接続を行う
+      list.forEach(p => {
+        if (p.role !== 'staff') {
+          loadVRM('/g1-m_chan.glb', p.id);
+          createPeer(p.id, true);
+        }
+      });
       // Botの召喚判定はloadVRM('local')内で行うように変更
     });
 
     socket.on('participant_joined', (p: any) => {
       setParticipants(prev => {
         if (prev.find(existing => existing.id === p.id)) return prev;
-        setActiveNodes(prevNodes => prevNodes + 1);
         return [...prev, p];
       });
-      loadVRM('/g1-m_chan.glb', p.id);
+      // PCノード以外ならアバター表示
+      if (p.role !== 'staff') {
+        loadVRM('/g1-m_chan.glb', p.id);
+      }
     });
 
     socket.on('participant_updated', (data: { id: string, nickname: string }) => {
@@ -1503,39 +1512,39 @@ const App: React.FC = () => {
     // 3Dデジタルツインドットの初期化
     // Pose
     for (let i = 0; i < 33; i++) {
-        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02), new THREE.MeshBasicMaterial({ color: 0x00f2ff }));
-        dot.visible = false;
-        landmarkGroupRef.current.add(dot);
-        poseDotsRef.current.push(dot);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02), new THREE.MeshBasicMaterial({ color: 0x00f2ff }));
+      dot.visible = false;
+      landmarkGroupRef.current.add(dot);
+      poseDotsRef.current.push(dot);
     }
     // Hands
     for (let i = 0; i < 21; i++) {
-        const ld = new THREE.Mesh(new THREE.SphereGeometry(0.015), new THREE.MeshBasicMaterial({ color: 0x00f2ff }));
-        const rd = new THREE.Mesh(new THREE.SphereGeometry(0.015), new THREE.MeshBasicMaterial({ color: 0x7000ff }));
-        ld.visible = rd.visible = false;
-        landmarkGroupRef.current.add(ld);
-        landmarkGroupRef.current.add(rd);
-        handDotsRef.current.left.push(ld);
-        handDotsRef.current.right.push(rd);
+      const ld = new THREE.Mesh(new THREE.SphereGeometry(0.015), new THREE.MeshBasicMaterial({ color: 0x00f2ff }));
+      const rd = new THREE.Mesh(new THREE.SphereGeometry(0.015), new THREE.MeshBasicMaterial({ color: 0x7000ff }));
+      ld.visible = rd.visible = false;
+      landmarkGroupRef.current.add(ld);
+      landmarkGroupRef.current.add(rd);
+      handDotsRef.current.left.push(ld);
+      handDotsRef.current.right.push(rd);
     }
 
     // 針金(Lines)の初期化
     const poseConn = (window as any).POSE_CONNECTIONS || [];
     for (let i = 0; i < poseConn.length; i++) {
-        const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x00f2ff, linewidth: 2 }));
-        line.visible = false;
-        landmarkGroupRef.current.add(line);
-        poseLinesRef.current.push(line);
+      const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x00f2ff, linewidth: 2 }));
+      line.visible = false;
+      landmarkGroupRef.current.add(line);
+      poseLinesRef.current.push(line);
     }
     const handConn = (window as any).HAND_CONNECTIONS || [];
     ['left', 'right'].forEach(side => {
-        for (let i = 0; i < handConn.length; i++) {
-            const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: side === 'left' ? 0x00f2ff : 0x7000ff, linewidth: 1.5 }));
-            line.visible = false;
-            landmarkGroupRef.current.add(line);
-            if (side === 'left') handLinesRef.current.left.push(line);
-            else handLinesRef.current.right.push(line);
-        }
+      for (let i = 0; i < handConn.length; i++) {
+        const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: side === 'left' ? 0x00f2ff : 0x7000ff, linewidth: 1.5 }));
+        line.visible = false;
+        landmarkGroupRef.current.add(line);
+        if (side === 'left') handLinesRef.current.left.push(line);
+        else handLinesRef.current.right.push(line);
+      }
     });
 
     loadVRM('/g1-m_chan.glb', 'local');
@@ -1548,7 +1557,7 @@ const App: React.FC = () => {
       const now = performance.now();
       const delta = Math.min((now - lastTime) / 1000, 0.1); // deltaを最大0.1秒でキャップ
       lastTime = now;
-      
+
       // ダンスアニメーション (isDancingがtrueの時)
       if (isDancing && vrmsRef.current['bot']) {
         const bot = vrmsRef.current['bot'];
@@ -1559,17 +1568,17 @@ const App: React.FC = () => {
         const rArm = bot.humanoid.getNormalizedBoneNode('rightUpperArm' as any);
         if (lArm) lArm.rotation.z = -1.2 + Math.sin(time * 2) * 0.5;
         if (rArm) rArm.rotation.z = -1.2 + Math.sin(time * 2 + Math.PI) * 0.5;
-        
+
         if (bot.expressionManager) {
-            bot.expressionManager.setValue('aa', (Math.sin(time * 10) + 1) * 0.5);
-            bot.expressionManager.setValue('happy', 1.0);
+          bot.expressionManager.setValue('aa', (Math.sin(time * 10) + 1) * 0.5);
+          bot.expressionManager.setValue('happy', 1.0);
         }
       }
 
       // vrm.updateが存在する場合のみ呼び出す (bot等の疑似VRMはupdateを持たない場合がある)
-      Object.values(vrmsRef.current).forEach(vrm => { 
+      Object.values(vrmsRef.current).forEach(vrm => {
         if (vrm?.scene) vrm.scene.visible = !isModelHiddenRef.current;
-        if (vrm?.update) vrm.update(delta); 
+        if (vrm?.update) vrm.update(delta);
       });
       controls.update();
       renderer.render(scene, camera);
@@ -1586,7 +1595,7 @@ const App: React.FC = () => {
 
     // 3Dモデルタップ検出用イベントリスナー
     const canvas = canvasRef.current;
-const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
+    const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
       // OrbitControlsのドラッグとの区別（微小な移動ならクリック扱い）
       handleModelTap(e);
     };
@@ -1609,11 +1618,11 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
       socket.disconnect();
       // カメラのMediaPipeフレームループも停止
       if (cameraRef.current) {
-        try { (cameraRef.current as any)._stopLoop?.(); } catch(e) {}
-        try { (cameraRef.current as any).stop?.(); } catch(e) {}
+        try { (cameraRef.current as any)._stopLoop?.(); } catch (e) { }
+        try { (cameraRef.current as any).stop?.(); } catch (e) { }
       }
       holisticRef.current?.close();
-      
+
       const currentVrms = { ...vrmsRef.current };
       Object.values(currentVrms).forEach(v => disposeVRM(v));
       vrmsRef.current = {};
@@ -1629,16 +1638,16 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
     };
     // 依存配列から重い関数を除外し、初回マウント時のみ実行するようにする
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   return (
     <div className="container">
       <header className="header">
         <div className="logo">G1:M</div>
         <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <input 
-            type="text" 
-            value={nickname} 
+          <input
+            type="text"
+            value={nickname}
             onChange={(e) => handleSaveNickname(e.target.value)}
             style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '15px', color: 'white', padding: '5px 12px', fontSize: '12px', width: '80px', outline: 'none' }}
             placeholder="ニックネーム"
@@ -1652,7 +1661,7 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
 
       <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
         <div>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: activeNodes > 0 ? 'green' : 'red', marginRight: '8px' }}></span>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: activeNodes > 0 ? '#0f0' : '#f00', marginRight: '8px' }}></span>
           Nodes: {activeNodes > 0 ? `Active (${activeNodes})` : 'Waiting...'}
         </div>
         <div style={{ marginTop: '5px' }}>
@@ -1668,26 +1677,26 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
         )}
       </div>
 
-      <div className={`status-indicator ${loadingProgress !== null || aiThinking ? 'loading' : 'ready'}`}>
-        <div className="status-dot"></div>
+      <div className={`status-indicator ${loadingProgress !== null || aiThinking ? 'loading' : (activeNodes > 0 ? 'error' : 'ready')}`}>
+        <div className="status-dot" style={{ backgroundColor: activeNodes > 0 ? '#f00' : '#0f0' }}></div>
         <span>{loadingProgress !== null ? `読込中 ${loadingProgress}%` : status}</span>
       </div>
 
       {subtitle && <div id="subtitle-area">{subtitle}</div>}
-      
+
       <div id="scene-container" style={{ position: 'relative' }}>
         <canvas id="three-canvas" ref={canvasRef} style={{ width: '100vw', height: '100vh' }}></canvas>
-        <canvas 
-          ref={debugCanvasRef} 
-          width={640} 
-          height={480} 
-          style={{ 
-            position: 'absolute', 
-            top: '20px', 
-            right: '20px', 
-            width: '160px', 
-            height: '120px', 
-            background: 'rgba(0,0,0,0.5)', 
+        <canvas
+          ref={debugCanvasRef}
+          width={640}
+          height={480}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            width: '160px',
+            height: '120px',
+            background: 'rgba(0,0,0,0.5)',
             borderRadius: '10px',
             border: '2px solid rgba(255,255,255,0.2)',
             zIndex: 100,
@@ -1697,8 +1706,8 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
       </div>
 
       <div id="chat-wrapper" style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 40, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-        <input 
-          type="text" 
+        <input
+          type="text"
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
           onKeyDown={(e) => {
@@ -1710,9 +1719,9 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
           placeholder="メッセージを入力..."
           style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', color: 'white', padding: '10px 20px', outline: 'none', width: '250px' }}
         />
-        <input 
+        <input
           ref={fileInputRef}
-          type="file" 
+          type="file"
           accept="video/*,text/*"
           onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
           style={{ display: 'none' }}
@@ -1777,7 +1786,7 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
       <div className="controls-bar">
         <button className="btn-control active" onClick={() => startCamera('user')}><span>💃</span><span className="btn-label">前面</span></button>
         <button className="btn-control" onClick={() => startCamera('environment')}><span>🦾</span><span className="btn-label">背面</span></button>
-        <button 
+        <button
           className={`btn-control ${isMicActive ? 'active' : ''}`}
           onClick={() => setIsMicActive(!isMicActive)}
         >
@@ -1786,7 +1795,7 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
         <button className="btn-control danger" onClick={() => window.location.reload()}>
           <span>▢</span><span className="btn-label">終了</span>
         </button>
-        <button 
+        <button
           className={`btn-control ${isKampaModalOpen ? 'active' : ''}`}
           onClick={() => {
             setIsKampaModalOpen(true);
@@ -1810,19 +1819,19 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
               <p>G1:Mの投げ銭用QR</p>
               <img src="/z1m/AirWallet/g1-m_chan.jpeg" alt="G1:M QR" className="qr-image" />
             </div>
-            
+
             <div className="donation-form">
               <div className="input-group">
                 <label>自分のAirWalletを登録 (任意)</label>
                 <input type="file" accept="image/*" onChange={handleUploadWallet} />
                 {userWalletImage && <div className="wallet-mini-preview"><img src={userWalletImage} alt="Your Wallet" /><span>登録済</span></div>}
               </div>
-              
+
               <div className="input-group">
                 <label>金額 (円)</label>
                 <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
-              
+
               <div className="modal-btns">
                 <button className="btn-action kampa" onClick={handleDonate}>カンパを送る</button>
                 <button className="btn-action close" onClick={() => setIsKampaModalOpen(false)}>閉じる</button>
@@ -1852,10 +1861,10 @@ const onCanvasInteraction = (e: MouseEvent | TouchEvent) => {
                 </div>
               )}
             </div>
-            
+
             <div className="modal-btns">
-              <button 
-                className="btn-action danger" 
+              <button
+                className="btn-action danger"
                 onClick={() => {
                   const targetId = tappedSocketId;
                   const vrm = vrmsRef.current[targetId];
