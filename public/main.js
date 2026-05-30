@@ -701,14 +701,14 @@ function updateParticipantCount() {
     if (participantCountText) {
         participantCountText.textContent = `Nodes Active: (${staffCount})`;
         // 左側（PCノード）インジケータ：PCがいれば緑、いなければ赤
-        participantCountText.style.color = staffCount > 0 ? '#0f0' : '#f00';
+        participantCountText.style.color = staffNodes.size > 0 ? '#0f0' : '#f00';
         participantCountText.style.textShadow = staffCount > 0 ? '0 0 10px #0f0' : 'none';
     }
 
     // 右側（HF）インジケータ：PCノードがいれば「赤（HF停止/PC優先）」、いなければ「緑（HF待機中）」
-    // HFの状態はこれが緑なら動作中とみなす設計
     if (statusDot) {
-        statusDot.className = staffCount > 0 ? 'status-ready' : 'status-error';
+        // PCがいれば status-error(赤)、いなければ status-ready(緑)
+        statusDot.className = staffNodes.size > 0 ? 'status-error' : 'status-ready';
     }
 
     if (statusText) {
@@ -789,15 +789,21 @@ if (socket) {
     // 新しい参加者が来た時に接続を開始
     socket.on('participant_joined', (p) => {
         log(`Signaling: New participant joined ${p.id.slice(0, 4)}`);
-        if (p.role === 'staff') staffNodes.add(p.id);
-        createPeer(p.id, true);
+        if (p.role === 'staff') {
+            staffNodes.add(p.id);
+        } else {
+            createPeer(p.id, true);
+        }
         updateParticipantCount();
     });
 
     socket.on('participants_list', (l) => {
         l.filter(p => p.id !== socket.id).forEach(p => {
-            if (p.role === 'staff') staffNodes.add(p.id);
-            createPeer(p.id, true);
+            if (p.role === 'staff') {
+                staffNodes.add(p.id);
+            } else {
+                createPeer(p.id, true);
+            }
         });
         updateParticipantCount();
     });
