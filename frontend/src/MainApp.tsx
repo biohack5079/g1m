@@ -109,6 +109,7 @@ const App: React.FC = () => {
   const participantsRef = useRef<Participant[]>([]);
   useEffect(() => {
     participantsRef.current = participants;
+    // activeNodesはserver_capabilitiesイベント経由で管理されるため、ここでは何もしません
   }, [participants]);
 
   const scheduleSubtitleClear = useCallback((delay = 3000) => {
@@ -426,7 +427,7 @@ const App: React.FC = () => {
   const mapMotionToVRM = (vrm: VRM, res: any) => {
     if (!vrm || !res || !vrm.humanoid) return;
 
-    // ボーン取得ヘルパー: VRM 0.x / 1.0 / Raw のAPI差異を吸収し、確実にノードを取得する
+    // ボーン取得ヘルパー: 全てのAPI差異を吸収し、確実にノードを取得する
     const getBone = (name: string) => {
       const h = vrm.humanoid as any;
       return h.getNormalizedBoneNode?.(name) || h.getBoneNode?.(name) || h.getRawBoneNode?.(name);
@@ -610,11 +611,8 @@ const App: React.FC = () => {
     const handDots = handDotsRef.current;
     if (!vrm?.humanoid) return;
 
-    // VRMボーン取得ヘルパー (デジタルツイン描画用フォールバック)
-    const getB = (name: string) => {
-      const h = vrm.humanoid as any;
-      return h.getNormalizedBoneNode?.(name) || h.getBoneNode?.(name) || h.getRawBoneNode?.(name);
-    };
+    // VRMボーン取得ヘルパー
+    const getB = (name: string) => (vrm.humanoid as any).getNormalizedBoneNode?.(name) || (vrm.humanoid as any).getBoneNode?.(name) || (vrm.humanoid as any).getRawBoneNode?.(name);
 
     // アバターのワールドポジションに合わせる
     const headPos = new THREE.Vector3(); getB('head')?.getWorldPosition(headPos);
@@ -1225,8 +1223,11 @@ const App: React.FC = () => {
       holistic.onResults((res: any) => {
         lastResultsRef.current = res;
 
-        // デバッグ用: 解析が走っているか確認 (100フレームに1回)
-        if (res.poseLandmarks && Math.random() < 0.01) console.log("Tracking: Active");
+        // 解析状況のログ (5%の確率で表示)
+        if (Math.random() < 0.05) {
+          if (res.poseLandmarks) console.log("📡 Tracking: Active (Pose detected)");
+          else console.warn("⚠️ Tracking: No Pose in frame");
+        }
 
         // スムージング処理
         smoothedResultsRef.current.poseLandmarks = lerpLandmarks(smoothedResultsRef.current.poseLandmarks, res.poseLandmarks);
