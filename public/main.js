@@ -720,10 +720,8 @@ function updateParticipantCount() {
     const humanCount = Array.from(socket.id ? [socket.id] : []).concat(Object.keys(peers))
         .filter(id => !staffNodes.has(id)).length;
 
-    // 人間が自分一人だけなら、脳みその種類に関わらずG1:Mちゃん(Bot)を表示し続ける
-    if (humanCount <= 1) {
-        if (!vrms['bot']) spawnBot();
-    }
+    // 人数に関わらず、G1:Mちゃん(AI)を常に表示する
+    if (!vrms['bot']) spawnBot();
 
     updateLayout();
 }
