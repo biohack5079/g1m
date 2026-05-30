@@ -1,12 +1,12 @@
-[2026-05-30T05:53:20Z INFO  g1m_node] Initializing SQLite database...
-[2026-05-30T05:53:20Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
-[2026-05-30T05:53:20Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
-[2026-05-30T05:53:20Z INFO  g1m_node] Starting Libp2p node on port 4001...
-[2026-05-30T05:53:20Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
-[2026-05-30T05:53:20Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWRAJTvwA2isatepTQqyetQoyT5uhqC1nfDNUUpU7uqvhZ")
-[2026-05-30T05:53:20Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
-[2026-05-30T05:53:20Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
-[2026-05-30T05:53:20Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
-[2026-05-30T05:53:20Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
-[2026-05-30T05:53:20Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
-[2026-05-30T05:53:20Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-30T07:06:37Z INFO  g1m_node] Initializing SQLite database...
+[2026-05-30T07:06:37Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
+[2026-05-30T07:06:37Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
+[2026-05-30T07:06:37Z INFO  g1m_node] Starting Libp2p node on port 4001...
+[2026-05-30T07:06:37Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWFmhKYMYymmKdBGu5sDRaMZ8wr8BybFPfWrrhrg6UG3kL")
+[2026-05-30T07:06:37Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
+[2026-05-30T07:06:37Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
+[2026-05-30T07:06:37Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
+[2026-05-30T07:06:37Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
+[2026-05-30T07:06:37Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
+[2026-05-30T07:06:37Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-30T07:06:37Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000

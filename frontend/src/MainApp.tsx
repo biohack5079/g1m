@@ -1722,12 +1722,12 @@ const App: React.FC = () => {
         <div className="status-dot" style={{
           backgroundColor: loadingProgress !== null ? '#fff' :
             aiThinking ? '#ffd700' :
-              (hasServerLlm || activeNodes > 0 ? '#00aaff' : '#0f0')
+              (hasServerLlm || activeNodes > 0 ? '#0f0' : '#f00')
         }}></div>
         <span>
           {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
             aiThinking ? `推論中: ${processingNode}` :
-              (hasServerLlm || activeNodes > 0 ? "PC Node Standby (Blue Mode)" : status)}
+              (hasServerLlm || activeNodes > 0 ? "PC Node Active (Local First)" : "Disconnected (No AI Node)")}
         </span>
       </div>
 
