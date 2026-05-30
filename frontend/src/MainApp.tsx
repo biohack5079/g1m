@@ -1765,9 +1765,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* 個別非表示ボタンはQRモーダルに統合したため削除 */}
-
-
       {isModelHidden && (
         <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 50 }}>
           <button onClick={() => setIsModelHidden(false)} className="btn-control" style={{ background: 'rgba(100,255,150,0.3)' }}>モデルを表示</button>
