@@ -1229,6 +1229,9 @@ const App: React.FC = () => {
       holistic.onResults((res: any) => {
         lastResultsRef.current = res;
 
+        // デバッグ用: 解析が走っているか確認 (100フレームに1回)
+        if (res.poseLandmarks && Math.random() < 0.01) console.log("Tracking: Active");
+
         // スムージング処理
         smoothedResultsRef.current.poseLandmarks = lerpLandmarks(smoothedResultsRef.current.poseLandmarks, res.poseLandmarks);
         smoothedResultsRef.current.leftHandLandmarks = lerpLandmarks(smoothedResultsRef.current.leftHandLandmarks, res.leftHandLandmarks);
@@ -1393,8 +1396,9 @@ const App: React.FC = () => {
       });
     });
 
-    socket.on('server_capabilities', (data: { has_local_llm: boolean }) => {
+    socket.on('server_capabilities', (data: { has_local_llm: boolean, active_nodes: number }) => {
       setHasServerLlm(data.has_local_llm);
+      setActiveNodes(data.active_nodes);
     });
 
     socket.on('participants_list', (list: Participant[]) => {
