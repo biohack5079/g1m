@@ -1648,7 +1648,7 @@ const App: React.FC = () => {
   return (
     <div className="container">
       {/* 3D Scene Container (Background) */}
-      <div id="scene-container" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 0 }}>
+      <div id="scene-container" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, overflow: 'hidden' }}>
         <canvas id="three-canvas" ref={canvasRef} style={{ width: '100%', height: '100%' }}></canvas>
         <canvas
           ref={debugCanvasRef}
