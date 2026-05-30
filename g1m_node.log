@@ -13,3 +13,4 @@
 [2026-05-30T00:20:00Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
 [2026-05-30T00:25:00Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
 [2026-05-30T00:30:00Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
+[2026-05-30T00:35:00Z WARN  g1m_node::p2p] Gossipsub publish db sync error: InsufficientPeers
