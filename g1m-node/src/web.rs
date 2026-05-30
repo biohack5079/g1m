@@ -429,8 +429,9 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         log::info!("Socket.IO Connected: {}", socket.id);
 
         // サーバー自体の推論能力（Ollama設定の有無）を通知
+        let has_ollama = !st.ollama_url.is_empty() && st.ollama_url.contains("127.0.0.1");
         let _ = socket.emit("server_capabilities", serde_json::json!({
-            "has_local_llm": !st.ollama_url.is_empty()
+            "has_local_llm": has_ollama
         }));
 
         // チャットメッセージの受信とブロードキャスト
