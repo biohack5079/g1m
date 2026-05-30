@@ -92,11 +92,15 @@ async fn handle_llm(
     // io: SocketIo, // SocketIoはAppStateから取得するため削除
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
-    // タイムアウトを設けない設定でクライアントを生成
-    let client = reqwest::Client::builder().build().unwrap();
+    // ユーザー要望により、タイムアウトを1時間(3600秒)に設定
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3600))
+        .build().unwrap();
     
-    // 1. Try Local Ollama First
+    // ターミナルにリクエストを表示
+    println!("\n🤖 [LLM Request] prompt: {}", payload.prompt);
     log::info!("🤖 [LLM] Requesting Local Ollama: {}", payload.prompt);
+
     let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
     if let Ok(resp) = client.post(&ollama_endpoint)
         .json(&serde_json::json!({
@@ -112,6 +116,7 @@ async fn handle_llm(
         if status.is_success() {
             if let Ok(data) = resp.json::<serde_json::Value>().await {
                 let text = data["message"]["content"].as_str().unwrap_or_default().to_string();
+                println!("✅ [Ollama Response] {}", text);
                 log::info!("✅ [Ollama] Result: {}", text);
                 let display_text = format!("【Local PC Node】 {}", text);
                 let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
@@ -411,10 +416,10 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
-        // サーバー自身が推論能力（Ollama/Python）を持っているか判定
-        // Render上では外部ノードに頼るため基本false、ローカル実行時はtrueになる
-        let local_inference_available = !std::env::var("RENDER").is_ok() && 
-                                       (st.ollama_url.contains("127.0.0.1") || st.ollama_url.contains("localhost"));
+        // 推論能力の判定
+        let is_render = std::env::var("RENDER").is_ok();
+        let has_local_config = st.ollama_url.contains("127.0.0.1") || st.ollama_url.contains("localhost");
+        let local_inference_available = !is_render && has_local_config;
         
         // 接続されている「外部の」推論ノードをカウント
         let staff_count = {
@@ -429,10 +434,23 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             staff_count
         };
 
+        log::info!("📊 Node Capability - Local: {}, Staff: {}, Total: {}", 
+            local_inference_available, staff_count, total_active_nodes);
+
         let _ = socket.emit("server_capabilities", serde_json::json!({
             "has_local_llm": local_inference_available,
             "active_nodes": total_active_nodes
         }));
+
+        // リロード時の検知漏れを防ぐため、少し遅れて再送する
+        let socket_retry = socket.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            let _ = socket_retry.emit("server_capabilities", serde_json::json!({
+                "has_local_llm": local_inference_available,
+                "active_nodes": total_active_nodes
+            }));
+        });
 
         // 接続時に現在のチャット履歴をコンソールに出力
         log::info!("📡 [SYSTEM] New participant connected: {}", socket.id);
@@ -445,9 +463,13 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("chat_message", {
             let st = st.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
-                log::info!("💬 [CHAT] {}: {}", payload["senderName"].as_str().unwrap_or("?"), payload["text"].as_str().unwrap_or(""));
                 let sender = payload["senderName"].as_str().unwrap_or("?");
                 let msg = payload["text"].as_str().unwrap_or("");
+
+                // ターミナルにチャット履歴を直接表示
+                println!("\n💬 [CHAT] {}: {}", sender, msg);
+                println!("----------------------------------");
+
                 log::info!("💬 [CHAT] {}: {}", sender, msg);
                 
                 // 送信者以外の全員にブロードキャスト（自分自身には送らない）
