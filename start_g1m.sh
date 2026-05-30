@@ -12,6 +12,8 @@ fi
 
 # Force local-first inference configuration
 export OLLAMA_URL="http://127.0.0.1:11434"
+export OLLAMA_HOST="http://127.0.0.1:11434"
+export OLLAMA_MODEL="gemma3:4b-it-q4_K_M"
 export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
 echo "[Local-First] Inference priority: 1. Ollama -> 2. Local Python Node -> 3. Staff PC Nodes -> 4. HF (Last Resort)"
 
@@ -40,17 +42,22 @@ cd ..
 
 # 2. Check for local Ollama service (LLM)
 if command -v ollama &> /dev/null; then
-    MODEL="gemma3:4b-it-q4_K_M"
-    if ! ollama list | grep -q "$MODEL"; then
-        echo "Local Ollama found but model $MODEL is missing. Pulling now..."
-        ollama pull "$MODEL"
+    if ! ollama list | grep -q "$OLLAMA_MODEL"; then
+        echo "Local Ollama found but model $OLLAMA_MODEL is missing. Pulling now..."
+        ollama pull "$OLLAMA_MODEL"
     fi
 
-    if ! curl -s http://localhost:11434/api/tags > /dev/null; then
-        echo "Ollama service is not running. Starting in background..."
+    if ! curl -s "$OLLAMA_URL/api/tags" > /dev/null; then
+        echo "[Ollama] Service is not running. Starting in background..."
         ollama serve > /dev/null 2>&1 &
-        sleep 5
+        
+        echo "Waiting for Ollama to initialize..."
+        until curl -s "$OLLAMA_URL/api/tags" > /dev/null; do
+            sleep 1
+        done
     fi
+    echo "✅ Ollama is ready!"
+    echo "[Check] Ollama is configured to use: $OLLAMA_MODEL"
 else
     echo "[Warning] Ollama is not installed. LLM requests will failover to Hugging Face if configured."
 fi
@@ -83,9 +90,18 @@ if command -v python3 &> /dev/null; then
     export SIGNALING_URL="$REMOTE_G1M_URL"
 
     # Start the Python node in the background
-    echo "Starting Python AI Node (uvicorn)..."
+    echo "[Python] Starting Python AI Node (uvicorn)..."
     uvicorn app:app --host 127.0.0.1 --port 8000 > python_node.log 2>&1 &
     PYTHON_PID=$!
+
+    # Wait for Python node to be ready
+    echo "Waiting for Python AI Node to start..."
+    until curl -s http://127.0.0.1:8000/health > /dev/null 2>&1 || [ $RETRIES -gt 10 ]; do
+        sleep 1
+        ((RETRIES++))
+    done
+    echo "✅ Python AI Node is online!"
+
     deactivate
     cd ../..
 else
