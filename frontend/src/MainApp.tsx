@@ -70,6 +70,7 @@ const App: React.FC = () => {
   const [tokenGauge, setTokenGauge] = useState<number>(0);
   const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
+  const [hasServerLlm, setHasServerLlm] = useState(false);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusBeforeAiRef = useRef<string>(status);
@@ -1109,6 +1110,7 @@ const App: React.FC = () => {
           setAiThinking(true);
           setSubtitle("[G1:M] 考え中...");
           setProcessingNode(vrmsRef.current['bot'] ? "HF Super Node" : "Local WASM/WebGPU");
+          setProcessingNode(hasServerLlm || activeNodes > 0 ? "PC Node (Brain)" : "HF Super Node");
           scheduleSubtitleClear(15000); // 長めに設定
 
           const res = await fetch('/api/llm', {
@@ -1378,6 +1380,10 @@ const App: React.FC = () => {
         // nickname も含めて登録
         socket.emit('register_role', { role: 'viewer', anonymousId: anonId, nickname: nickname });
       });
+    });
+
+    socket.on('server_capabilities', (data: { has_local_llm: boolean }) => {
+      setHasServerLlm(data.has_local_llm);
     });
 
     socket.on('participants_list', (list: Participant[]) => {
@@ -1666,8 +1672,6 @@ const App: React.FC = () => {
         <div>
           <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: activeNodes > 0 ? '#0f0' : '#f00', marginRight: '8px' }}></span>
           Nodes: {activeNodes > 0 ? `Active (${activeNodes})` : 'Waiting...'}
-        </div>
-        <div style={{ marginTop: '5px' }}>
           Token Gauge: {tokenGauge}%
           <div style={{ width: '100px', height: '10px', background: '#333', borderRadius: '5px', marginTop: '2px' }}>
             <div style={{ width: `${tokenGauge}%`, height: '100%', background: 'cyan', borderRadius: '5px', transition: 'width 0.3s' }}></div>
@@ -1683,215 +1687,219 @@ const App: React.FC = () => {
       <div className={`status-indicator ${loadingProgress !== null || aiThinking ? 'loading' : (activeNodes > 0 ? 'error' : 'ready')}`}>
         <div className="status-dot" style={{ backgroundColor: activeNodes > 0 ? '#f00' : '#0f0' }}></div>
         <span>{loadingProgress !== null ? `読込中 ${loadingProgress}%` : status}</span>
-      </div>
-
-      {subtitle && <div id="subtitle-area">{subtitle}</div>}
-
-      <div id="scene-container" style={{ position: 'relative' }}>
-        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100vw', height: '100vh' }}></canvas>
-        <canvas
-          ref={debugCanvasRef}
-          width={640}
-          height={480}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            width: '160px',
-            height: '120px',
-            background: 'rgba(0,0,0,0.5)',
-            borderRadius: '10px',
-            border: '2px solid rgba(255,255,255,0.2)',
-            zIndex: 100,
-            pointerEvents: 'none'
-          }}
-        ></canvas>
-      </div>
-
-      <div id="chat-wrapper" style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 40, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-        <input
-          type="text"
-          value={chatInput}
-          onChange={(e) => setChatInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleChat(chatInput);
-              (e.target as HTMLInputElement).blur(); // iPhoneキーボードを閉じる
-            }
-          }}
-          placeholder="メッセージを入力..."
-          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', color: 'white', padding: '10px 20px', outline: 'none', width: '250px' }}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*,text/*"
-          onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
-          style={{ display: 'none' }}
-        />
-        <button type="button" className="btn-control" onClick={() => fileInputRef.current?.click()} style={{ width: '44px', height: '44px', background: 'rgba(100,150,255,0.3)' }} title="動画またはテキストファイルを選択して送信">📎</button>
-        <button onClick={() => handleChat(chatInput)} className="btn-control" style={{ width: '44px', height: '44px' }}>➔</button>
-      </div>
-
-      {/* システムログパネル */}
-      {showSystemLog && (
-        <div className={`system-log-panel ${isLogPanelOpen ? 'open' : 'closed'}`} onClick={() => !isLogPanelOpen && setIsLogPanelOpen(true)}>
-          <div className="log-panel-header" onClick={(e) => { e.stopPropagation(); setIsLogPanelOpen(!isLogPanelOpen); }}>
-            <span>コンソール</span>
-            <button className="log-close-btn">{isLogPanelOpen ? '▼' : '▲'}</button>
-          </div>
-          {isLogPanelOpen && (
-            <>
-              <div className="log-content" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
-                {systemLogs.length === 0 ? (
-                  <div className="log-empty">待機中...</div>
-                ) : (
-                  systemLogs.map((log, i) => (
-                    <div key={i} className="log-entry">
-                      <span className="log-time">[{log.timestamp}]</span>
-                      <span className="log-msg">{log.message}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-              {/* 将来の広告・告知用拡張エリア */}
-              <div className="log-promo-area">
-                {aiThinking ? (
-                  <div className="promo-loading">
-                    <span className="promo-text">AI回答生成中...</span>
-                  </div>
-                ) : (
-                  <div className="promo-idle">G1:M v1.0.0</div>
-                )}
-              </div>
-            </>
-          )}
+        <div className={`status-indicator ${loadingProgress !== null || aiThinking ? 'loading' : (hasServerLlm || activeNodes > 0 ? 'error' : 'ready')}`}>
+          <div className="status-dot" style={{ backgroundColor: hasServerLlm || activeNodes > 0 ? '#f00' : '#0f0' }}></div>
+          <span>{loadingProgress !== null ? `読込中 ${loadingProgress}%` : (hasServerLlm || activeNodes > 0 ? "PC Node Active (Local First)" : status)}</span>
         </div>
-      )}
 
-      {/* 個別非表示ボタンはQRモーダルに統合したため削除 */}
+        {subtitle && <div id="subtitle-area">{subtitle}</div>}
 
-
-      {isModelHidden && (
-        <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 50 }}>
-          <button onClick={() => setIsModelHidden(false)} className="btn-control" style={{ background: 'rgba(100,255,150,0.3)' }}>モデルを表示</button>
+        <div id="scene-container" style={{ position: 'relative' }}>
+          <canvas id="three-canvas" ref={canvasRef} style={{ width: '100vw', height: '100vh' }}></canvas>
+          <canvas
+            ref={debugCanvasRef}
+            width={640}
+            height={480}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              width: '160px',
+              height: '120px',
+              background: 'rgba(0,0,0,0.5)',
+              borderRadius: '10px',
+              border: '2px solid rgba(255,255,255,0.2)',
+              zIndex: 100,
+              pointerEvents: 'none'
+            }}
+          ></canvas>
         </div>
-      )}
 
-      {uploadedFile && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 50, background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px', textAlign: 'center', color: 'white' }}>
-          <p>{uploadedFile.type.startsWith('video/') ? '動画を読み込み中...' : 'テキストを読み込み中...'}</p>
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{uploadedFile.type.startsWith('video/') ? 'モーションキャプチャーを処理しています' : 'テキストをRAGとして処理しています'}</p>
-          <p style={{ fontSize: '12px', marginTop: '10px' }}>📎 {uploadedFile.name}</p>
+        <div id="chat-wrapper" style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 40, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleChat(chatInput);
+                (e.target as HTMLInputElement).blur(); // iPhoneキーボードを閉じる
+              }
+            }}
+            placeholder="メッセージを入力..."
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', color: 'white', padding: '10px 20px', outline: 'none', width: '250px' }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*,text/*"
+            onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+            style={{ display: 'none' }}
+          />
+          <button type="button" className="btn-control" onClick={() => fileInputRef.current?.click()} style={{ width: '44px', height: '44px', background: 'rgba(100,150,255,0.3)' }} title="動画またはテキストファイルを選択して送信">📎</button>
+          <button onClick={() => handleChat(chatInput)} className="btn-control" style={{ width: '44px', height: '44px' }}>➔</button>
         </div>
-      )}
 
-      <div className="controls-bar">
-        <button className="btn-control active" onClick={() => startCamera('user')}><span>💃</span><span className="btn-label">前面</span></button>
-        <button className="btn-control" onClick={() => startCamera('environment')}><span>🦾</span><span className="btn-label">背面</span></button>
-        <button
-          className={`btn-control ${isMicActive ? 'active' : ''}`}
-          onClick={() => setIsMicActive(!isMicActive)}
-        >
-          <span>🎤</span><span className="btn-label">マイク</span>
-        </button>
-        <button className="btn-control danger" onClick={() => window.location.reload()}>
-          <span>▢</span><span className="btn-label">終了</span>
-        </button>
-        <button
-          className={`btn-control ${isKampaModalOpen ? 'active' : ''}`}
-          onClick={() => {
-            setIsKampaModalOpen(true);
-            if ('speechSynthesis' in window) {
-              const uttr = new SpeechSynthesisUtterance("応援よろしくね？");
-              uttr.lang = 'ja-JP';
-              window.speechSynthesis.speak(uttr);
-            }
-          }}
-        >
-          <span>💰</span><span className="btn-label">カンパ</span>
-        </button>
-      </div>
-
-      {/* カンパ用モーダル */}
-      {isKampaModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3>G1:Mちゃんを応援する</h3>
-            <div className="qr-container">
-              <p>G1:Mの投げ銭用QR</p>
-              <img src="/z1m/AirWallet/g1-m_chan.jpeg" alt="G1:M QR" className="qr-image" />
+        {/* システムログパネル */}
+        {showSystemLog && (
+          <div className={`system-log-panel ${isLogPanelOpen ? 'open' : 'closed'}`} onClick={() => !isLogPanelOpen && setIsLogPanelOpen(true)}>
+            <div className="log-panel-header" onClick={(e) => { e.stopPropagation(); setIsLogPanelOpen(!isLogPanelOpen); }}>
+              <span>コンソール</span>
+              <button className="log-close-btn">{isLogPanelOpen ? '▼' : '▲'}</button>
             </div>
+            {isLogPanelOpen && (
+              <>
+                <div className="log-content" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+                  {systemLogs.length === 0 ? (
+                    <div className="log-empty">待機中...</div>
+                  ) : (
+                    systemLogs.map((log, i) => (
+                      <div key={i} className="log-entry">
+                        <span className="log-time">[{log.timestamp}]</span>
+                        <span className="log-msg">{log.message}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {/* 将来の広告・告知用拡張エリア */}
+                <div className="log-promo-area">
+                  {aiThinking ? (
+                    <div className="promo-loading">
+                      <span className="promo-text">AI回答生成中...</span>
+                    </div>
+                  ) : (
+                    <div className="promo-idle">G1:M v1.0.0</div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
-            <div className="donation-form">
-              <div className="input-group">
-                <label>自分のAirWalletを登録 (任意)</label>
-                <input type="file" accept="image/*" onChange={handleUploadWallet} />
-                {userWalletImage && <div className="wallet-mini-preview"><img src={userWalletImage} alt="Your Wallet" /><span>登録済</span></div>}
+        {/* 個別非表示ボタンはQRモーダルに統合したため削除 */}
+
+
+        {isModelHidden && (
+          <div style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 50 }}>
+            <button onClick={() => setIsModelHidden(false)} className="btn-control" style={{ background: 'rgba(100,255,150,0.3)' }}>モデルを表示</button>
+          </div>
+        )}
+
+        {uploadedFile && (
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 50, background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px', textAlign: 'center', color: 'white' }}>
+            <p>{uploadedFile.type.startsWith('video/') ? '動画を読み込み中...' : 'テキストを読み込み中...'}</p>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{uploadedFile.type.startsWith('video/') ? 'モーションキャプチャーを処理しています' : 'テキストをRAGとして処理しています'}</p>
+            <p style={{ fontSize: '12px', marginTop: '10px' }}>📎 {uploadedFile.name}</p>
+          </div>
+        )}
+
+        <div className="controls-bar">
+          <button className="btn-control active" onClick={() => startCamera('user')}><span>💃</span><span className="btn-label">前面</span></button>
+          <button className="btn-control" onClick={() => startCamera('environment')}><span>🦾</span><span className="btn-label">背面</span></button>
+          <button
+            className={`btn-control ${isMicActive ? 'active' : ''}`}
+            onClick={() => setIsMicActive(!isMicActive)}
+          >
+            <span>🎤</span><span className="btn-label">マイク</span>
+          </button>
+          <button className="btn-control danger" onClick={() => window.location.reload()}>
+            <span>▢</span><span className="btn-label">終了</span>
+          </button>
+          <button
+            className={`btn-control ${isKampaModalOpen ? 'active' : ''}`}
+            onClick={() => {
+              setIsKampaModalOpen(true);
+              if ('speechSynthesis' in window) {
+                const uttr = new SpeechSynthesisUtterance("応援よろしくね？");
+                uttr.lang = 'ja-JP';
+                window.speechSynthesis.speak(uttr);
+              }
+            }}
+          >
+            <span>💰</span><span className="btn-label">カンパ</span>
+          </button>
+        </div>
+
+        {/* カンパ用モーダル */}
+        {isKampaModalOpen && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3>G1:Mちゃんを応援する</h3>
+              <div className="qr-container">
+                <p>G1:Mの投げ銭用QR</p>
+                <img src="/z1m/AirWallet/g1-m_chan.jpeg" alt="G1:M QR" className="qr-image" />
               </div>
 
-              <div className="input-group">
-                <label>金額 (円)</label>
-                <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+              <div className="donation-form">
+                <div className="input-group">
+                  <label>自分のAirWalletを登録 (任意)</label>
+                  <input type="file" accept="image/*" onChange={handleUploadWallet} />
+                  {userWalletImage && <div className="wallet-mini-preview"><img src={userWalletImage} alt="Your Wallet" /><span>登録済</span></div>}
+                </div>
+
+                <div className="input-group">
+                  <label>金額 (円)</label>
+                  <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                </div>
+
+                <div className="modal-btns">
+                  <button className="btn-action kampa" onClick={handleDonate}>カンパを送る</button>
+                  <button className="btn-action close" onClick={() => setIsKampaModalOpen(false)}>閉じる</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* QRコード表示モーダル (3Dモデルタップ時) */}
+        {isQrModalOpen && (
+          <div className="modal-overlay" onClick={() => setIsQrModalOpen(false)}>
+            <div className="modal-content qr-modal" onClick={(e) => e.stopPropagation()}>
+              <h3>{tappedModelId} のQRコード</h3>
+              <div className="qr-container">
+                {tappedWalletImage ? (
+                  <img src={tappedWalletImage} alt="Wallet QR" className="qr-image" />
+                ) : (
+                  <div className="qr-placeholder">
+                    <p>💳</p>
+                    <p>QRコード未登録</p>
+                    <p className="qr-hint">
+                      {tappedModelId === nickname
+                        ? '自分のQRはカンパから登録できます'
+                        : '相手のQRは未登録です'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="modal-btns">
-                <button className="btn-action kampa" onClick={handleDonate}>カンパを送る</button>
-                <button className="btn-action close" onClick={() => setIsKampaModalOpen(false)}>閉じる</button>
+                <button
+                  className="btn-action danger"
+                  onClick={() => {
+                    const targetId = tappedSocketId;
+                    const vrm = vrmsRef.current[targetId];
+                    if (vrm) {
+                      disposeVRM(vrm);
+                      delete vrmsRef.current[targetId];
+                      if (targetId !== 'local' && targetId !== 'bot') {
+                        peersRef.current[targetId]?.close();
+                        delete peersRef.current[targetId];
+                        delete dataChannelsRef.current[targetId];
+                        setParticipants(prev => prev.filter(p => p.id !== targetId));
+                      }
+                    }
+                    setIsQrModalOpen(false);
+                  }}
+                  style={{ background: 'rgba(255, 50, 50, 0.3)', color: 'white' }}
+                >
+                  退出/非表示
+                </button>
+                <button className="btn-action close" onClick={() => setIsQrModalOpen(false)}>閉じる</button>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* QRコード表示モーダル (3Dモデルタップ時) */}
-      {isQrModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsQrModalOpen(false)}>
-          <div className="modal-content qr-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{tappedModelId} のQRコード</h3>
-            <div className="qr-container">
-              {tappedWalletImage ? (
-                <img src={tappedWalletImage} alt="Wallet QR" className="qr-image" />
-              ) : (
-                <div className="qr-placeholder">
-                  <p>💳</p>
-                  <p>QRコード未登録</p>
-                  <p className="qr-hint">
-                    {tappedModelId === nickname
-                      ? '自分のQRはカンパから登録できます'
-                      : '相手のQRは未登録です'}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="modal-btns">
-              <button
-                className="btn-action danger"
-                onClick={() => {
-                  const targetId = tappedSocketId;
-                  const vrm = vrmsRef.current[targetId];
-                  if (vrm) {
-                    disposeVRM(vrm);
-                    delete vrmsRef.current[targetId];
-                    if (targetId !== 'local' && targetId !== 'bot') {
-                      peersRef.current[targetId]?.close();
-                      delete peersRef.current[targetId];
-                      delete dataChannelsRef.current[targetId];
-                      setParticipants(prev => prev.filter(p => p.id !== targetId));
-                    }
-                  }
-                  setIsQrModalOpen(false);
-                }}
-                style={{ background: 'rgba(255, 50, 50, 0.3)', color: 'white' }}
-              >
-                退出/非表示
-              </button>
-              <button className="btn-action close" onClick={() => setIsQrModalOpen(false)}>閉じる</button>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
