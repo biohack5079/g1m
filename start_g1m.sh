@@ -170,14 +170,32 @@ echo "P2P Port: 4001"
 # [Bridge] このPCをRenderサーバー側の「Staff」として登録するためのバックグラウンド処理
 # これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
 echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
-node -e "
-const io = require('./frontend/node_modules/socket.io-client');
+node <<EOF > bridge.log 2>&1 &
+const io = require('socket.io-client');
 const socket = io('$REMOTE_G1M_URL');
+
 socket.on('connect', () => {
     socket.emit('register_role', { role: 'staff', pocToken: '$G1M_POC_TOKEN', nickname: 'Local-PC' });
     console.log('Successfully bridged to Remote Hub.');
 });
-" > bridge.log 2>&1 &
+
+// タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
+socket.on('distribute_task', async (data) => {
+    console.log('Received task from remote:', data.taskId);
+    try {
+        const res = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: [{ role: 'user', content: data.prompt }] })
+        });
+        const json = await res.json();
+        const text = json.choices[0].message.content;
+        socket.emit('task_result', { taskId: data.taskId, result: text });
+    } catch (e) {
+        console.error('Task execution failed:', e.message);
+    }
+});
+EOF
 BRIDGE_PID=$!
 
 echo "Press Ctrl+C to shut down all local processes."
