@@ -110,8 +110,10 @@ const App: React.FC = () => {
   useEffect(() => {
     participantsRef.current = participants;
     // スタッフノード（PC）がいるかどうかでアクティブノード数を更新
-    const staffCount = participants.filter(p => p.role === 'staff').length;
-    setActiveNodes(staffCount);
+    if (Array.isArray(participants)) {
+      const staffCount = participants.filter(p => p && p.role === 'staff').length;
+      setActiveNodes(staffCount);
+    }
   }, [participants]);
 
   const scheduleSubtitleClear = useCallback((delay = 3000) => {
@@ -766,7 +768,8 @@ const App: React.FC = () => {
           url,
           resolve,
           (progress) => {
-            const percent = Math.round((progress.loaded / (progress.total || 10000000)) * 100);
+            const total = progress.total || 10000000;
+            const percent = Math.min(100, Math.round((progress.loaded / total) * 100));
             if (id === 'local') setLoadingProgress(percent);
           },
           reject
@@ -1391,20 +1394,22 @@ const App: React.FC = () => {
     });
 
     socket.on('participants_list', (list: Participant[]) => {
-      setParticipants(list);
+      const validList = Array.isArray(list) ? list : [];
+      setParticipants(validList);
       setStatus("他ユーザーの読み込み中...");
       // role が staff 以外の参加者のみ 3D表示とP2P接続を行う
-      list.forEach(p => {
-        if (p.role !== 'staff') {
+      validList.forEach(p => {
+        if (p && p.id && p.role !== 'staff') {
           loadVRM('/g1-m_chan.glb', p.id);
           createPeer(p.id, true);
         }
       });
-      // Botの召喚判定はloadVRM('local')内で行うように変更
     });
 
     socket.on('participant_joined', (p: any) => {
+      if (!p || !p.id) return;
       setParticipants(prev => {
+        if (!Array.isArray(prev)) return [p];
         if (prev.find(existing => existing.id === p.id)) return prev;
         return [...prev, p];
       });
@@ -1415,10 +1420,12 @@ const App: React.FC = () => {
     });
 
     socket.on('participant_updated', (data: { id: string, nickname: string }) => {
-      setParticipants(prev => prev.map(p => p.id === data.id ? { ...p, nickname: data.nickname } : p));
+      if (!data || !data.id) return;
+      setParticipants(prev => Array.isArray(prev) ? prev.map(p => p.id === data.id ? { ...p, nickname: data.nickname } : p) : []);
     });
 
     socket.on('offer', async (data: any) => {
+      if (!data || !data.from) return;
       const pc = await createPeer(data.from, false);
       if (pc) {
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
@@ -1429,10 +1436,12 @@ const App: React.FC = () => {
     });
 
     socket.on('answer', async (data: any) => {
+      if (!data || !data.from) return;
       await peersRef.current[data.from]?.setRemoteDescription(new RTCSessionDescription(data.sdp));
     });
 
     socket.on('candidate', async (data: any) => {
+      if (!data || !data.from || !data.candidate) return;
       try {
         const pc = peersRef.current[data.from];
         // リモートのSDPがセットされる前にCandidateを追加しようとするとエラーになるため、状態をチェック
@@ -1470,7 +1479,8 @@ const App: React.FC = () => {
     });
 
     socket.on('participant_left', (data: { id: string }) => {
-      setParticipants(prev => prev.filter(p => p.id !== data.id));
+      if (!data || !data.id) return;
+      setParticipants(prev => Array.isArray(prev) ? prev.filter(p => p.id !== data.id) : []);
       setActiveNodes(prev => Math.max(1, prev - 1)); // 最低1(自分)
       const vrm = vrmsRef.current[data.id];
       if (vrm) {
@@ -1568,30 +1578,36 @@ const App: React.FC = () => {
       const delta = Math.min((now - lastTime) / 1000, 0.1); // deltaを最大0.1秒でキャップ
       lastTime = now;
 
-      // ダンスアニメーション (isDancingがtrueの時)
-      if (isDancing && vrmsRef.current['bot']) {
-        const bot = vrmsRef.current['bot'];
-        const time = now * 0.005;
-        // 簡易的な左右の揺れと腕の動き
-        bot.scene.rotation.y = Math.sin(time) * 0.2;
-        const lArm = bot.humanoid.getNormalizedBoneNode('leftUpperArm' as any);
-        const rArm = bot.humanoid.getNormalizedBoneNode('rightUpperArm' as any);
-        if (lArm) lArm.rotation.z = -1.2 + Math.sin(time * 2) * 0.5;
-        if (rArm) rArm.rotation.z = -1.2 + Math.sin(time * 2 + Math.PI) * 0.5;
+      try {
+        // ダンスアニメーション (isDancingがtrueの時)
+        if (isDancing && vrmsRef.current['bot']) {
+          const bot = vrmsRef.current['bot'];
+          const time = now * 0.005;
+          bot.scene.rotation.y = Math.sin(time) * 0.2;
+          if (bot.humanoid) {
+            const lArm = bot.humanoid.getNormalizedBoneNode('leftUpperArm' as any);
+            const rArm = bot.humanoid.getNormalizedBoneNode('rightUpperArm' as any);
+            if (lArm) lArm.rotation.z = -1.2 + Math.sin(time * 2) * 0.5;
+            if (rArm) rArm.rotation.z = 1.2 + Math.sin(time * 2 + Math.PI) * 0.5;
+          }
 
-        if (bot.expressionManager) {
-          bot.expressionManager.setValue('aa', (Math.sin(time * 10) + 1) * 0.5);
-          bot.expressionManager.setValue('happy', 1.0);
+          if (bot.expressionManager) {
+            bot.expressionManager.setValue('aa', (Math.sin(time * 10) + 1) * 0.5);
+            bot.expressionManager.setValue('happy', 1.0);
+          }
         }
-      }
 
-      // vrm.updateが存在する場合のみ呼び出す (bot等の疑似VRMはupdateを持たない場合がある)
-      Object.values(vrmsRef.current).forEach(vrm => {
-        if (vrm?.scene) vrm.scene.visible = !isModelHiddenRef.current;
-        if (vrm?.update) vrm.update(delta);
-      });
-      controls.update();
-      renderer.render(scene, camera);
+        // 各VRMの更新
+        Object.values(vrmsRef.current).forEach(vrm => {
+          if (vrm?.scene) vrm.scene.visible = !isModelHiddenRef.current;
+          if (vrm?.update) vrm.update(delta);
+        });
+
+        controls.update();
+        renderer.render(scene, camera);
+      } catch (e) {
+        console.error("Render loop internal error:", e);
+      }
     };
     animate();
 
