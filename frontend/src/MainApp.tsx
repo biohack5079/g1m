@@ -1648,8 +1648,8 @@ const App: React.FC = () => {
   return (
     <div className="container">
       {/* 3D Scene Container (Background) */}
-      <div id="scene-container" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, overflow: 'hidden' }}>
-        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100%', height: '100%' }}></canvas>
+      <div id="scene-container" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', zIndex: 0, overflow: 'hidden', backgroundColor: '#000' }}>
+        <canvas id="three-canvas" ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }}></canvas>
         <canvas
           ref={debugCanvasRef}
           width={640}
@@ -1680,9 +1680,9 @@ const App: React.FC = () => {
       </header>
 
       <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
-        <div>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: activeNodes > 0 ? '#0f0' : '#f00', marginRight: '8px' }}></span>
-          Nodes: {activeNodes > 0 ? `Active (${activeNodes})` : 'Waiting...'}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (activeNodes > 0 || hasServerLlm) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (activeNodes > 0 || hasServerLlm) ? '0 0 10px #0f0' : 'none' }}></span>
+          PC Nodes: {(activeNodes > 0 || hasServerLlm) ? `Active (${activeNodes + (hasServerLlm ? 1 : 0)})` : 'Disconnected'}
         </div>
         <div style={{ marginTop: '5px' }}>
           Token Gauge: {tokenGauge}%
@@ -1690,9 +1690,9 @@ const App: React.FC = () => {
             <div style={{ width: `${tokenGauge}%`, height: '100%', background: 'cyan', borderRadius: '5px', transition: 'width 0.3s' }}></div>
           </div>
         </div>
-        {processingNode && (
-          <div style={{ marginTop: '5px', fontSize: '12px', color: '#ffd700' }}>
-            🔄 Processing on: {processingNode}
+        {aiThinking && (
+          <div style={{ marginTop: '5px', fontSize: '11px', color: '#ffd700', fontWeight: 'bold' }}>
+            ⚡ RUNNING ON: {processingNode}
           </div>
         )}
       </div>
@@ -1701,12 +1701,12 @@ const App: React.FC = () => {
         <div className="status-dot" style={{
           backgroundColor: loadingProgress !== null ? '#fff' :
             aiThinking ? '#ffd700' :
-              (hasServerLlm || activeNodes > 0 ? '#00aaff' : '#0f0')
+              (hasServerLlm || activeNodes > 0 ? '#ff8800' : '#0f0')
         }}></div>
         <span>
           {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
             aiThinking ? `推論中: ${processingNode}` :
-              (hasServerLlm || activeNodes > 0 ? "PC Node Standby" : status)}
+              (hasServerLlm || activeNodes > 0 ? "HF Node Standby (PC Priority)" : status)}
         </span>
       </div>
 
