@@ -411,9 +411,10 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
-        // サーバー自体の推論能力（Ollama設定の有無）を通知。
-        // TODO: 起動時だけでなく動的にチェックするのが理想的
-        let has_ollama = !st.ollama_url.is_empty() && st.ollama_url.contains("127.0.0.1");
+        // サーバー自体の静的なURLチェックではなく、実際にOllamaがローカルで動いている場合のみtrueにする
+        // (Renderなどのリモート環境ではデフォルトでfalseになるべき)
+        let is_localhost = st.ollama_url.contains("127.0.0.1") || st.ollama_url.contains("localhost");
+        let has_ollama = is_localhost && !std::env::var("RENDER").is_ok();
         
         // 全参加者ではなく、roleが"staff"のノードのみをカウントする
         let staff_count = {

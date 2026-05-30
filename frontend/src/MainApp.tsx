@@ -1702,8 +1702,8 @@ const App: React.FC = () => {
 
       <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (hasServerLlm || activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (hasServerLlm || activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
-          <span style={{ fontWeight: 'bold' }}>PC NODE: {(hasServerLlm || activeNodes > 0) ? 'ACTIVE' : 'DISCONNECTED'}</span>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
+          <span style={{ fontWeight: 'bold' }}>PC NODE: {(activeNodes > 0) ? 'ACTIVE' : 'DISCONNECTED'}</span>
         </div>
         <div style={{ marginTop: '5px' }}>
           Token Gauge: {tokenGauge}%
