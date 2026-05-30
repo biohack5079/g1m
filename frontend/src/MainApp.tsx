@@ -1108,8 +1108,8 @@ const App: React.FC = () => {
           setStatus("G1:M 考え中...");
           setAiThinking(true);
           setSubtitle("[G1:M] 考え中...");
-          setProcessingNode(vrmsRef.current['bot'] ? "HF Super Node" : "Local WASM/WebGPU");
-          setProcessingNode(hasServerLlm || activeNodes > 0 ? "PC Node (Brain)" : "HF Super Node");
+          const activeResource = (hasServerLlm || activeNodes > 0) ? "PC Node (Brain)" : "HF Super Node";
+          setProcessingNode(activeResource);
           scheduleSubtitleClear(15000); // 長めに設定
 
           const res = await fetch('/api/llm', {
@@ -1697,9 +1697,17 @@ const App: React.FC = () => {
         )}
       </div>
 
-      <div className={`status-indicator ${loadingProgress !== null || aiThinking ? 'loading' : (hasServerLlm || activeNodes > 0 ? 'error' : 'ready')}`}>
-        <div className="status-dot" style={{ backgroundColor: hasServerLlm || activeNodes > 0 ? '#f00' : '#0f0' }}></div>
-        <span>{loadingProgress !== null ? `読込中 ${loadingProgress}%` : (hasServerLlm || activeNodes > 0 ? "PC Node Active" : status)}</span>
+      <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`}>
+        <div className="status-dot" style={{
+          backgroundColor: loadingProgress !== null ? '#fff' :
+            aiThinking ? '#ffd700' :
+              (hasServerLlm || activeNodes > 0 ? '#00aaff' : '#0f0')
+        }}></div>
+        <span>
+          {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
+            aiThinking ? `推論中: ${processingNode}` :
+              (hasServerLlm || activeNodes > 0 ? "PC Node Standby" : status)}
+        </span>
       </div>
 
       {subtitle && <div id="subtitle-area" style={{ zIndex: 50 }}>{subtitle}</div>}
