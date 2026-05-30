@@ -1374,7 +1374,8 @@ const App: React.FC = () => {
     if (rendererRef.current || !canvasRef.current) return;
 
     // --- Socket.IO 初期化 ---
-    const socket = io();
+    // 接続先を明示的に現在のホストにする（Renderへ勝手に繋ぎに行かないようにする）
+    const socket = io(window.location.origin);
     socketRef.current = socket;
 
     socket.on('config', (data: { showSystemLog: boolean }) => {
