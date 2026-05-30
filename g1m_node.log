@@ -1,19 +1,16 @@
-[2026-05-30T07:20:52Z INFO  g1m_node] Initializing SQLite database...
-[2026-05-30T07:20:52Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
-[2026-05-30T07:20:52Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
-[2026-05-30T07:20:52Z INFO  g1m_node] Starting Libp2p node on port 4001...
-[2026-05-30T07:20:52Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
-[2026-05-30T07:20:52Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWKqcUuGrihGVZHfV5E6c3yTv1nejxoSRb7cKSjVrFdiYF")
-[2026-05-30T07:20:52Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
-[2026-05-30T07:20:52Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
-[2026-05-30T07:20:52Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
-[2026-05-30T07:20:52Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
-[2026-05-30T07:20:52Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
-[2026-05-30T07:20:52Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
-[2026-05-30T07:27:19Z INFO  g1m_node::web] Socket.IO Connected: Y8UkVjGZhc2LE9Cy
-[2026-05-30T07:27:19Z INFO  g1m_node::web] 📡 [SYSTEM] New participant connected: Y8UkVjGZhc2LE9Cy
-[2026-05-30T07:27:19Z INFO  g1m_node::web] Register role: Y8UkVjGZhc2LE9Cy as viewer
-[2026-05-30T07:27:37Z INFO  g1m_node::web] Socket disconnected: Y8UkVjGZhc2LE9Cy
-[2026-05-30T07:28:07Z INFO  g1m_node::web] Socket.IO Connected: o5s-L2x-SVFiXZ9m
-[2026-05-30T07:28:07Z INFO  g1m_node::web] 📡 [SYSTEM] New participant connected: o5s-L2x-SVFiXZ9m
-[2026-05-30T07:28:07Z INFO  g1m_node::web] Register role: o5s-L2x-SVFiXZ9m as viewer
+[2026-05-30T07:35:49Z INFO  g1m_node] Initializing SQLite database...
+[2026-05-30T07:35:49Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
+[2026-05-30T07:35:49Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
+[2026-05-30T07:35:49Z INFO  g1m_node] Starting Libp2p node on port 4001...
+[2026-05-30T07:35:49Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
+[2026-05-30T07:35:49Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWLFbPoLiggu6brxcqMhGhLjdxNSWeMffFQrLBoos6NVSm")
+[2026-05-30T07:35:49Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
+[2026-05-30T07:35:49Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
+[2026-05-30T07:35:49Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
+[2026-05-30T07:35:49Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
+[2026-05-30T07:35:49Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
+[2026-05-30T07:35:49Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-30T07:35:51Z INFO  g1m_node::web] Socket.IO Connected: mrnGllJhGQ2qzp9F
+[2026-05-30T07:35:51Z INFO  g1m_node::web] 📡 [SYSTEM] New participant connected: mrnGllJhGQ2qzp9F
+[2026-05-30T07:36:16Z INFO  g1m_node::web] Register role: mrnGllJhGQ2qzp9F as viewer
+[2026-05-30T07:36:42Z INFO  g1m_node::web] Socket disconnected: mrnGllJhGQ2qzp9F
