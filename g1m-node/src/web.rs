@@ -171,7 +171,7 @@ async fn handle_llm(
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
         // リクエストごとにランダム（UUIDベース）にノードを選択
         let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
-        log::info!(">>> [Inference] Delegating task to Staff Node: {}", sid);
+        println!("🚀 [LLM] Delegating task to Staff Node: {}", sid);
         let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
             "taskId": uuid::Uuid::new_v4().to_string(),
             "prompt": payload.prompt.clone()
@@ -286,10 +286,11 @@ async fn handle_process(
 
 async fn handle_bot_wallet() -> impl IntoResponse {
     // Resolve relative path to z1m/AirWallet
+    let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let paths_to_try = vec![
-        PathBuf::from("z1m/AirWallet/g1-m_chan.jpeg"),
-        PathBuf::from("../z1m/AirWallet/g1-m_chan.jpeg"),
-        PathBuf::from("./z1m/AirWallet/g1-m_chan.jpeg"),
+        current_dir.join("z1m/AirWallet/g1-m_chan.jpeg"),
+        current_dir.join("public/z1m/AirWallet/g1-m_chan.jpeg"),
+        current_dir.join("G1M/Assets/g1-m_chan.jpeg"),
     ];
     
     let mut file_data = None;
