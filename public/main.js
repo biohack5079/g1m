@@ -62,7 +62,6 @@ try {
 let peers = {};
 let dataChannels = {};
 let staffNodes = new Set(); // AI推論ノードを追跡
-let serverHasLlm = false;   // 接続先サーバーがLLMを持っているか
 let myRole = 'viewer';      // 自分の現在の役割
 let vrms = {};
 let holistic = null;
@@ -696,8 +695,8 @@ function syncMotion(results) {
 }
 
 function updateParticipantCount() {
-    // 他のP2Pスタッフ + 自分(カメラ起動時) + ローカルサーバー(Ollama)
-    const staffCount = staffNodes.size + (myRole === 'staff' ? 1 : 0) + (serverHasLlm ? 1 : 0);
+    // P2Pで繋がっているAIノード(Python等) + サーバー背後のOllama
+    const staffCount = staffNodes.size + (serverHasLlm ? 1 : 0);
 
     if (participantCountText) {
         participantCountText.textContent = `Nodes Active: (${staffCount})`;
@@ -973,14 +972,14 @@ async function startCamera(mode = 'user') {
 }
 
 if (startFrontBtn) startFrontBtn.onclick = () => {
-    myRole = 'staff';
-    socket.emit('register_role', 'staff');
+    myRole = 'performer';
+    socket.emit('register_role', 'performer');
     startCamera('user');
     updateParticipantCount();
 };
 if (startBackBtn) startBackBtn.onclick = () => {
-    myRole = 'staff';
-    socket.emit('register_role', 'staff');
+    myRole = 'performer';
+    socket.emit('register_role', 'performer');
     startCamera('environment');
     updateParticipantCount();
 };
