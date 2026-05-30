@@ -1,16 +1,16 @@
-[2026-05-30T09:10:10Z INFO  g1m_node] Initializing SQLite database...
-[2026-05-30T09:10:10Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
-[2026-05-30T09:10:10Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
-[2026-05-30T09:10:10Z INFO  g1m_node] Starting Libp2p node on port 4001...
-[2026-05-30T09:10:10Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
-[2026-05-30T09:10:10Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWSZUXL6TMTeB9Bnwjm9UpCVDdV9fyWV4jbGTsUQGerwgS")
-[2026-05-30T09:10:10Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
-[2026-05-30T09:10:10Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
-[2026-05-30T09:10:10Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
-[2026-05-30T09:10:10Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
-[2026-05-30T09:10:10Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
-[2026-05-30T09:10:10Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
-[2026-05-30T09:10:27Z INFO  g1m_node::web] Socket.IO Connected: tF6DWSHYJLl0HQDA
-[2026-05-30T09:10:27Z INFO  g1m_node::web] 📊 Node Capability - Local: true, Staff: 0, Total: 1
-[2026-05-30T09:10:27Z INFO  g1m_node::web] 📡 [SYSTEM] New participant connected: tF6DWSHYJLl0HQDA
-[2026-05-30T09:10:27Z INFO  g1m_node::web] Register role: tF6DWSHYJLl0HQDA as staff
+[2026-05-30T09:30:23Z INFO  g1m_node] Initializing SQLite database...
+[2026-05-30T09:30:23Z INFO  g1m_node] Database ready: Found 0 recent messages in local store.
+[2026-05-30T09:30:23Z INFO  g1m_node] LLM Routes: Local=http://127.0.0.1:11434, Fallback=https://g1mavateruniverse-gau.hf.space, HF_SuperNode=https://g1mavateruniverse-gau.hf.space
+[2026-05-30T09:30:23Z INFO  g1m_node] Starting Libp2p node on port 4001...
+[2026-05-30T09:30:23Z INFO  g1m_node::p2p] Local peer id: PeerId("12D3KooWNE2miFWmgWbkrt6Jifstk8DtUhYhL21fosWjykwiC8j7")
+[2026-05-30T09:30:23Z INFO  g1m_node] 🚀 Axum signaling & web server running on http://localhost:3000
+[2026-05-30T09:30:23Z INFO  g1m_node::p2p] P2P Swarm listening on port 4001
+[2026-05-30T09:30:23Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 192.168.40.29
+[2026-05-30T09:30:23Z INFO  libp2p_mdns::behaviour::iface] creating instance on iface 172.17.0.1
+[2026-05-30T09:30:23Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/127.0.0.1/tcp/4001
+[2026-05-30T09:30:23Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/192.168.40.29/tcp/4001
+[2026-05-30T09:30:23Z INFO  g1m_node::p2p] Swarm new listen address: /ip4/172.17.0.1/tcp/4001
+[2026-05-30T09:30:32Z INFO  g1m_node::web] Socket.IO Connected: FB32CbUwHD_sTy-w
+[2026-05-30T09:30:32Z INFO  g1m_node::web] 📊 Node Capability - Local: true, Staff: 0, Total: 1
+[2026-05-30T09:30:32Z INFO  g1m_node::web] 📡 [SYSTEM] New participant connected: FB32CbUwHD_sTy-w
+[2026-05-30T09:30:32Z INFO  g1m_node::web] Register role: FB32CbUwHD_sTy-w as staff
