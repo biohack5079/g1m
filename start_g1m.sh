@@ -154,17 +154,33 @@ echo -e "\n✅ Rust P2P Node is online!"
 
 # 4. Open Frontend
 echo "[3/3] Preparing frontend interface..."
-# Build frontend assets if not built yet
-if [ ! -d "frontend/dist" ]; then
-    echo "Frontend build missing. Building assets..."
-    cd frontend && npm install && npm run build && cd ..
+
+# 接続先がRenderに固定されないよう、ローカル実行時は常に再ビルドするか、
+# 少なくとも古いビルドを削除してローカルホストを向くようにします。
+if [ -d "frontend/dist" ]; then
+    echo "Refreshing frontend build for local environment..."
+    rm -rf frontend/dist
 fi
+cd frontend && npm run build && cd ..
 
 echo "--- G1M is fully operational! ---"
 echo "Web interface: http://localhost:3000"
 echo "P2P Port: 4001"
+
+# [Bridge] このPCをRenderサーバー側の「Staff」として登録するためのバックグラウンド処理
+# これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
+echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
+node -e "
+const io = require('../frontend/node_modules/socket.io-client');
+const socket = io('$REMOTE_G1M_URL');
+socket.on('connect', () => {
+    socket.emit('register_role', { role: 'staff', pocToken: '$G1M_POC_TOKEN', nickname: 'Local-PC' });
+});
+" > bridge.log 2>&1 &
+BRIDGE_PID=$!
+
 echo "Press Ctrl+C to shut down all local processes."
 
 # Maintain running processes
-trap "echo -e '\nStopping all services...'; kill $NODE_PID 2>/dev/null; kill $PYTHON_PID 2>/dev/null; exit" INT TERM
+trap "echo -e '\nStopping all services...'; kill $NODE_PID 2>/dev/null; kill $PYTHON_PID 2>/dev/null; kill $BRIDGE_PID 2>/dev/null; exit" INT TERM
 wait

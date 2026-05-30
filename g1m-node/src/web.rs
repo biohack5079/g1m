@@ -411,20 +411,27 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
-        // 実際にOllamaが応答するかどうか、またはStaffノードがいるかどうかを基準にする
-        // ここでは単純化のため、Render環境ではサーバー単体でのLLM能力をfalseにする
-        let has_ollama = !std::env::var("RENDER").is_ok() && 
-                         (st.ollama_url.contains("127.0.0.1") || st.ollama_url.contains("localhost"));
+        // サーバー自身が推論能力（Ollama/Python）を持っているか判定
+        // Render上では外部ノードに頼るため基本false、ローカル実行時はtrueになる
+        let local_inference_available = !std::env::var("RENDER").is_ok() && 
+                                       (st.ollama_url.contains("127.0.0.1") || st.ollama_url.contains("localhost"));
         
-        // 全参加者ではなく、roleが"staff"のノードのみをカウントする
+        // 接続されている「外部の」推論ノードをカウント
         let staff_count = {
             let parts = st.participants.lock().unwrap();
             parts.values().filter(|p| p.role == "staff").count()
         };
 
+        // サーバー自身の推論能力も「アクティブなノード」として1つ数える
+        let total_active_nodes = if local_inference_available {
+            staff_count + 1
+        } else {
+            staff_count
+        };
+
         let _ = socket.emit("server_capabilities", serde_json::json!({
-            "has_local_llm": has_ollama,
-            "active_nodes": staff_count
+            "has_local_llm": local_inference_available,
+            "active_nodes": total_active_nodes
         }));
 
         // 接続時に現在のチャット履歴をコンソールに出力
