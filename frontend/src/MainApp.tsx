@@ -433,7 +433,11 @@ const App: React.FC = () => {
 
     // ボーン取得ヘルパー (正規化されたボーンを取得)
     const getBone = (name: string) => {
-      return vrm.humanoid.getNormalizedBoneNode(name as any);
+      // VRM 1.0 と 0.x の両方のAPIに対応
+      return (
+        (vrm.humanoid as any).getNormalizedBoneNode?.(name) ||
+        (vrm.humanoid as any).getBoneNode?.(name)
+      );
     };
 
     const kalido = (window as any).Kalidokit;
@@ -613,15 +617,14 @@ const App: React.FC = () => {
     const poseDots = poseDotsRef.current;
     const handDots = handDotsRef.current;
 
+    // VRMの仕様に依存せずボーンを取得
+    const getB = (name: string) => (vrm.humanoid as any).getNormalizedBoneNode?.(name) || (vrm.humanoid as any).getBoneNode?.(name);
+
     // アバターのワールドポジションに合わせる
-    const headPos = new THREE.Vector3();
-    vrm.humanoid.getRawBoneNode('head' as any)?.getWorldPosition(headPos);
-    const hipsPos = new THREE.Vector3();
-    vrm.humanoid.getRawBoneNode('hips' as any)?.getWorldPosition(hipsPos);
-    const lHandPos = new THREE.Vector3();
-    vrm.humanoid.getRawBoneNode('leftHand' as any)?.getWorldPosition(lHandPos);
-    const rHandPos = new THREE.Vector3();
-    vrm.humanoid.getRawBoneNode('rightHand' as any)?.getWorldPosition(rHandPos);
+    const headPos = new THREE.Vector3(); getB('head')?.getWorldPosition(headPos);
+    const hipsPos = new THREE.Vector3(); getB('hips')?.getWorldPosition(hipsPos);
+    const lHandPos = new THREE.Vector3(); getB('leftHand')?.getWorldPosition(lHandPos);
+    const rHandPos = new THREE.Vector3(); getB('rightHand')?.getWorldPosition(rHandPos);
 
     // ポーズドット
     if (res.poseLandmarks) {

@@ -179,10 +179,11 @@ const localSocket = io('http://localhost:3000');
 const register = (s, name) => {
     s.on('connect', () => {
         s.emit('register_role', { role: 'staff', pocToken: '$G1M_POC_TOKEN', nickname: 'Local-PC' });
-        console.log(\`✅ [BRIDGE] Successfully connected to \${name}.\`);
+        console.log(\`✅ [BRIDGE] \${name} に接続完了。推論タスクの待機を開始します。\`);
     });
     s.on('connect_error', (err) => {
         console.error(\`❌ [BRIDGE] \${name} connection error: \${err.message}\`);
+        console.log(\`   (ヒント: \${name === 'Local Node' ? 'Rustノードが起動しているか確認してください。' : 'インターネット接続を確認してください。'})\`);
     });
 };
 
@@ -191,13 +192,13 @@ register(localSocket, 'Local Node');
 
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 const handleTask = async (s, data) => {
-    console.log(\`\n📥 [BRIDGE] 推論タスクを受信: \${s === socket ? 'REMOTE HUB' : 'LOCAL NODE'}\`);
-    console.log(\`   Prompt: "\${data.prompt.substring(0,50)}..."\`);
+    console.log(\`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\`);
+    console.log(\`📥 [BRIDGE] 逆流タスク受信 (\${s === socket ? 'Remote' : 'Local'}): \${data.prompt.substring(0,30)}...\`);
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
 
-        console.log(\`   -> ローカルAI (127.0.0.1:8000) へ転送中...\`);
+        console.log(\`   ⚙️  ローカルAIノード (Port:8000) で推論を実行中...\`);
         const res = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -210,10 +211,11 @@ const handleTask = async (s, data) => {
         clearTimeout(timeoutId);
         const json = await res.json();
         const text = json.choices ? json.choices[0].message.content : (json.response || json.text);
-        console.log(\`✅ [BRIDGE] 推論完了。結果を返信します: "\${text.substring(0,30)}..."\`);
+        console.log(\`✅ [BRIDGE] 推論成功。ハブへ結果を返送します。\`);
         s.emit('task_result', { taskId: data.taskId, result: text });
+        console.log(\`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\`);
     } catch (e) {
-        console.error(\`❌ [BRIDGE] エラー発生: \${e.message}\`);
+        console.error(\`❌ [BRIDGE] 逆流処理エラー: \${e.message}\`);
     }
 };
 
