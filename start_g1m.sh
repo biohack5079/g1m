@@ -192,31 +192,37 @@ register(localSocket, 'Local Node');
 
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 const handleTask = async (s, data) => {
-    console.log(\`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\`);
-    console.log(\`📥 [BRIDGE] 逆流タスク受信 (\${s === socket ? 'Remote' : 'Local'}): \${data.prompt.substring(0,30)}...\`);
+    console.log('\n' + '━'.repeat(40));
+    console.log(`📥 [BRIDGE] 逆流タスク受信 (${s === socket ? 'Remote' : 'Local'}): "${data.prompt.substring(0,30)}..."`);
+    process.stdout.write('   ⚙️ 推論中... ');
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
 
-        console.log(\`   ⚙️  ローカルAIノード (Port:8000) で推論を実行中...\`);
         const res = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 model: 'gemma3:4b-it-q4_K_M',
-                messages: [{ role: 'user', content: data.prompt }] 
+                messages: [
+                    { role: 'system', content: 'あなたはG1:Mちゃんです。親しみやすい日本語で簡潔に回答してください。' },
+                    { role: 'user', content: data.prompt }
+                ]
             }),
             signal: controller.signal
         });
         clearTimeout(timeoutId);
         const json = await res.json();
         const text = json.choices ? json.choices[0].message.content : (json.response || json.text);
-        console.log(\`✅ [BRIDGE] 推論成功。ハブへ結果を返送します。\`);
+        console.log('✅ 完了');
+        console.log(`   Result: "\${text.substring(0,50)}..."`);
         s.emit('task_result', { taskId: data.taskId, result: text });
-        console.log(\`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\`);
     } catch (e) {
-        console.error(\`❌ [BRIDGE] 逆流処理エラー: \${e.message}\`);
+        console.log('❌ 失敗');
+        console.error(`   Error: \${e.message}`);
     }
+    console.log('━'.repeat(40));
 };
 
 socket.on('distribute_task', (data) => handleTask(socket, data));
