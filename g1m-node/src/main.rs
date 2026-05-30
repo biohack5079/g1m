@@ -102,6 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_sync = db_shared.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(300)); // 5分ごとに同期
+        interval.tick().await; // 起動直後の即時実行をスキップし、P2Pピアの発見を待つ
         loop {
             interval.tick().await;
 

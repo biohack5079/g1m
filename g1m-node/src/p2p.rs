@@ -124,7 +124,10 @@ pub async fn run_p2p_node(
                         });
                         let payload_bytes = serde_json::to_vec(&json_payload).unwrap_or_default();
                         if let Err(e) = swarm.behaviour_mut().gossipsub.publish(sync_topic.clone(), payload_bytes) {
-                            log::warn!("Gossipsub publish db sync error: {:?}", e);
+                            // ピアが見つからない場合の警告はノイズになるため、それ以外の場合のみログ出力
+                            if !format!("{:?}", e).contains("InsufficientPeers") {
+                                log::warn!("Gossipsub publish db sync error: {:?}", e);
+                            }
                         }
                     }
                 }
