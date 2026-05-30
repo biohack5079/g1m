@@ -30,6 +30,7 @@ pub struct AppState {
     pub hf_complex_url: String,
     pub huggingface_token: String,
     pub ollama_url: String,
+    pub ollama_model: String,
     pub participants: Arc<Mutex<HashMap<String, ParticipantInfo>>>,
     pub help_gauge: Arc<Mutex<i32>>,
     pub io: SocketIo, // SocketIoインスタンスをAppStateに含める
@@ -94,12 +95,11 @@ async fn handle_llm(
     let client = reqwest::Client::builder().build().unwrap();
     
     // 1. Try Local Ollama First
-    let ollama_url = state.ollama_url.replace("localhost", "127.0.0.1");
-    log::info!("Trying Local Ollama at {}...", ollama_url);
-    let ollama_endpoint = format!("{}/api/chat", ollama_url);
+    log::info!("Trying Local Ollama at {} with model {}...", state.ollama_url, state.ollama_model);
+    let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
     let req = client.post(&ollama_endpoint)
         .json(&serde_json::json!({
-            "model": "gemma3:4b-it-q4_K_M",
+            "model": state.ollama_model,
             "messages": [
                 { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
                 { "role": "user", "content": payload.prompt }

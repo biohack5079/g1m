@@ -37,8 +37,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let huggingface_token = std::env::var("HUGGINGFACE_TOKEN")
         .unwrap_or_else(|_| "".to_string());
         
-    let ollama_url = std::env::var("OLLAMA_URL")
-        .unwrap_or_else(|_| "http://localhost:11434".to_string());
+    let ollama_url = std::env::var("OLLAMA_HOST")
+        .or_else(|_| std::env::var("OLLAMA_URL"))
+        .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
+
+    let ollama_model = std::env::var("OLLAMA_MODEL")
+        .unwrap_or_else(|_| "gemma3:4b-it-q4_K_M".to_string());
 
     // 1. Initialize SQLite Database
     log::info!("Initializing SQLite database...");
@@ -77,6 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         hf_complex_url,
         huggingface_token,
         ollama_url,
+        ollama_model,
         participants: Arc::new(Mutex::new(HashMap::new())),
         help_gauge: Arc::new(Mutex::new(50)), // 初期値 50%
         io: io.clone(), // SocketIoインスタンスをAppStateに含める
