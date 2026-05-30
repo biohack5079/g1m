@@ -98,17 +98,7 @@ async fn handle_llm(
     // 1. Try Local Ollama First
     log::info!("Trying Local Ollama at {} with model {}...", state.ollama_url, state.ollama_model);
     let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
-    let req = client.post(&ollama_endpoint)
-        .json(&serde_json::json!({
-            "model": state.ollama_model,
-            "messages": [
-                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
-                { "role": "user", "content": payload.prompt }
-            ],
-            "stream": false
-        }));
-        
-    match client.post(&ollama_endpoint)
+    if let Ok(resp) = client.post(&ollama_endpoint)
         .json(&serde_json::json!({
             "model": state.ollama_model,
             "messages": [
@@ -116,18 +106,21 @@ async fn handle_llm(
                 { "role": "user", "content": payload.prompt }
             ],
             "stream": false
-        })).send().await {
-            Ok(resp) if resp.status().is_success() => {
-                if let Ok(data) = resp.json::<serde_json::Value>().await {
-                    let text = data["message"]["content"].as_str().unwrap_or_default().to_string();
-                    log::info!("✅ [Ollama] Result: {}", text);
-                    let display_text = format!("【Local PC Node】 {}", text);
-                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
-                    return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
-                }
-            },
-            _ => log::warn!("Local Ollama unavailable, trying next node..."),
+        })).send().await 
+    {
+        if resp.status().is_success() {
+            if let Ok(data) = resp.json::<serde_json::Value>().await {
+                let text = data["message"]["content"].as_str().unwrap_or_default().to_string();
+                log::info!("✅ [Ollama] Success: {}", text);
+                let display_text = format!("【Local PC Node】 {}", text);
+                let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
+                return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+            }
         }
+        log::warn!("Local Ollama returned error status: {:?}", resp.status());
+    } else {
+        log::warn!("Local Ollama unavailable, trying next node...");
+    }
 
     // 1.5 Try Local Python AI Node (Internal logic priority)
     log::info!("Trying Local Python Node at http://127.0.0.1:8000...");
@@ -148,7 +141,7 @@ async fn handle_llm(
             let status = resp.status();
             if status.is_success() {
                 if let Ok(data) = resp.json::<serde_json::Value>().await {
-                    let mut text = data["choices"][0]["message"]["content"]
+                    let text = data["choices"][0]["message"]["content"]
                         .as_str()
                         .or_else(|| data["response"].as_str())
                         .unwrap_or("回答を生成できませんでした。")
@@ -221,7 +214,7 @@ async fn handle_llm(
                 let status = resp.status();
                 if status.is_success() {
                     if let Ok(data) = resp.json::<serde_json::Value>().await {
-                        let mut text = data["choices"][0]["message"]["content"]
+                        let text = data["choices"][0]["message"]["content"]
                             .as_str()
                             .unwrap_or("回答を生成できませんでした。")
                             .to_string();
@@ -442,6 +435,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("chat_message", {
             let st = st.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
+                log::info!("💬 [CHAT] {}: {}", payload["senderName"].as_str().unwrap_or("?"), payload["text"].as_str().unwrap_or(""));
                 let sender = payload["senderName"].as_str().unwrap_or("?");
                 let msg = payload["text"].as_str().unwrap_or("");
                 log::info!("💬 [CHAT] {}: {}", sender, msg);
