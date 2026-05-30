@@ -803,8 +803,9 @@ const App: React.FC = () => {
 
         if (id === 'local') {
           setStatus("G1:M 準備完了");
-          // 自分のロード完了時に一人ならBotを出す
-          if (participantsRef.current.length === 0) spawnBot();
+          // スタッフ以外の「人間」が自分一人だけなら、G1:Mちゃん(Bot)を召喚する
+          const humanParticipants = participantsRef.current.filter(p => p.role !== 'staff');
+          if (humanParticipants.length === 0) spawnBot();
         }
       }
       setLoadingProgress(null);
@@ -1469,7 +1470,9 @@ const App: React.FC = () => {
         delete peersRef.current[data.id];
         delete dataChannelsRef.current[data.id];
       }
-      if (participantsRef.current.length <= 1) spawnBot();
+      // 残った参加者に「人間」がいなければBotを出す
+      const remainingHumans = participantsRef.current.filter(p => p.id !== data.id && p.role !== 'staff');
+      if (remainingHumans.length === 0) spawnBot();
     });
 
     // --- Three.js 初期化 ---

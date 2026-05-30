@@ -707,19 +707,22 @@ function updateParticipantCount() {
 
     // 右側（HF）インジケータ：PCノードがいれば「赤（HF停止/PC優先）」、いなければ「緑（HF待機中）」
     if (statusDot) {
-        // PCがいれば status-error(赤)、いなければ status-ready(緑)
+        // スタッフがいれば「赤(PC脳稼働中)」、いなければ「緑(HF脳)」
         statusDot.className = staffNodes.size > 0 ? 'status-error' : 'status-ready';
+        statusDot.style.backgroundColor = staffNodes.size > 0 ? '#f00' : '#0f0';
     }
 
     if (statusText) {
         statusText.textContent = staffCount > 0 ? '✅ PC Node Active (Local First)' : 'G1:M Ready (HF Fallback)';
     }
 
-    // AI Agent logic: only spawn bot if alone and it doesn't already exist
-    if (staffCount === 0) {
+    // スタッフノード（PC）を除いた「人間」の数をカウント
+    const humanCount = Array.from(socket.id ? [socket.id] : []).concat(Object.keys(peers))
+        .filter(id => !staffNodes.has(id)).length;
+
+    // 人間が自分一人だけなら、脳みその種類に関わらずG1:Mちゃん(Bot)を表示し続ける
+    if (humanCount <= 1) {
         if (!vrms['bot']) spawnBot();
-    } else {
-        if (vrms['bot']) removeBot();
     }
 
     updateLayout();
