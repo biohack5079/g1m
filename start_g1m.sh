@@ -191,11 +191,13 @@ register(localSocket, 'Local Node');
 
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 const handleTask = async (s, data) => {
-    console.log(\`🤖 [BRIDGE] Received task from \${s === socket ? 'Remote' : 'Local'}: \${data.prompt.substring(0,20)}...\`);
+    console.log(\`\n📥 [BRIDGE] 推論タスクを受信: \${s === socket ? 'REMOTE HUB' : 'LOCAL NODE'}\`);
+    console.log(\`   Prompt: "\${data.prompt.substring(0,50)}..."\`);
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
 
+        console.log(\`   -> ローカルAI (127.0.0.1:8000) へ転送中...\`);
         const res = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -208,10 +210,10 @@ const handleTask = async (s, data) => {
         clearTimeout(timeoutId);
         const json = await res.json();
         const text = json.choices ? json.choices[0].message.content : (json.response || json.text);
-        console.log(\`✅ [BRIDGE] Task completed. Sending result back.\`);
+        console.log(\`✅ [BRIDGE] 推論完了。結果を返信します: "\${text.substring(0,30)}..."\`);
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {
-        console.error(\`❌ [BRIDGE] Task execution failed: \${e.message}\`);
+        console.error(\`❌ [BRIDGE] エラー発生: \${e.message}\`);
     }
 };
 

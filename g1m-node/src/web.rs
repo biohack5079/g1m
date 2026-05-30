@@ -18,7 +18,6 @@ use tower_http::cors::CorsLayer;
 use socketioxide::layer::SocketIoLayer;
 use tower_http::services::ServeDir;
 use tokio::sync::mpsc;
-use std::path::PathBuf;
 use std::fs;
 
 use crate::p2p::P2PCommand;
