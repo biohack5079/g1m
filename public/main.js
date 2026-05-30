@@ -716,10 +716,6 @@ function updateParticipantCount() {
         statusText.textContent = staffCount > 0 ? '✅ PC Node Active (Local First)' : 'G1:M Ready (HF Fallback)';
     }
 
-    // スタッフノード（PC）を除いた「人間」の数をカウント
-    const humanCount = Array.from(socket.id ? [socket.id] : []).concat(Object.keys(peers))
-        .filter(id => !staffNodes.has(id)).length;
-
     // 人数に関わらず、G1:Mちゃん(AI)を常に表示する
     if (!vrms['bot']) spawnBot();
 
