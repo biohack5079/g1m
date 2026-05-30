@@ -108,29 +108,26 @@ async fn handle_llm(
             "stream": false
         }));
         
-    if let Ok(resp) = req.send().await {
-        Ok(resp) => {
-            let status = resp.status();
-            if status.is_success() {
+    match client.post(&ollama_endpoint)
+        .json(&serde_json::json!({
+            "model": state.ollama_model,
+            "messages": [
+                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。" },
+                { "role": "user", "content": payload.prompt }
+            ],
+            "stream": false
+        })).send().await {
+            Ok(resp) if resp.status().is_success() => {
                 if let Ok(data) = resp.json::<serde_json::Value>().await {
-                    let mut text = data["message"]["content"]
-                        .as_str()
-                        .unwrap_or("回答を生成できませんでした。")
-                        .to_string();
-                    log::info!("✅ [Ollama] Inference successful: {}", text);
+                    let text = data["message"]["content"].as_str().unwrap_or_default().to_string();
+                    log::info!("✅ [Ollama] Result: {}", text);
                     let display_text = format!("【Local PC Node】 {}", text);
-                    
-                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text, "actionName": "" }));
-
+                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
                     return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
                 }
-            } else {
-                log::warn!("Local Ollama returned error status: {:?}", status);
-            }
+            },
+            _ => log::warn!("Local Ollama unavailable, trying next node..."),
         }
-    } else {
-        log::warn!("Local Ollama not responding. Falling back...");
-    }
 
     // 1.5 Try Local Python AI Node (Internal logic priority)
     log::info!("Trying Local Python Node at http://127.0.0.1:8000...");
@@ -430,14 +427,24 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         // サーバー自体の推論能力（Ollama設定の有無）を通知
         let has_ollama = !st.ollama_url.is_empty() && st.ollama_url.contains("127.0.0.1");
         let _ = socket.emit("server_capabilities", serde_json::json!({
-            "has_local_llm": has_ollama
+            "has_local_llm": has_ollama,
+            "active_nodes": st.participants.lock().unwrap().len()
+        }));
+
+        // 接続時に現在のチャット履歴をコンソールに出力
+        log::info!("📡 [SYSTEM] New participant connected: {}", socket.id);
+        let _ = socket.emit("system_log", serde_json::json!({
+            "message": "PC Node Connection established.",
+            "timestamp": "now"
         }));
 
         // チャットメッセージの受信とブロードキャスト
         socket.on("chat_message", {
             let st = st.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
-                log::info!("💬 [CHAT] {}: {}", payload["senderName"].as_str().unwrap_or("?"), payload["text"].as_str().unwrap_or(""));
+                let sender = payload["senderName"].as_str().unwrap_or("?");
+                let msg = payload["text"].as_str().unwrap_or("");
+                log::info!("💬 [CHAT] {}: {}", sender, msg);
                 
                 // 送信者以外の全員にブロードキャスト（自分自身には送らない）
                 let _ = socket.broadcast().emit("chat_message", payload.clone());
