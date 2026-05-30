@@ -108,7 +108,7 @@ async fn handle_llm(
             "stream": false
         }));
         
-    match req.send().await {
+    if let Ok(resp) = req.send().await {
         Ok(resp) => {
             let status = resp.status();
             if status.is_success() {
@@ -117,21 +117,19 @@ async fn handle_llm(
                         .as_str()
                         .unwrap_or("回答を生成できませんでした。")
                         .to_string();
-                    text = format!("【Local Node】 {}", text);
+                    log::info!("✅ [Ollama] Inference successful: {}", text);
+                    let display_text = format!("【Local PC Node】 {}", text);
                     
-                    // AIの回答を全クライアントにブロードキャスト
-                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": text, "actionName": "" }));
+                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text, "actionName": "" }));
 
-                    // ローカル成功時は即座にリターン（排他）
-                    return Json(LlmResponse { response: text.clone(), text }).into_response();
+                    return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
                 }
             } else {
                 log::warn!("Local Ollama returned error status: {:?}", status);
             }
         }
-        Err(e) => {
-            log::warn!("Local Ollama connection failed (Check if service is down): {:?}", e);
-        }
+    } else {
+        log::warn!("Local Ollama not responding. Falling back...");
     }
 
     // 1.5 Try Local Python AI Node (Internal logic priority)
@@ -158,14 +156,12 @@ async fn handle_llm(
                         .or_else(|| data["response"].as_str())
                         .unwrap_or("回答を生成できませんでした。")
                         .to_string();
-                    text = format!("【Local AI】 {}", text);
+                    log::info!("✅ [Python Node] Inference successful: {}", text);
+                    let display_text = format!("【Local Python Node】 {}", text);
                     
-                    // AIの回答を全クライアントにブロードキャスト
-                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": text, "actionName": "" }));
+                    let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text, "actionName": "" }));
 
-                    // ローカル成功時は即座にリターン（排他）
-                    // ローカルAIが応答を返したら、ここで終了（HFには行かない）
-                    return Json(LlmResponse { response: text.clone(), text }).into_response();
+                    return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
                 }
             }
             log::warn!("Local Python Node returned status: {:?}", status);
@@ -232,12 +228,12 @@ async fn handle_llm(
                             .as_str()
                             .unwrap_or("回答を生成できませんでした。")
                             .to_string();
-                        text = format!("【HF Node】 {}", text);
+                        log::info!("☁️ [HF Node] Inference successful: {}", text);
+                        let display_text = format!("【HF Super Node】 {}", text);
 
-                        // AIの回答を全クライアントにブロードキャスト
-                        let _ = state.io.emit("bot_response", serde_json::json!({ "text": text, "actionName": "" }));
+                        let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text, "actionName": "" }));
 
-                        return Json(LlmResponse { response: text.clone(), text }).into_response();
+                        return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
                     }
                 }
                 log::warn!("HF status code not success: {:?}", status);
@@ -441,7 +437,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("chat_message", {
             let st = st.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
-                log::info!("Chat received from {}: {:?}", socket.id, payload["text"]);
+                log::info!("💬 [CHAT] {}: {}", payload["senderName"].as_str().unwrap_or("?"), payload["text"].as_str().unwrap_or(""));
                 
                 // 送信者以外の全員にブロードキャスト（自分自身には送らない）
                 let _ = socket.broadcast().emit("chat_message", payload.clone());
