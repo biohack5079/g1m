@@ -170,37 +170,53 @@ echo "P2P Port: 4001"
 # [Bridge] このPCをRenderサーバー側の「Staff」として登録するためのバックグラウンド処理
 # これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
 echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
-node <<EOF > bridge.log 2>&1 &
-const path = require('path');
-const libPath = path.join(process.cwd(), 'frontend', 'node_modules', 'socket.io-client');
-if (!require('fs').existsSync(libPath)) {
-    console.error('Error: socket.io-client not found at ' + libPath);
-    process.exit(1);
-}
-const io = require(libPath);
+export NODE_PATH="$(pwd)/frontend/node_modules"
+node <<EOF >> bridge.log 2>&1 &
+const io = require('socket.io-client');
 const socket = io('$REMOTE_G1M_URL');
+const localSocket = io('http://localhost:3000');
 
-socket.on('connect', () => {
-    socket.emit('register_role', { role: 'staff', pocToken: '$G1M_POC_TOKEN', nickname: 'Local-PC' });
-    console.log('Successfully bridged to Remote Hub.');
-});
+const register = (s, name) => {
+    s.on('connect', () => {
+        s.emit('register_role', { role: 'staff', pocToken: '$G1M_POC_TOKEN', nickname: 'Local-PC' });
+        console.log(\`[\${new Date().toISOString()}] Successfully bridged to \${name}.\`);
+    });
+    s.on('connect_error', (err) => {
+        console.error(\`[\${new Date().toISOString()}] \${name} connection error: \${err.message}\`);
+    });
+};
+
+register(socket, 'Remote Hub');
+register(localSocket, 'Local Node');
 
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
-socket.on('distribute_task', async (data) => {
-    console.log('Received task from remote:', data.taskId);
+const handleTask = async (s, data) => {
+    console.log(\`[\${new Date().toISOString()}] Executing task: \${data.taskId}\`);
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
+
         const res = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [{ role: 'user', content: data.prompt }] })
+            body: JSON.stringify({ 
+                model: 'gemma3:4b-it-q4_K_M',
+                messages: [{ role: 'user', content: data.prompt }] 
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
         const json = await res.json();
         const text = json.choices[0].message.content;
-        socket.emit('task_result', { taskId: data.taskId, result: text });
+        s.emit('task_result', { taskId: data.taskId, result: text });
+        console.log(\`[\${new Date().toISOString()}] Task \${data.taskId} completed successfully.\`);
     } catch (e) {
-        console.error('Task execution failed:', e.message);
+        console.error(\`[\${new Date().toISOString()}] Task \${data.taskId} failed: \${e.message}\`);
     }
-});
+};
+
+socket.on('distribute_task', (data) => handleTask(socket, data));
+localSocket.on('distribute_task', (data) => handleTask(localSocket, data));
 EOF
 BRIDGE_PID=$!
 
