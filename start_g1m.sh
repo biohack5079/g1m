@@ -15,7 +15,13 @@ export OLLAMA_URL="http://127.0.0.1:11434"
 export OLLAMA_HOST="http://127.0.0.1:11434"
 export OLLAMA_MODEL="gemma3:4b-it-q4_K_M"
 export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
-export G1M_POC_TOKEN="[PC-BRAIN-POC-ACTIVE]"
+
+# 共有サーバーでの衝突を防ぐため、実行者固有のIDを生成
+if [ ! -f .g1m_node_id ]; then
+    echo "NODE-$(date +%s)-$RANDOM" > .g1m_node_id
+fi
+export G1M_POC_TOKEN="[PC-$(cat .g1m_node_id)]"
+
 echo "[Local-First] Inference priority: 1. Ollama -> 2. Local Python Node -> 3. Staff PC Nodes -> 4. HF (Last Resort)"
 
 # 0. Check for Rust/Cargo compiler
