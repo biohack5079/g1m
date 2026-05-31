@@ -16,3 +16,10 @@ Thumbs.db
 g1m_reference/*
 refer/
 g1m.db
+wt/
+
+# --- ビルド成果物・環境 ---
+target/
+g1m-node/target/
+**/.venv/
+**/__pycache__/
