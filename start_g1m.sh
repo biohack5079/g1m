@@ -5,9 +5,13 @@
 
 echo "--- G1M P2P Launcher ---"
 
-# 接続先のデフォルトをRenderに設定
-if [ -z "$REMOTE_G1M_URL" ]; then
+# 接続先 (Hub) の優先順位: 1. スクリプト引数 $1, 2. 環境変数, 3. Render (デフォルト)
+if [ ! -z "$1" ]; then
+    export REMOTE_G1M_URL="$1"
+    echo "[Config] 接続先を引数から設定しました: $REMOTE_G1M_URL"
+elif [ -z "$REMOTE_G1M_URL" ]; then
     export REMOTE_G1M_URL="https://dj-g1m.onrender.com"
+    echo "[Config] デフォルトの接続先 (Render) を使用します: $REMOTE_G1M_URL"
 fi
 
 # Force local-first inference configuration
@@ -151,6 +155,17 @@ while ! curl -s http://localhost:3000/healthz > /dev/null; do
     fi
 done
 echo -e "\n✅ Rust P2P Node is online!"
+
+# 3.5 Check for Node.js dependencies
+if [ ! -d "node_modules" ]; then
+    echo "[*] Node.js dependencies not found in root. Installing..."
+    if command -v npm &> /dev/null; then
+        npm install
+    else
+        echo "[Error] npm is not installed. Please install Node.js to use the 'dev' command."
+        # start_g1m.sh 自体は Rust/Python で動くため続行可能ですが、警告を出します
+    fi
+fi
 
 # 4. Open Frontend
 echo "[3/3] Preparing frontend interface..."

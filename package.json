@@ -8,5 +8,8 @@
     "server": "cd g1m-node && cargo run",
     "client": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }
