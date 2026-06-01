@@ -67,6 +67,9 @@ async function saveMessageToSupabase(sender, content) {
     }
 }
 
+// undiciクライアントのプール（接続を再利用してメモリ負荷を軽減）
+const llmClients = new Map();
+
 /**
  * AI プロキシエンドポイント
  * 外部の AI API URL を隠蔽し、将来的な認証やレート制限の追加を容易にします。
@@ -134,86 +137,71 @@ app.post('/api/llm', async (req, res) => {
         }
 
         const apiPath = targetUrl.endsWith('/') ? 'v1/chat/completions' : '/v1/chat/completions';
-        headersTimeout: 600000, // 10分
-            bodyTimeout: 0 // ボディ受信中はタイムアウトしない
-    });
+        const origin = new URL(targetUrl).origin;
+        
+        if (!llmClients.has(origin)) {
+            llmClients.set(origin, new Client(origin, {
+                headersTimeout: 3600000, // 1時間
+                bodyTimeout: 3600000
+            }));
+        }
+        const client = llmClients.get(origin);
 
-systemLog('📡 Sending to LLM API (and distributing to helpers)');
+        systemLog('📡 Sending to LLM API (and distributing to helpers)');
 
-// PWAの閲覧者ノードへ推論タスクをブロードキャスト（負荷分散）
-io.emit('distribute_task', { taskId: Date.now().toString(), prompt: prompt });
+        // PWAの閲覧者ノードへ推論タスクをブロードキャスト（負荷分散）
+        io.emit('distribute_task', { taskId: Date.now().toString(), prompt: prompt });
 
-// タイムアウト設定（HuggingFace Space は応答が遅い場合がある）
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分（以前の動作時間）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 900000); // 15分（Cold Start対応）
 
-const { statusCode, body } = await client.request({
-    path: apiPath,
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-        model: "llama-3.1-8b",
-        messages: [
-            {
-                role: "system",
-                content: "あなたはG1:Mちゃんです。知識ベースの情報に基づき、フレンドリーで親しみやすい日本語で回答してください。紋切り型の返答は避け、対話を楽しんでください。"
-            },
-            { role: "user", content: prompt }
-        ],
-        max_tokens: 512,
-        temperature: 0.8
-    }),
-    signal: controller.signal
-});
-
-const responseText = await body.text();
-clearTimeout(timeoutId);
-await client.close();
-
-const response = {
-    ok: statusCode >= 200 && statusCode < 300,
-    status: statusCode,
-    text: async () => responseText,
-    json: async () => JSON.parse(responseText)
-};
-
-if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`❌ Docker LLM API Error (${response.status}):`, errorText);
-    res.status(response.status).json({ error: 'LLM API Error', details: errorText });
-    return;
-}
-
-const data = await response.json();
-systemLog('✅ AI Response received');
-
-// OpenAI 形式 (choices[0].message.content) から抽出
-const aiText = data.choices?.[0]?.message?.content || data.generated_text || data.text || "回答を生成できませんでした。";
-
-systemLog(`💬 AI Answer: ${aiText.slice(0, 50)}...`);
-
-// タイムアウト対策：Socket.io経由でも全クライアントに送信（または送信者のみ）
-io.emit('bot_response', { text: aiText, actionName: "" }); // actionNameはクライアント側で抽出
-
-res.json({ response: aiText, text: aiText });
-
-    } catch (error) {
-    console.error('LLM Proxy Error:', error);
-
-    // タイムアウトエラーの詳細ログ
-    if (error.name === 'AbortError') {
-        console.error('⏱️  Request timeout: HuggingFace Space API response took too long (>3min)');
-        console.error('💡 Try: 1) Wait for HF Space to wake up (cold start), 2) Check HF Space status, 3) Verify USE_HF_REDIRECT setting');
-        res.status(504).json({
-            error: 'API Timeout',
-            details: 'HuggingFace Space API response timeout (3min). Please try again later.',
-            suggestion: 'HF Spaces may have cold-start delays. First request may take 3-5min.'
+        const { statusCode, body } = await client.request({
+            path: apiPath,
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                model: "llama-3.1-8b",
+                messages: [
+                    { role: "system", content: "あなたはG1:Mちゃんです。知識ベースの情報に基づき、フレンドリーで親しみやすい日本語で回答してください。" },
+                    { role: "user", content: prompt }
+                ],
+                max_tokens: 512,
+                temperature: 0.8
+            }),
+            signal: controller.signal
         });
-        return;
-    }
 
-    res.status(500).json({ error: 'Internal Server Error', details: error.message });
-}
+        const responseText = await body.text();
+        clearTimeout(timeoutId);
+
+        if (statusCode < 200 || statusCode >= 300) {
+          console.error(`❌ Docker LLM API Error (${statusCode}):`, responseText);
+          res.status(statusCode).json({ error: 'LLM API Error', details: responseText });
+          return;
+        }
+
+        const data = JSON.parse(responseText);
+        systemLog('✅ AI Response received');
+
+        const aiText = data.choices?.[0]?.message?.content || data.generated_text || data.text || "回答を生成できませんでした。";
+
+        systemLog(`💬 AI Answer: ${aiText.slice(0, 50)}...`);
+
+        // タイムアウト対策：Socket.io経由でも全クライアントに送信
+        io.emit('bot_response', { text: aiText, actionName: "" });
+        res.json({ response: aiText, text: aiText });
+    } catch (error) {
+        console.error('LLM Proxy Error:', error);
+        if (error.name === 'AbortError') {
+          res.status(504).json({
+            error: 'API Timeout',
+            details: 'HuggingFace Space response timeout (15min).',
+            suggestion: 'HF Spaces may have cold-start delays. Please try again.'
+          });
+          return;
+        }
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    }
 });
 
 /**

@@ -21,14 +21,12 @@ npm run dev
 アクセス先: http://localhost:3001
 
 ### 本番確認モード
-フロントエンドをビルドし、Express サーバー経由で配信します。
+フロントエンドをビルドし、Rust サーバー (`g1m-node`) 経由で配信します。
 
 ```bash
 # フロントエンドのビルド
 cd frontend && npm run build && cd ..
-
-# サーバー起動 (ポート 3000)
-npm start
+./start_g1m.sh
 ```
 アクセス先: http://localhost:3000
 
@@ -156,7 +154,7 @@ const loop = () => {
 fuser -k 3000/tcp; fuser -k 3001/tcp; npm run dev
 
 # ターミナル2（外部公開。これだけでスマホからアクセス可）
-~/cloudflared tunnel --url http://localhost:3001
+~/cloudflared tunnel --url http://localhost:3000
 ```
 
 これだけでOK。`npm run build` は不要（Vite の HMR が動いているため）。
@@ -209,7 +207,7 @@ cd frontend
 npm run build
 
 git add . && \
-git commit -m "feat: changed $(date +'%Y-%m-%d %H:%M:%S')" && \
+git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')" && \
 git push -u origin main || echo "Git push failed"
 
 ./start_g1m.sh https://your-tunnel-url.trycloudflare.com
