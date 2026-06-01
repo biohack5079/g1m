@@ -707,9 +707,9 @@ function updateParticipantCount() {
 
     // 右側（HF）インジケータ：PCノードがいれば「赤（HF停止/PC優先）」、いなければ「緑（HF待機中）」
     if (statusDot) {
-        // スタッフがいれば「赤(PC脳稼働中)」、いなければ「緑(HF脳)」
-        statusDot.className = staffNodes.size > 0 ? 'status-error' : 'status-ready';
-        statusDot.style.backgroundColor = staffNodes.size > 0 ? '#f00' : '#0f0';
+        // PCノードがアクティブなら緑、いなければ赤（または待機色）
+        statusDot.className = staffNodes.size > 0 ? 'status-ready' : 'status-error';
+        statusDot.style.backgroundColor = staffNodes.size > 0 ? '#0f0' : '#f00';
     }
 
     if (statusText) {

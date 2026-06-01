@@ -74,61 +74,19 @@ else
 fi
 
 # 2.5 Setup Python Environment for HF/Python Node
-echo "[*] Setting up Python environment for HF/Local AI Node..."
-if command -v python3 &> /dev/null; then
-    cd hf/gaufile
-    if [ ! -d ".venv" ] || [ ! -f ".venv/bin/activate" ]; then
-        echo "Creating virtual environment (.venv)..."
-        # 失敗したときのために残骸を消す
-        rm -rf .venv
-        if ! python3 -m venv .venv; then
-            echo "[Info] python3-venv is missing. Attempting to install it..."
-            if command -v apt-get &> /dev/null; then
-                sudo apt-get update && sudo apt-get install -y python3-venv
-                python3 -m venv .venv
-            else
-                echo "[Error] Please install python3-venv manually (e.g. apt install python3-venv) and run again."
-                exit 1
-            fi
-        fi
-    fi
-    echo "Installing Python dependencies (this may take a moment)..."
-    source .venv/bin/activate
-    pip install -r requirements.txt > /dev/null 2>&1
-
-    # メインのRenderサーバーへ接続してAIリソースとして登録
-    echo "[Bridge] Connecting local AI Node to Remote Hub: $REMOTE_G1M_URL"
-    export SIGNALING_URL="$REMOTE_G1M_URL"
-    # Pythonノード側でもこのトークンを参照して登録するように設定（要Python側対応）
-
-    # Start the Python node in the background
-    echo "[Python] Starting Python AI Node (uvicorn)..."
-    uvicorn app:app --host 127.0.0.1 --port 8000 > python_node.log 2>&1 &
-    PYTHON_PID=$!
-
-    # Wait for Python node to be ready
-    echo "Waiting for Python AI Node to start..."
-    RETRIES=0
-    until curl -s http://127.0.0.1:8000/health > /dev/null 2>&1 || [ "$RETRIES" -gt 10 ]; do
-        sleep 1
-        ((RETRIES++))
-    done
-    echo "✅ Python AI Node is online!"
-
-    deactivate
-    cd ../..
-else
-    echo "[Warning] python3 is not installed. Skipping Python node setup."
-fi
+# メモリ節約のため、Python AI Nodeは無効化しました（Ollamaを使用します）。
+PYTHON_PID=""
 
 
 # 3. Start the compiled Rust P2P Node
 echo "[2/3] Launching Rust P2P node..."
-# Kill any existing process on port 3000
-if command -v fuser >/dev/null; then
-    fuser -k 3000/tcp >/dev/null 2>&1 || true
-    fuser -k 4001/tcp >/dev/null 2>&1 || true
-fi
+echo "Forcefully cleaning up ports 3000 and 4001 to prevent 'Address already in use'..."
+# ポートを占有しているプロセスを特定して確実に殺す
+fuser -k 3000/tcp 4001/tcp 2>/dev/null || true
+pkill -9 -f "g1m-node" 2>/dev/null || true
+pkill -9 -f "node.*bridge" 2>/dev/null || true
+pkill -9 -f "uvicorn.*app:app" 2>/dev/null || true
+sleep 2 # OSがソケットを完全に解放するまで待機
 
 # Run the node
 ./g1m-node/target/release/g1m-node > g1m_node.log 2>&1 &
@@ -205,6 +163,7 @@ register(socket, 'Remote Hub');
 register(localSocket, 'Local Node');
 
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
+// ポート8000(Python)ではなく11434(Ollama)のOpenAI互換エンドポイントを使用
 const handleTask = async (s, data) => {
     console.log(`\n📥 [BRIDGE] 逆流タスク受信: "${data.prompt.substring(0,50)}..."`);
 
@@ -212,7 +171,7 @@ const handleTask = async (s, data) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
 
-        const res = await fetch('http://127.0.0.1:8000/v1/chat/completions', {
+        const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -242,5 +201,5 @@ BRIDGE_PID=$!
 echo "Press Ctrl+C to shut down all local processes."
 
 # Maintain running processes
-trap "echo -e '\nStopping all services...'; kill $NODE_PID 2>/dev/null; kill $PYTHON_PID 2>/dev/null; kill $BRIDGE_PID 2>/dev/null; exit" INT TERM
+trap "echo -e '\nStopping all services...'; kill -9 $NODE_PID $BRIDGE_PID 2>/dev/null; fuser -k 3000/tcp 4001/tcp 2>/dev/null; exit" INT TERM
 wait

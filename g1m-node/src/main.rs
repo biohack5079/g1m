@@ -70,8 +70,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (p2p_tx, p2p_rx) = mpsc::channel(100);
     let (event_tx, mut event_rx) = mpsc::channel(100);
 
-    // 3. Set up Socket.IO
-    let (socketio_layer, io) = SocketIo::new_layer();
+    // 3. Set up Socket.IO with custom heartbeat configuration to prevent timeouts
+    let (socketio_layer, io) = SocketIo::builder()
+        .ping_interval(Duration::from_secs(20)) // 20秒ごとにPingを送信 (Cloudflareの100秒制限対策)
+        .ping_timeout(Duration::from_secs(45))  // 45秒以内に反応がなければ切断とみなす
+        .build_layer();
 
     log::info!("LLM Routes: Local={}, Fallback={}, HF_SuperNode={}", ollama_url, llm_api_url, hf_complex_url);
 

@@ -85,6 +85,11 @@ async fn health_check() -> impl IntoResponse {
     }))
 }
 
+fn normalize_url(url: &str) -> String {
+    if url.ends_with('/') { url.to_string() }
+    else { format!("{}/", url) }
+}
+
 // LLM request handler with failover (HF -> local Ollama)
 async fn handle_llm(
     State(state): State<AppState>,
@@ -100,63 +105,78 @@ async fn handle_llm(
     println!("\n🤖 [LLM Request] prompt: {}", payload.prompt);
     log::info!("🤖 [LLM] Requesting Local Ollama: {}", payload.prompt);
 
-    let ollama_endpoint = format!("{}/api/chat", state.ollama_url);
-    if let Ok(resp) = client.post(&ollama_endpoint)
+    // 1. Try Local Ollama
+    let ollama_base = normalize_url(&state.ollama_url);
+    let ollama_endpoint = format!("{}api/chat", ollama_base);
+    
+    match client.post(&ollama_endpoint)
         .json(&serde_json::json!({
             "model": state.ollama_model,
+            "options": { "num_predict": 512 },
             "messages": [
                 { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。" },
                 { "role": "user", "content": payload.prompt }
             ],
             "stream": false
-        })).send().await 
-    {
-        let status = resp.status();
-        if status.is_success() {
-            if let Ok(data) = resp.json::<serde_json::Value>().await {
-                let text = data["message"]["content"].as_str().unwrap_or_default().to_string();
-                println!("✅ [Ollama Response] {}", text);
-                log::info!("✅ [Ollama] Result: {}", text);
-                let display_text = format!("【Local PC Node】 {}", text);
-                let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
-                return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+        })).send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                if let Ok(data) = resp.json::<serde_json::Value>().await {
+                    if let Some(text) = data["message"]["content"].as_str() {
+                        println!("✅ [Ollama Response] {}", text);
+                        log::info!("✅ [Ollama] Result: {}", text);
+                        let display_text = format!("【Local PC Node】 {}", text);
+                        let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
+                        return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+                    }
+                }
             }
+            log::warn!("Local Ollama returned error status: {:?}", status);
         }
-        log::warn!("Local Ollama returned error status: {:?}", status);
-    } else {
-        log::warn!("Local Ollama unavailable, trying next node...");
+        Err(e) => {
+            log::warn!("Local Ollama unavailable ({}): trying next node...", e);
+        }
     }
 
     // 1.5 Try Local Python AI Node (Internal logic priority)
     log::info!("Trying Local Python Node at http://127.0.0.1:8000...");
     let python_endpoint = "http://127.0.0.1:8000/v1/chat/completions";
-    if let Ok(resp) = client.post(python_endpoint)
+    
+    // start_g1m.sh とモデル名を合わせる (gemma3:4b-it-q4_K_M)
+    let python_model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b-it-q4_K_M".to_string());
+
+    match client.post(python_endpoint)
         .json(&serde_json::json!({
-            "model": "google_gemma-3-4b-it",
+            "model": python_model,
             "messages": [
                 { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
                 { "role": "user", "content": payload.prompt }
             ],
             "max_tokens": 512,
             "temperature": 0.8
-        })).send().await 
-    {
-        let status = resp.status();
-        if status.is_success() {
-            if let Ok(data) = resp.json::<serde_json::Value>().await {
-                let text = data["choices"][0]["message"]["content"]
-                    .as_str()
-                    .or_else(|| data["response"].as_str())
-                    .unwrap_or_default().to_string();
-                log::info!("✅ [Python] Result: {}", text);
-                let display_text = format!("【Local Python Node】 {}", text);
-                let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
-                return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+        })).send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                if let Ok(data) = resp.json::<serde_json::Value>().await {
+                    let text = data["choices"][0]["message"]["content"]
+                        .as_str()
+                        .or_else(|| data["response"].as_str())
+                        .unwrap_or_default().to_string();
+                    if !text.is_empty() {
+                        log::info!("✅ [Python] Result: {}", text);
+                        let display_text = format!("【Local Python Node】 {}", text);
+                        let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
+                        return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+                    }
+                }
             }
+            log::warn!("Local Python Node returned status: {:?}", status);
         }
-        log::warn!("Local Python Node returned status: {:?}", status);
-    } else {
-        log::warn!("Local Python Node unavailable...");
+        Err(e) => {
+            log::warn!("Local Python Node unavailable ({})...", e);
+        }
     }
 
     // 1.8 Try to delegate directly to connected Staff Nodes (Distributed)
@@ -210,7 +230,13 @@ async fn handle_llm(
         match req.send().await {
             Ok(resp) => {
                 let status = resp.status();
-                if status.is_success() {
+                let is_json = resp.headers()
+                    .get("content-type")
+                    .and_then(|ct| ct.to_str().ok())
+                    .map(|ct| ct.contains("application/json"))
+                    .unwrap_or(false);
+
+                if status.is_success() && is_json {
                     if let Ok(data) = resp.json::<serde_json::Value>().await {
                         let text = data["choices"][0]["message"]["content"]
                             .as_str()
@@ -224,7 +250,7 @@ async fn handle_llm(
                         return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
                     }
                 }
-                log::warn!("HF status code not success: {:?}", status);
+                log::warn!("HF status code not success or not JSON: {:?}, is_json: {}", status, is_json);
             }
             Err(e) => {
                 log::error!("HF request failed: {:?}", e);
@@ -416,37 +442,33 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
-        // 推論能力の判定
-        let is_render = std::env::var("RENDER").is_ok();
-        let has_local_config = st.ollama_url.contains("127.0.0.1") || st.ollama_url.contains("localhost");
-        let local_inference_available = !is_render && has_local_config;
-        
-        // 接続されている「外部の」推論ノードをカウント
-        let staff_count = {
-            let parts = st.participants.lock().unwrap();
-            parts.values().filter(|p| p.role == "staff").count()
-        };
-
-        // サーバー自身の推論能力も「アクティブなノード」として1つ数える
-        let total_active_nodes = if local_inference_available {
-            staff_count + 1
-        } else {
-            staff_count
-        };
-
-        log::info!("📊 Node Capability - Local: {}, Staff: {}, Total: {}", 
-            local_inference_available, staff_count, total_active_nodes);
-
-        let _ = socket.emit("server_capabilities", serde_json::json!({
-            "has_local_llm": local_inference_available,
-            "active_nodes": total_active_nodes
-        }));
-
-        // リロード時の検知漏れを防ぐため、少し遅れて再送する
-        let socket_retry = socket.clone();
+        // 推論能力の判定 (非同期で実際のサービス状態を確認)
+        let st_cap = st.clone();
+        let socket_cap = socket.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-            let _ = socket_retry.emit("server_capabilities", serde_json::json!({
+            let is_render = std::env::var("RENDER").is_ok();
+            let client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_millis(1200)) // 素早いレスポンスを期待
+                .build().unwrap_or_default();
+
+            // Ollama と Python ノードの生存確認 (実際にリクエストを飛ばす)
+            let ollama_url = st_cap.ollama_url.trim_end_matches('/');
+            let ollama_alive = client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok();
+            let python_alive = client.get("http://127.0.0.1:8000/health").send().await.is_ok();
+            
+            let local_inference_available = !is_render && (ollama_alive || python_alive);
+            
+            let total_active_nodes = {
+                let parts = st_cap.participants.lock().unwrap();
+                // すべてのスタッフノード（ブリッジを含む）をカウント
+                parts.values().filter(|p| p.role == "staff").count()
+            };
+
+            log::info!("📊 Node Capability (Verified) - Local: {}, Staff: {}, Total: {}", 
+                local_inference_available, total_active_nodes, total_active_nodes);
+
+            // 初回送信
+            let _ = socket_cap.emit("server_capabilities", serde_json::json!({
                 "has_local_llm": local_inference_available,
                 "active_nodes": total_active_nodes
             }));
@@ -521,6 +543,14 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             
             { let mut parts = st.participants.lock().unwrap(); parts.insert(socket.id.to_string(), info.clone()); let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
             log::info!("Register role: {} as {}", socket.id, payload.role); let _ = socket.broadcast().emit("participant_joined", info);
+
+            // スタッフノードが参加した場合、全クライアントに最新のノード数を通知する
+            let parts = st.participants.lock().unwrap();
+            let count = parts.values().filter(|p| p.role == "staff").count();
+            // has_local_llm は起動時の判定に任せ、ここではアクティブノード数のみ更新
+            let _ = st.io.emit("server_capabilities", serde_json::json!({
+                "active_nodes": count
+            }));
         }});
 
         socket.on("update_nickname", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
@@ -534,9 +564,19 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("candidate", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "candidate".to_string(), target_id, payload); } });
 
         socket.on_disconnect({ let st = st.clone(); move |socket: SocketRef, _reason: DisconnectReason| {
-            { let mut parts = st.participants.lock().unwrap(); parts.remove(&socket.id.to_string()); }
+            let leaving_role = {
+                let mut parts = st.participants.lock().unwrap();
+                parts.remove(&socket.id.to_string()).map(|p| p.role)
+            };
             log::info!("Socket disconnected: {}", socket.id);
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
+
+            // スタッフが離脱した場合も全通知
+            if leaving_role == Some("staff".to_string()) {
+                let parts = st.participants.lock().unwrap();
+                let count = parts.values().filter(|p| p.role == "staff").count();
+                let _ = st.io.emit("server_capabilities", serde_json::json!({ "active_nodes": count }));
+            }
         }});
 
         socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
