@@ -9,10 +9,16 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: true, // ngrokなどの外部ホストを許可
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        timeout: 3600000, // 1時間
+        proxyTimeout: 3600000
+      },
       '/socket.io': {
         target: 'http://localhost:3000',
-        ws: true
+        ws: true,
+        changeOrigin: true
       }
     }
   },

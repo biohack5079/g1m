@@ -988,6 +988,11 @@ const App: React.FC = () => {
   const processAiResponse = useCallback((rawText: string) => {
     let rawAnswer = rawText;
 
+    // 分散推論時の中間応答を無視（Socketからの本回答を待つ）
+    if (rawAnswer === "Processing...") {
+      return;
+    }
+
     // Extract action tag
     let actionName = "";
     const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
@@ -1126,6 +1131,11 @@ const App: React.FC = () => {
           if (res.ok) {
             const data = await res.json();
             processAiResponse(data.text || data.response || data.answer || data.result || "");
+          } else if (res.status === 524 || res.status === 502 || res.status === 504) {
+            // タイムアウトやプロキシエラー: AIは裏で動いているので、Socket.IOからの回答を待つ
+            console.warn(`Proxy/Gateway Error (${res.status}) detected. Waiting for Socket.IO...`);
+            setProcessingNode("AI processing is slow (Waiting for Socket)...");
+            return; // setAiThinking(false) を呼ばずにSocketイベントを待つ
           } else {
             const errText = await res.text();
             console.error('LLM API Error:', errText);
@@ -1394,8 +1404,8 @@ const App: React.FC = () => {
     });
 
     socket.on('server_capabilities', (data: { has_local_llm: boolean, active_nodes: number }) => {
-      setHasServerLlm(data.has_local_llm);
-      setActiveNodes(data.active_nodes);
+      if (data.has_local_llm !== undefined) setHasServerLlm(data.has_local_llm);
+      if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
 
     socket.on('participants_list', (list: Participant[]) => {
@@ -1485,8 +1495,12 @@ const App: React.FC = () => {
 
     socket.on('participant_left', (data: { id: string }) => {
       if (!data || !data.id) return;
+      const leavingParticipant = participantsRef.current.find(p => p.id === data.id);
       setParticipants(prev => Array.isArray(prev) ? prev.filter(p => p.id !== data.id) : []);
-      setActiveNodes(prev => Math.max(1, prev - 1)); // 最低1(自分)
+      // 退出したのが推論ノード(staff)だった場合のみカウントを減らす。最小値は0。
+      if (leavingParticipant?.role === 'staff') {
+        setActiveNodes(prev => Math.max(0, prev - 1));
+      }
       const vrm = vrmsRef.current[data.id];
       if (vrm) {
         disposeVRM(vrm);
@@ -1727,12 +1741,12 @@ const App: React.FC = () => {
         <div className="status-dot" style={{
           backgroundColor: loadingProgress !== null ? '#fff' :
             aiThinking ? '#ffd700' :
-              (hasServerLlm || activeNodes > 0 ? '#0f0' : '#f00')
+              (activeNodes > 0 ? '#0f0' : (hasServerLlm ? '#00ccff' : '#f00')) // ノードがいれば緑、サーバー内蔵AIのみなら青
         }}></div>
         <span>
           {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
             aiThinking ? `推論中: ${processingNode}` :
-              (hasServerLlm || activeNodes > 0 ? "PC Node Active (Local First)" : "Disconnected (No AI Node)")}
+              (activeNodes > 0 ? `PC Node Active (${activeNodes})` : (hasServerLlm ? "Ready (Server Internal AI)" : "Disconnected (No AI Node)"))}
         </span>
       </div>
 
