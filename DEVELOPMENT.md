@@ -209,7 +209,7 @@ cd frontend
 npm run build
 
 git add . && \
-git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')" && \
+git commit -m "feat: changed $(date +'%Y-%m-%d %H:%M:%S')" && \
 git push -u origin main || echo "Git push failed"
 
 ./start_g1m.sh https://your-tunnel-url.trycloudflare.com
