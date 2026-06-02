@@ -15,8 +15,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*" },
     // Render等のプロキシ環境下で接続を安定させるための設定
-    pingTimeout: 60000, // クライアントの生存確認タイムアウト
-    pingInterval: 25000, // 生存確認の間隔
+    pingTimeout: 30000, // タイムアウトを短くして早めに再接続を促す
+    pingInterval: 10000, // 10秒ごとにPingを打ち、プロキシの切断を防ぐ
     transports: ['websocket', 'polling'], // WebSocketを優先
     allowEIO3: true,
     maxHttpBufferSize: 1e7 // 大きな応答データ（画像等）に対応

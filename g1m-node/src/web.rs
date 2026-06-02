@@ -186,9 +186,15 @@ async fn handle_llm(
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
         // リクエストごとにランダム（UUIDベース）にノードを選択
         let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
-        println!("🚀 [LLM] Delegating task to Staff Node: {}", sid);
+        let task_id = uuid::Uuid::new_v4().to_string();
+        println!("🚀 [LLM] Delegating task to Staff Node: {} (Task: {})", sid, task_id);
+        
+        let _ = state.io.emit("system_log", serde_json::json!({
+            "message": format!("🔗 タスクをPCノードに転送しました (Node: {})", &sid[..6])
+        }));
+
         let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
-            "taskId": uuid::Uuid::new_v4().to_string(),
+            "taskId": task_id,
             "prompt": payload.prompt.clone()
         }));
         return Json(LlmResponse { 

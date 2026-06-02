@@ -153,8 +153,13 @@ const io = require('socket.io-client');
 // Render等のプロキシ環境では、ポーリングをスキップして最初からWebSocketを使用することで
 // 接続の切断やタイムアウトを劇的に減らすことができます。
 const connectionOptions = {
-    transports: ['websocket'],
-    reconnection: true
+    transports: ['websocket'], // Renderのプロキシ制限を回避
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    // 頻繁に心拍確認を行い、Renderのコネクション切断を防ぐ
+    pingInterval: 10000, 
+    pingTimeout: 5000
 };
 const socket = io(process.env.REMOTE_G1M_URL, connectionOptions);
 const localSocket = io('http://localhost:3000', connectionOptions);
@@ -175,12 +180,14 @@ register(localSocket, 'Local Node');
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 // ポート8000(Python)ではなく11434(Ollama)のOpenAI互換エンドポイントを使用
 const handleTask = async (s, data) => {
-    console.log(`\n📥 [BRIDGE] 逆流タスク受信: "${data.prompt.substring(0,50)}..."`);
+    console.log(`\n📥 [BRIDGE] タスク受信 (${new Date().toLocaleTimeString()}): "${data.prompt.substring(0,50)}..."`);
+    s.emit('system_log', { message: `⚡ ローカルPCで推論を開始しました... (TaskId: ${data.taskId.substring(0,8)})` });
 
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
 
+        console.log(`🤖 [BRIDGE] Ollamaにリクエスト送信中...`);
         const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -195,7 +202,7 @@ const handleTask = async (s, data) => {
         });
         clearTimeout(timeoutId);
         const json = await res.json();
-        const text = json.choices ? json.choices[0].message.content : (json.response || json.text || "応答なし");
+        const text = json.choices ? json.choices[0].message.content : (json.response || json.text || "⚠️ Ollamaからの応答が空です");
         console.log(`✅ [BRIDGE] 推論成功。結果を返送します。`);
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {
