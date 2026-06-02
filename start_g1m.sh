@@ -134,7 +134,11 @@ if [ -d "frontend/dist" ]; then
     echo "Refreshing frontend build for local environment..."
     rm -rf frontend/dist
 fi
-cd frontend && npm run build && cd ..
+
+# RAM 制限がある環境（137エラー対策）ではビルドを低優先度で行う
+echo "[Info] Building frontend (this may take a moment, be patient with RAM)..."
+cd frontend && NODE_OPTIONS="--max-old-space-size=1024" npm run build && cd ..
+sync # メモリキャッシュをディスクに書き込み解放を促す
 
 echo "--- G1M is fully operational! ---"
 echo "Web interface: http://localhost:3000"

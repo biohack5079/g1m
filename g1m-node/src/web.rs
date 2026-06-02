@@ -33,6 +33,7 @@ pub struct AppState {
     pub participants: Arc<Mutex<HashMap<String, ParticipantInfo>>>,
     pub help_gauge: Arc<Mutex<i32>>,
     pub io: SocketIo, // SocketIoインスタンスをAppStateに含める
+    pub client: reqwest::Client, // クライアントを再利用
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -96,11 +97,6 @@ async fn handle_llm(
     // io: SocketIo, // SocketIoはAppStateから取得するため削除
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
-    // ユーザー要望により、タイムアウトを1時間(3600秒)に設定
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(3600))
-        .build().unwrap();
-    
     // ターミナルにリクエストを表示
     println!("\n🤖 [LLM Request] prompt: {}", payload.prompt);
     log::info!("🤖 [LLM] Requesting Local Ollama: {}", payload.prompt);
@@ -109,7 +105,7 @@ async fn handle_llm(
     let ollama_base = normalize_url(&state.ollama_url);
     let ollama_endpoint = format!("{}api/chat", ollama_base);
     
-    match client.post(&ollama_endpoint)
+    match state.client.post(&ollama_endpoint)
         .json(&serde_json::json!({
             "model": state.ollama_model,
             "options": { "num_predict": 512 },
@@ -146,7 +142,7 @@ async fn handle_llm(
     // start_g1m.sh とモデル名を合わせる (gemma3:4b-it-q4_K_M)
     let python_model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b-it-q4_K_M".to_string());
 
-    match client.post(python_endpoint)
+    match state.client.post(python_endpoint)
         .json(&serde_json::json!({
             "model": python_model,
             "messages": [
@@ -212,7 +208,7 @@ async fn handle_llm(
         };
         let target_url = format!("{}{}", state.hf_complex_url, api_path);
         
-        let mut req = client.post(&target_url)
+        let mut req = state.client.post(&target_url)
             .json(&serde_json::json!({
                 "model": "llama-3.1-8b",
                 "messages": [

@@ -70,6 +70,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (p2p_tx, p2p_rx) = mpsc::channel(100);
     let (event_tx, mut event_rx) = mpsc::channel(100);
 
+    // 1.8 HTTPクライアントの初期化 (Timeout: 1 hour for LLM)
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3600))
+        .build()?;
+
     // 3. Set up Socket.IO with custom heartbeat configuration to prevent timeouts
     let (socketio_layer, io) = SocketIo::builder()
         .ping_interval(Duration::from_secs(20)) // 20秒ごとにPingを送信 (Cloudflareの100秒制限対策)
@@ -88,6 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         participants: Arc::new(Mutex::new(HashMap::new())),
         help_gauge: Arc::new(Mutex::new(50)), // 初期値 50%
         io: io.clone(), // SocketIoインスタンスをAppStateに含める
+        client,
     };
     
     let app = web::create_router(state, socketio_layer);
