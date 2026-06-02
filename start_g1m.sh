@@ -150,8 +150,14 @@ echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
 export NODE_PATH="$(pwd)/frontend/node_modules"
 node <<'EOF' 2>&1 | tee -a bridge.log &
 const io = require('socket.io-client');
-const socket = io(process.env.REMOTE_G1M_URL);
-const localSocket = io('http://localhost:3000');
+// Render等のプロキシ環境では、ポーリングをスキップして最初からWebSocketを使用することで
+// 接続の切断やタイムアウトを劇的に減らすことができます。
+const connectionOptions = {
+    transports: ['websocket'],
+    reconnection: true
+};
+const socket = io(process.env.REMOTE_G1M_URL, connectionOptions);
+const localSocket = io('http://localhost:3000', connectionOptions);
 
 const register = (s, name) => {
     s.on('connect', () => {
@@ -194,6 +200,7 @@ const handleTask = async (s, data) => {
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {
         console.error(`❌ [BRIDGE] 逆流処理エラー: ${e.message}`);
+        s.emit('task_result', { taskId: data.taskId, result: "⚠️ ローカルAIノードとの通信に失敗しました。Ollamaが起動しているか確認してください。" });
     }
 };
 

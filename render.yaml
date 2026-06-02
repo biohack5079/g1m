@@ -3,4 +3,3 @@ services:
     name: g1m-webrtc-server
     env: docker
     plan: free
-    rootDir: g1m-node

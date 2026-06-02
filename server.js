@@ -14,8 +14,12 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: { origin: "*" },
-    pingTimeout: 60000,
-    pingInterval: 25000
+    // Render等のプロキシ環境下で接続を安定させるための設定
+    pingTimeout: 60000, // クライアントの生存確認タイムアウト
+    pingInterval: 25000, // 生存確認の間隔
+    transports: ['websocket', 'polling'], // WebSocketを優先
+    allowEIO3: true,
+    maxHttpBufferSize: 1e7 // 大きな応答データ（画像等）に対応
 });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -457,7 +461,7 @@ io.on('connection', socket => {
 
     // PWA+WebGPU などのヘルパーノードからの推論結果を受け取る
     socket.on('task_result', (data) => {
-        console.log(`✅ Task completed by helper node ${socket.id}: ${data.result}`);
+        systemLog(`✅ Task completed by helper node ${socket.id}: ${data.result.substring(0, 50)}...`);
         // 誰かが推論を終えたら全員にボットからの返答としてブロードキャスト
         io.emit('bot_response', { text: data.result, actionName: "" });
     });

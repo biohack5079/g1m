@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 app = FastAPI()
 
-sio = socketio.AsyncClient()
+sio = socketio.AsyncClient(reconnection=True)
 
 @sio.event
 async def connect():
@@ -54,7 +54,8 @@ async def distribute_task(data):
 async def startup_event():
     try:
         url = os.environ.get("SIGNALING_URL", "http://localhost:3000")
-        await sio.connect(url)
+        # WebSocketトランスポートを明示的に指定
+        await sio.connect(url, transports=['websocket'])
     except Exception as e:
         logger.error(f"Failed to connect to signaling server: {e}")
 

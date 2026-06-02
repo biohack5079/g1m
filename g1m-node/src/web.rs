@@ -576,7 +576,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         }});
 
         socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
-            let result = payload["result"].as_str().unwrap_or("").to_string();
+            let result = payload["result"].as_str().unwrap_or("");
+            if result.is_empty() {
+                return;
+            }
+            let result = result.to_string();
             
             // タスクを返してきたクライアントの poc_token を取得
             let poc_token = {
