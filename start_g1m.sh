@@ -157,9 +157,11 @@ const connectionOptions = {
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
-    // 頻繁に心拍確認を行い、Renderのコネクション切断を防ぐ
-    pingInterval: 10000, 
-    pingTimeout: 5000
+    // 推論中のCPU/GPU高負荷時でも接続が維持されるよう、タイムアウトを緩和します
+    // ただしRenderのプロキシ維持のためIntervalはある程度短く保ちます
+    pingInterval: 20000, 
+    pingTimeout: 60000,
+    upgradeTimeout: 30000
 };
 const socket = io(process.env.REMOTE_G1M_URL, connectionOptions);
 const localSocket = io('http://localhost:3000', connectionOptions);
@@ -186,10 +188,10 @@ const handleTask = async (s, data) => {
     console.log(`\n📥 [BRIDGE] タスク受信 (${new Date().toLocaleTimeString()}): "${data.prompt.substring(0,50)}..."`);
     s.emit('system_log', { message: `⚡ ローカルPCで推論を開始しました... (TaskId: ${data.taskId.substring(0,8)})` });
 
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
 
+    try {
         console.log(`🤖 [BRIDGE] Ollamaにリクエスト送信中...`);
         const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
             method: 'POST',
@@ -203,7 +205,6 @@ const handleTask = async (s, data) => {
             }),
             signal: controller.signal
         });
-        clearTimeout(timeoutId);
         const json = await res.json();
         const text = json.choices ? json.choices[0].message.content : (json.response || json.text || "⚠️ Ollamaからの応答が空です");
         console.log(`✅ [BRIDGE] 推論成功。結果を返送します。`);
@@ -211,6 +212,8 @@ const handleTask = async (s, data) => {
     } catch (e) {
         console.error(`❌ [BRIDGE] 逆流処理エラー: ${e.message}`);
         s.emit('task_result', { taskId: data.taskId, result: "⚠️ ローカルAIノードとの通信に失敗しました。Ollamaが起動しているか確認してください。" });
+    } finally {
+        clearTimeout(timeoutId);
     }
 };
 

@@ -77,8 +77,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 3. Set up Socket.IO with custom heartbeat configuration to prevent timeouts
     let (socketio_layer, io) = SocketIo::builder()
-        .ping_interval(Duration::from_secs(10)) // 10秒に短縮（Renderの30秒タイムアウト対策）
-        .ping_timeout(Duration::from_secs(5))   // 5秒でタイムアウト判定し、即座に再接続を促す
+        .ping_interval(Duration::from_secs(20)) // 20秒ごとにPingを送信
+        .ping_timeout(Duration::from_secs(60))  // 推論中の高負荷による無反応を許容（60秒）
         .build_layer();
 
     log::info!("LLM Routes: Local={}, Fallback={}, HF_SuperNode={}", ollama_url, llm_api_url, hf_complex_url);
