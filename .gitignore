@@ -23,3 +23,5 @@ target/
 g1m-node/target/
 **/.venv/
 **/__pycache__/
+
+install/
