@@ -30,8 +30,8 @@ const SMOOTH_FACTOR = 0.3; // 0.1(滑らか) 〜 1.0(高速)
 
 // 座標補間ヘルパー
 const lerpLandmarks = (prev: any, curr: any) => {
+  if (!curr) return null; // 追跡が途切れたらnullを返し、残像（キャッシュ）が残るのを防ぐ
   if (!prev) return curr;
-  if (!curr) return prev;
   return curr.map((lm: any, i: number) => {
     const p = prev[i];
     if (!p) return lm;
@@ -39,7 +39,7 @@ const lerpLandmarks = (prev: any, curr: any) => {
       x: p.x + (lm.x - p.x) * SMOOTH_FACTOR,
       y: p.y + (lm.y - p.y) * SMOOTH_FACTOR,
       z: p.z + (lm.z - p.z) * SMOOTH_FACTOR,
-      visibility: lm.visibility
+      visibility: lm.visibility ?? p.visibility
     };
   });
 };
@@ -95,15 +95,18 @@ const App: React.FC = () => {
   const lastResultsRef = useRef<any>(null);
   const smoothedResultsRef = useRef<any>({
     poseLandmarks: null,
+    poseWorldLandmarks: null,
     leftHandLandmarks: null,
     rightHandLandmarks: null,
     faceLandmarks: null
   });
+  const apiBase = window.location.port === '3001' ? `${window.location.protocol}//${window.location.hostname}:3000` : '';
   const landmarkGroupRef = useRef<THREE.Group>(new THREE.Group());
   const poseDotsRef = useRef<THREE.Mesh[]>([]);
   const poseLinesRef = useRef<THREE.Line[]>([]);
   const handDotsRef = useRef<{ left: THREE.Mesh[], right: THREE.Mesh[] }>({ left: [], right: [] });
   const handLinesRef = useRef<{ left: THREE.Line[], right: THREE.Line[] }>({ left: [], right: [] });
+  const faceDotsRef = useRef<THREE.Mesh[]>([]);
 
   // 最新の参加者リストをRefで保持（Socket通信のクロージャ対策）
   const participantsRef = useRef<Participant[]>([]);
@@ -228,34 +231,34 @@ const App: React.FC = () => {
       setAnonymousId(id);
       // Supabase経由でWallet情報を取得してみる
       fetch(`/api/kampa/wallet/${id}`)
-        .then(res => res.ok ? res.json() : null)
+        .then(res => res.ok ? res.json() : fetch(`http://localhost:8080/api/kampa/wallet/${id}`).then(r => r.json()))
         .then(data => {
           if (data && data.wallet_image_data) {
             setUserWalletImage(data.wallet_image_data);
           }
+          if (data && data.nickname) {
+            setNickname(data.nickname);
+          }
         })
         .catch(_err => console.log("Wallet fetch failed."));
-
-      // ニックネームをIndexedDBから取得
-      const dbRequest = indexedDB.open("G1M_DB", 1);
-      dbRequest.onsuccess = (e: any) => {
-        const db = e.target.result;
-        const tx = db.transaction(["user_info"], "readonly");
-        const getNick = tx.objectStore("user_info").get("nickname");
-        getNick.onsuccess = () => { if (getNick.result) setNickname(getNick.result); };
-      };
     });
   }, []);
 
   // ニックネーム保存
-  const handleSaveNickname = (newNick: string) => {
+  const handleSaveNickname = async (newNick: string) => {
     setNickname(newNick);
-    const dbRequest = indexedDB.open("G1M_DB", 1);
-    dbRequest.onsuccess = (e: any) => {
-      const db = e.target.result;
-      const tx = db.transaction(["user_info"], "readwrite");
-      tx.objectStore("user_info").put(newNick, "nickname");
-    };
+
+    // Spring Boot サーバーにニックネームを保存
+    try {
+      await fetch("http://localhost:8080/api/kampa/nickname", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anonymousId, nickname: newNick })
+      });
+    } catch (e) {
+      console.error("Nickname sync to SpringBoot failed", e);
+    }
+
     if (socketRef.current) {
       socketRef.current.emit('update_nickname', { nickname: newNick });
     }
@@ -344,6 +347,7 @@ const App: React.FC = () => {
     // モーダルが開いている場合はタップを無視
     if (isKampaModalOpen || isQrModalOpen) return;
 
+    setTappedWalletImage(null); // 前の表示をクリア
     const rect = canvasRef.current.getBoundingClientRect();
     const mouse = new THREE.Vector2();
 
@@ -378,13 +382,18 @@ const App: React.FC = () => {
           // Bot (G1:Mちゃん) → サーバーから専用情報を取得
           setTappedModelId('G1:Mちゃん (AI)');
           setTappedSocketId(id);
-          fetch('/api/kampa/wallet/bot')
-            .then(res => res.ok ? res.json() : null)
+
+          fetch(`${apiBase}/api/kampa/wallet/bot`)
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .catch(() => fetch(`http://localhost:8080/api/kampa/wallet/bot`).then(r => r.json()))
             .then(data => {
-              if (data && data.wallet_image_data) setTappedWalletImage(data.wallet_image_data);
+              setTappedWalletImage(data?.wallet_image_data || null); // DBから取得した画像を表示
               setIsQrModalOpen(true);
             })
-            .catch(() => setIsQrModalOpen(true));
+            .catch(() => {
+              setTappedWalletImage(null); // 失敗時はnullにする
+              setIsQrModalOpen(true);
+            });
           return;
         } else {
           // 他の参加者 → participantsから anonymousId を取得
@@ -399,8 +408,8 @@ const App: React.FC = () => {
           setTappedSocketId(id);
 
           // Supabase経由でWallet情報を取得
-          fetch(`/api/kampa/wallet/${targetAnonymousId}`)
-            .then(res => res.ok ? res.json() : null)
+          fetch(`${apiBase}/api/kampa/wallet/${targetAnonymousId}`)
+            .then(res => res.ok ? res.json() : fetch(`http://localhost:8080/api/kampa/wallet/${targetAnonymousId}`).then(r => r.json()))
             .then(data => {
               if (data && data.wallet_image_data) {
                 setTappedWalletImage(data.wallet_image_data);
@@ -427,41 +436,49 @@ const App: React.FC = () => {
   const mapMotionToVRM = (vrm: VRM, res: any) => {
     if (!vrm || !res || !vrm.humanoid) return;
 
+    // NaN防御ヘルパー: NaN/Infinityが入ると顔メッシュが消えるのを防ぐ
+    const safeRotation = (value: number, fallback = 0): number =>
+      Number.isFinite(value) ? value : fallback;
+
+    // 回転値を安全な範囲にクランプ（極端な値でメッシュが裏返るのを防ぐ）
+    const clampRotation = (value: number, max = Math.PI * 0.8): number =>
+      Math.max(-max, Math.min(max, safeRotation(value)));
+
     // ボーン取得ヘルパー: 全てのAPI差異を吸収し、確実にノードを取得する
     const getBone = (name: string) => {
       const h = vrm.humanoid as any;
-      return h.getNormalizedBoneNode?.(name) || h.getBoneNode?.(name) || h.getRawBoneNode?.(name);
+      return h.getNormalizedBoneNode?.(name) || h.getBoneNode?.(name) || h.getRawBoneNode?.(name) || vrm.scene.getObjectByName(name);
     };
 
-    const kalido = (window as any).Kalidokit;
+    const kalido = (window as any).Kalidokit || (window as any).Kalido;
     if (kalido) {
       // --- KalidoKit 統合 ---
       // 1. Face (Head Rotation, Mouth, Eyes)
       if (res.faceLandmarks) {
         const faceRig = kalido.Face.solve(res.faceLandmarks, {
           runtime: 'mediapipe',
-          imageSize: { width: 320, height: 240 }
+          imageSize: { width: 480, height: 360 } // offscreenCanvasのサイズに合わせる
         });
         if (faceRig) {
           const head = getBone('head');
           if (head) {
-            head.rotation.y = faceRig.head.y;
-            head.rotation.x = faceRig.head.x;
-            head.rotation.z = faceRig.head.z;
+            head.rotation.y = clampRotation(faceRig.head.y, 0.8);
+            head.rotation.x = clampRotation(faceRig.head.x, 0.5);
+            head.rotation.z = clampRotation(faceRig.head.z, 0.4);
           }
           if (vrm.expressionManager) {
-            vrm.expressionManager.setValue('blinkLeft', 1.0 - faceRig.eye.l);
-            vrm.expressionManager.setValue('blinkRight', 1.0 - faceRig.eye.r);
-            vrm.expressionManager.setValue('aa', faceRig.mouth.shape.y);
+            vrm.expressionManager.setValue('blinkLeft', Math.max(0, Math.min(1, 1.0 - safeRotation(faceRig.eye.l, 1))));
+            vrm.expressionManager.setValue('blinkRight', Math.max(0, Math.min(1, 1.0 - safeRotation(faceRig.eye.r, 1))));
+            vrm.expressionManager.setValue('aa', Math.max(0, Math.min(1, safeRotation(faceRig.mouth.shape.y, 0))));
           }
         }
       }
 
       // 2. Pose (Body & Arms)
-      if (res.poseLandmarks) {
-        const poseRig = kalido.Pose.solve(res.poseLandmarks, res.poseWorldLandmarks || res.poseLandmarks, {
+      if (res.poseLandmarks && res.poseWorldLandmarks) {
+        const poseRig = kalido.Pose.solve(res.poseLandmarks, res.poseWorldLandmarks, {
           runtime: 'mediapipe',
-          imageSize: { width: 320, height: 240 }
+          imageSize: { width: 480, height: 360 }
         });
         if (poseRig) {
           const lUpper = getBone('leftUpperArm');
@@ -471,20 +488,22 @@ const App: React.FC = () => {
           const spine = getBone('spine');
 
           if (lUpper && poseRig.leftUpperArm) {
-            lUpper.rotation.set(poseRig.leftUpperArm.x, poseRig.leftUpperArm.y, poseRig.leftUpperArm.z);
+            lUpper.rotation.set(safeRotation(poseRig.leftUpperArm.x), safeRotation(poseRig.leftUpperArm.y), safeRotation(poseRig.leftUpperArm.z));
           }
           if (lLower && poseRig.leftLowerArm) {
-            lLower.rotation.set(poseRig.leftLowerArm.x, poseRig.leftLowerArm.y, poseRig.leftLowerArm.z);
+            lLower.rotation.set(safeRotation(poseRig.leftLowerArm.x), safeRotation(poseRig.leftLowerArm.y), safeRotation(poseRig.leftLowerArm.z));
           }
           if (rUpper && poseRig.rightUpperArm) {
-            rUpper.rotation.set(poseRig.rightUpperArm.x, poseRig.rightUpperArm.y, poseRig.rightUpperArm.z);
+            rUpper.rotation.set(safeRotation(poseRig.rightUpperArm.x), safeRotation(poseRig.rightUpperArm.y), safeRotation(poseRig.rightUpperArm.z));
           }
           if (rLower && poseRig.rightLowerArm) {
-            rLower.rotation.set(poseRig.rightLowerArm.x, poseRig.rightLowerArm.y, poseRig.rightLowerArm.z);
+            rLower.rotation.set(safeRotation(poseRig.rightLowerArm.x), safeRotation(poseRig.rightLowerArm.y), safeRotation(poseRig.rightLowerArm.z));
           }
           if (spine && poseRig.spine) {
-            spine.rotation.set(poseRig.spine.x, poseRig.spine.y, poseRig.spine.z);
+            spine.rotation.set(safeRotation(poseRig.spine.x), safeRotation(poseRig.spine.y), safeRotation(poseRig.spine.z));
           }
+          // KalidoKitのPose分岐で head にも値が入る場合があるが、Face分岐を優先する
+          // → Face分岐が先に実行されているので、ここでは head を上書きしない
         }
       }
 
@@ -502,7 +521,7 @@ const App: React.FC = () => {
                 const angleKey = `${f.toLowerCase()}${j}`;
                 const angle = leftHandRig[angleKey as keyof typeof leftHandRig] as any;
                 if (angle) {
-                  bone.rotation.set(angle.x, angle.y, angle.z);
+                  bone.rotation.set(safeRotation(angle.x), safeRotation(angle.y), safeRotation(angle.z));
                 }
               }
             });
@@ -524,7 +543,7 @@ const App: React.FC = () => {
                 const angleKey = `${f.toLowerCase()}${j}`;
                 const angle = rightHandRig[angleKey as keyof typeof rightHandRig] as any;
                 if (angle) {
-                  bone.rotation.set(angle.x, angle.y, angle.z);
+                  bone.rotation.set(safeRotation(angle.x), safeRotation(angle.y), safeRotation(angle.z));
                 }
               }
             });
@@ -533,32 +552,44 @@ const App: React.FC = () => {
       }
     } else {
       // --- Fallback manually calculated tracking (Existing design) ---
-      if (res.poseLandmarks) {
+      if (res.poseLandmarks && res.poseWorldLandmarks) {
         const pose = res.poseLandmarks;
+        const worldPose = res.poseWorldLandmarks;
         const lUpper = getBone('leftUpperArm');
         const lLower = getBone('leftLowerArm');
         const rUpper = getBone('rightUpperArm');
         const rLower = getBone('rightLowerArm');
 
+        // 腕の回転計算 (VRMのボーン軸に合わせて修正)
         if (lUpper && pose[11] && pose[13]) {
-          const dx = pose[13].x - pose[11].x;
-          const dy = pose[13].y - pose[11].y;
-          const angle = Math.atan2(dy, dx);
-          lUpper.rotation.z = angle;
+          const dx = worldPose[13].x - worldPose[11].x;
+          const dy = -(worldPose[13].y - worldPose[11].y); // Y軸反転
+          const dz = worldPose[13].z - worldPose[11].z;
+          lUpper.rotation.z = safeRotation(Math.atan2(dy, dx) + Math.PI / 2);
+          lUpper.rotation.x = safeRotation(Math.atan2(dz, Math.sqrt(dx * dx + dy * dy)));
         }
         if (lLower && pose[13] && pose[15]) {
-          const angle = Math.atan2(pose[15].y - pose[13].y, pose[15].x - pose[13].x);
-          lLower.rotation.z = angle;
+          const dx = worldPose[15].x - worldPose[13].x;
+          const dy = -(worldPose[15].y - worldPose[13].y);
+          lLower.rotation.z = safeRotation(Math.atan2(dy, dx) + Math.PI / 2);
         }
         if (rUpper && pose[12] && pose[14]) {
-          const dx = pose[14].x - pose[12].x;
-          const dy = pose[14].y - pose[12].y;
-          const angle = Math.atan2(dy, dx);
-          rUpper.rotation.z = -angle + Math.PI;
+          const dx = worldPose[14].x - worldPose[12].x;
+          const dy = -(worldPose[14].y - worldPose[12].y);
+          const dz = worldPose[14].z - worldPose[12].z;
+          rUpper.rotation.z = safeRotation(Math.atan2(dy, dx) - Math.PI / 2);
+          rUpper.rotation.x = safeRotation(-Math.atan2(dz, Math.sqrt(dx * dx + dy * dy)));
         }
         if (rLower && pose[14] && pose[16]) {
-          const angle = Math.atan2(pose[16].y - pose[14].y, pose[16].x - pose[14].x);
-          rLower.rotation.z = -angle + Math.PI;
+          const dx = worldPose[16].x - worldPose[14].x;
+          const dy = -(worldPose[16].y - worldPose[14].y);
+          rLower.rotation.z = safeRotation(Math.atan2(dy, dx) - Math.PI / 2);
+        }
+        // 体幹の傾き
+        const spine = getBone('spine');
+        if (spine && pose[11] && pose[12]) {
+          const midX = (pose[11].x + pose[12].x) / 2;
+          spine.rotation.y = safeRotation((midX - 0.5) * 0.5);
         }
       }
 
@@ -575,8 +606,10 @@ const App: React.FC = () => {
             if (bone) {
               const baseIdx = 1 + fIdx * 4;
               const lm = landmarks;
-              const angle = Math.atan2(lm[baseIdx + jIdx + 1].y - lm[baseIdx + jIdx].y, lm[baseIdx + jIdx + 1].x - lm[baseIdx + jIdx].x);
-              bone.rotation.z = side === 'left' ? angle : -angle;
+              if (lm[baseIdx + jIdx + 1] && lm[baseIdx + jIdx]) {
+                const angle = Math.atan2(lm[baseIdx + jIdx + 1].y - lm[baseIdx + jIdx].y, lm[baseIdx + jIdx + 1].x - lm[baseIdx + jIdx].x);
+                bone.rotation.z = safeRotation(side === 'left' ? angle : -angle);
+              }
             }
           });
         });
@@ -588,27 +621,46 @@ const App: React.FC = () => {
       if (res.faceLandmarks) {
         const face = res.faceLandmarks;
         if (vrm.expressionManager && face[13] && face[14]) {
-          const mouthOpen = Math.max(0, (face[14].y - face[13].y) * 10.0);
+          // 値を0.0〜1.0の範囲に収める（クランプ）
+          const mouthOpen = Math.min(1.0, Math.max(0, safeRotation((face[14].y - face[13].y) * 8.0)));
           vrm.expressionManager.setValue('aa', mouthOpen);
-          const eyeR = 1.0 - Math.min(1.0, Math.max(0, (face[386].y - face[374].y) * 20.0));
-          vrm.expressionManager.setValue('blinkLeft', 1.0);
-          vrm.expressionManager.setValue('blinkRight', eyeR);
+          if (face[159] && face[145] && face[386] && face[374]) {
+            const eyeL = 1.0 - Math.min(1.0, Math.max(0, safeRotation((face[159].y - face[145].y) * 20.0)));
+            const eyeR = 1.0 - Math.min(1.0, Math.max(0, safeRotation((face[386].y - face[374].y) * 20.0)));
+            vrm.expressionManager.setValue('blinkLeft', eyeL);
+            vrm.expressionManager.setValue('blinkRight', eyeR);
+          }
         }
         const head = getBone('head');
         if (head && face[1]) {
-          head.rotation.y = -(face[1].x - 0.5);
-          head.rotation.x = (face[1].y - 0.5) * 0.5;
+          head.rotation.y = clampRotation(-(face[1].x - 0.5), 0.6);
+          head.rotation.x = clampRotation((face[1].y - 0.5) * 0.5, 0.4);
         }
       }
     }
+
+    // VRM 1.0 (three-vrm v3) では humanoid の更新が必要な場合がある
+    vrm.update(0);
+    if (vrm.humanoid && (vrm.humanoid as any).update) (vrm.humanoid as any).update();
   };
 
   // 3Dランドマーク（デジタルツイン）の更新
   const updateLandmarks3D = (res: any) => {
     if (!vrmsRef.current['local']) return;
+
+    // 1. 描画前にすべての表示を一括オフにする (キャッシュ残存によるゴースト防止)
+    poseDotsRef.current.forEach(d => d.visible = false);
+    poseLinesRef.current.forEach(l => l.visible = false);
+
+    const resetVisibility = (group: { [key: string]: THREE.Object3D[] }) => {
+      Object.values(group).forEach(arr => arr.forEach(obj => obj.visible = false));
+    };
+    resetVisibility(handDotsRef.current as any);
+    resetVisibility(handLinesRef.current as any);
+    faceDotsRef.current.forEach(d => d.visible = false);
+
+    if (!res) return;
     const vrm = vrmsRef.current['local'];
-    const poseDots = poseDotsRef.current;
-    const handDots = handDotsRef.current;
     if (!vrm?.humanoid) return;
 
     // VRMボーン取得ヘルパー
@@ -620,15 +672,17 @@ const App: React.FC = () => {
     const lHandPos = new THREE.Vector3(); getB('leftHand')?.getWorldPosition(lHandPos);
     const rHandPos = new THREE.Vector3(); getB('rightHand')?.getWorldPosition(rHandPos);
 
-    // ポーズドット
+    // ポーズドット (全身) の位置更新
     if (res.poseLandmarks) {
       res.poseLandmarks.forEach((lm: any, i: number) => {
-        if (poseDots[i]) {
+        const p = poseDotsRef.current[i];
+        if (p) {
+          // 顔部分(0-10)はVRMと干渉するため非表示、それ以外を計算
+          if (i <= 10) { p.visible = false; return; }
           const offsetX = (lm.x - 0.5) * 1.5;
           const offsetY = (1.0 - lm.y) * 1.8;
-          poseDots[i].position.set(hipsPos.x + offsetX, offsetY, hipsPos.z);
-          // visibilityが未定義の場合は常に表示、定義されている場合は0.5以上で表示
-          poseDots[i].visible = lm.visibility !== undefined ? lm.visibility > 0.5 : true;
+          p.position.set(hipsPos.x + offsetX, offsetY, hipsPos.z + 0.5);
+          p.visible = lm.visibility !== undefined ? lm.visibility > 0.5 : true;
         }
       });
     }
@@ -636,21 +690,23 @@ const App: React.FC = () => {
     // 手ドット
     if (res.leftHandLandmarks) {
       res.leftHandLandmarks.forEach((lm: any, i: number) => {
-        if (handDots.left[i]) {
-          const offsetX = (lm.x - res.leftHandLandmarks[0].x) * 0.4;
-          const offsetY = -(lm.y - res.leftHandLandmarks[0].y) * 0.4;
-          handDots.left[i].position.set(lHandPos.x + offsetX, lHandPos.y + offsetY, lHandPos.z);
-          handDots.left[i].visible = true;
+        const d = handDotsRef.current.left[i];
+        if (d) {
+          const offsetX = (lm.x - res.rightHandLandmarks[0].x) * 0.4;
+          const offsetY = -(lm.y - res.rightHandLandmarks[0].y) * 0.4;
+          d.position.set(rHandPos.x + offsetX, rHandPos.y + offsetY, rHandPos.z + 0.1);
+          d.visible = true;
         }
       });
     }
     if (res.rightHandLandmarks) {
       res.rightHandLandmarks.forEach((lm: any, i: number) => {
-        if (handDots.right[i]) {
+        const d = handDotsRef.current.right[i];
+        if (d) {
           const offsetX = (lm.x - res.rightHandLandmarks[0].x) * 0.4;
           const offsetY = -(lm.y - res.rightHandLandmarks[0].y) * 0.4;
-          handDots.right[i].position.set(rHandPos.x + offsetX, rHandPos.y + offsetY, rHandPos.z);
-          handDots.right[i].visible = true;
+          d.position.set(rHandPos.x + offsetX, rHandPos.y + offsetY, rHandPos.z + 0.1);
+          d.visible = true;
         }
       });
     }
@@ -659,7 +715,11 @@ const App: React.FC = () => {
     const updateLine = (line: THREE.Line, p1: THREE.Vector3, p2: THREE.Vector3, v1: boolean, v2: boolean) => {
       if (!line) return;
       if (v1 && v2) {
-        line.geometry.setFromPoints([p1, p2]);
+        // 高速化: setFromPointsではなくBufferAttributeを直接更新してGCを抑制
+        const posAttr = line.geometry.attributes.position;
+        posAttr.setXYZ(0, p1.x, p1.y, p1.z);
+        posAttr.setXYZ(1, p2.x, p2.y, p2.z);
+        posAttr.needsUpdate = true;
         line.visible = true;
       } else {
         line.visible = false;
@@ -669,13 +729,13 @@ const App: React.FC = () => {
     if (res.poseLandmarks) {
       const connections = (window as any).POSE_CONNECTIONS || [];
       connections.forEach(([start, end]: [number, number], idx: number) => {
-        if (poseLinesRef.current[idx] && poseDots[start] && poseDots[end]) {
+        if (poseLinesRef.current[idx] && poseDotsRef.current[start] && poseDotsRef.current[end]) {
           updateLine(
             poseLinesRef.current[idx],
-            poseDots[start].position,
-            poseDots[end].position,
-            poseDots[start].visible,
-            poseDots[end].visible
+            poseDotsRef.current[start].position,
+            poseDotsRef.current[end].position,
+            poseDotsRef.current[start].visible,
+            poseDotsRef.current[end].visible
           );
         }
       });
@@ -683,7 +743,7 @@ const App: React.FC = () => {
 
     // 手の針金 (簡略化のため中点から結ぶ)
     const updateHandLines = (side: 'left' | 'right') => {
-      const dots = side === 'left' ? handDots.left : handDots.right;
+      const dots = side === 'left' ? handDotsRef.current.left : handDotsRef.current.right;
       const lines = side === 'left' ? handLinesRef.current.left : handLinesRef.current.right;
       const conn = (window as any).HAND_CONNECTIONS || [];
       conn.forEach(([start, end]: [number, number], idx: number) => {
@@ -848,7 +908,7 @@ const App: React.FC = () => {
         prompt = `次の英文を日本語に翻訳してください。説明なしで翻訳のみを返してください。\n\nText: ${text}`;
       }
 
-      const res = await fetch('/api/llm', {
+      const res = await fetch(`${apiBase}/api/llm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
@@ -1111,18 +1171,17 @@ const App: React.FC = () => {
       const poseContext = getUserPoseDescription();
       const fullPrompt = `${systemPrompt}\n\nUser: ${poseContext} ${text}`;
 
-      setTimeout(async () => {
+      (async () => {
         try {
           statusBeforeAiRef.current = status;
-          // 自らの推論リクエスト時にゲージを消費する（スマホ等ではマイナスにもなる）
           setTokenGauge(prev => prev - 5);
-          setStatus("G1:M 考え中...");
+          setStatus("AI思考中...");
           setAiThinking(true);
-          setSubtitle("[G1:M] 考え中...");
-          setProcessingNode("Routing (Checking Local Nodes)...");
+          setSubtitle("[G1:M] ...");
+          setProcessingNode("Routing...");
           scheduleSubtitleClear(15000); // 長めに設定
 
-          const res = await fetch('/api/llm', {
+          const res = await fetch(`${apiBase}/api/llm`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: fullPrompt })
@@ -1153,7 +1212,7 @@ const App: React.FC = () => {
           setProcessingNode(null);
           scheduleSubtitleClear(10000);
         }
-      }, 1000);
+      })();
     }
 
     // チャットをWebSocketとWebRTC DataChannelの両方で送信 (フォールバック)
@@ -1234,16 +1293,22 @@ const App: React.FC = () => {
         lastResultsRef.current = res;
 
         // 解析状況のログ (5%の確率で表示)
-        if (Math.random() < 0.05) {
+        if (Math.random() < 0.01) {
           if (res.poseLandmarks) console.log("📡 Tracking: Active (Pose detected)");
           else console.warn("⚠️ Tracking: No Pose in frame");
         }
 
         // スムージング処理
         smoothedResultsRef.current.poseLandmarks = lerpLandmarks(smoothedResultsRef.current.poseLandmarks, res.poseLandmarks);
+        smoothedResultsRef.current.poseWorldLandmarks = lerpLandmarks(smoothedResultsRef.current.poseWorldLandmarks, res.poseWorldLandmarks);
         smoothedResultsRef.current.leftHandLandmarks = lerpLandmarks(smoothedResultsRef.current.leftHandLandmarks, res.leftHandLandmarks);
         smoothedResultsRef.current.rightHandLandmarks = lerpLandmarks(smoothedResultsRef.current.rightHandLandmarks, res.rightHandLandmarks);
         smoothedResultsRef.current.faceLandmarks = lerpLandmarks(smoothedResultsRef.current.faceLandmarks, res.faceLandmarks);
+
+        // AI(Bot)がユーザーの動きを「意識」するためのフック（将来的な拡張用）
+        if (vrmsRef.current['bot'] && (vrmsRef.current['bot'] as any).isMirrorMode) {
+          mapMotionToVRM(vrmsRef.current['bot'], smoothedResultsRef.current);
+        }
 
         const currentRes = smoothedResultsRef.current;
 
@@ -1278,16 +1343,13 @@ const App: React.FC = () => {
         if (vrmsRef.current['local']) {
           const vrm = vrmsRef.current['local'];
           mapMotionToVRM(vrm, currentRes);
-          // ボーン更新を反映
-          if (vrm.humanoid && (vrm.humanoid as any).update) {
-            (vrm.humanoid as any).update();
-          }
         }
 
         // WebRTCでモーション送信
         const payload = {
           faceLandmarks: currentRes.faceLandmarks ?? null,
           poseLandmarks: currentRes.poseLandmarks ?? null,
+          poseWorldLandmarks: currentRes.poseWorldLandmarks ?? null,
           leftHandLandmarks: currentRes.leftHandLandmarks ?? null,
           rightHandLandmarks: currentRes.rightHandLandmarks ?? null,
         };
@@ -1344,14 +1406,15 @@ const App: React.FC = () => {
       // --- MediaPipeにフレームを送るループ ---
       // isSendingフラグで非同期send()の多重積み上げを防ぎメモリ暴走を防止
       let isRunning = true;
-      let isSending = false;
-      const SEND_INTERVAL_MS = 66; // ~15fps
+      let isProcessing = false;
+      const SEND_INTERVAL_MS = 40; // ~25fpsに向上
       let lastSendTime = 0;
 
       // 低解像度化 (320x240) のためのオフスクリーンキャンバス作成
       const offscreenCanvas = document.createElement('canvas');
-      offscreenCanvas.width = 320;
-      offscreenCanvas.height = 240;
+      // 解析精度を少し上げるため 480x360 に調整
+      offscreenCanvas.width = 480;
+      offscreenCanvas.height = 360;
       const offscreenCtx = offscreenCanvas.getContext('2d');
 
       const loop = () => {
@@ -1359,15 +1422,15 @@ const App: React.FC = () => {
         requestAnimationFrame(loop);
 
         const now = performance.now();
-        if (!isSending && video.readyState >= 2 && now - lastSendTime >= SEND_INTERVAL_MS) {
-          isSending = true;
+        if (!isProcessing && video.readyState >= 2 && now - lastSendTime >= SEND_INTERVAL_MS) {
+          isProcessing = true;
           lastSendTime = now;
           if (offscreenCtx) {
-            offscreenCtx.drawImage(video, 0, 0, 320, 240);
+            offscreenCtx.drawImage(video, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
           }
           holisticRef.current?.send({ image: offscreenCanvas })
-            .catch(() => { /* フレーム送信エラーは無視 */ })
-            .finally(() => { isSending = false; });
+            .catch((err: any) => console.error("Holistic Send Error:", err))
+            .finally(() => { isProcessing = false; });
         }
       };
       loop();
@@ -1388,7 +1451,16 @@ const App: React.FC = () => {
 
     // --- Socket.IO 初期化 ---
     // 接続先を明示的に現在のホストにする（Renderへ勝手に繋ぎに行かないようにする）
-    const socket = io(window.location.origin);
+    const socketUrl = window.location.port === '3001'
+      ? `${window.location.protocol}//${window.location.hostname}:3000`
+      : window.location.origin;
+
+    // Proxyエラーを回避するため、最初からWebSocketを優先し、ポーリングをスキップする設定
+    const socket = io(socketUrl, {
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      timeout: 10000
+    });
     socketRef.current = socket;
 
     socket.on('config', (data: { showSystemLog: boolean }) => {
@@ -1566,11 +1638,20 @@ const App: React.FC = () => {
       handDotsRef.current.left.push(ld);
       handDotsRef.current.right.push(rd);
     }
+    // Face Dots
+    for (let i = 0; i < 468; i += 10) {
+      const fd = new THREE.Mesh(new THREE.SphereGeometry(0.005), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      fd.visible = false;
+      landmarkGroupRef.current.add(fd);
+      faceDotsRef.current.push(fd);
+    }
 
     // 針金(Lines)の初期化
     const poseConn = (window as any).POSE_CONNECTIONS || [];
     for (let i = 0; i < poseConn.length; i++) {
-      const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x00f2ff, linewidth: 2 }));
+      // 初期化時に2点分のバッファを確保しておく
+      const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x00f2ff, linewidth: 2 }));
       line.visible = false;
       landmarkGroupRef.current.add(line);
       poseLinesRef.current.push(line);
@@ -1578,7 +1659,8 @@ const App: React.FC = () => {
     const handConn = (window as any).HAND_CONNECTIONS || [];
     ['left', 'right'].forEach(side => {
       for (let i = 0; i < handConn.length; i++) {
-        const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: side === 'left' ? 0x00f2ff : 0x7000ff, linewidth: 1.5 }));
+        const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+        const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: side === 'left' ? 0x00f2ff : 0x7000ff, linewidth: 1.5 }));
         line.visible = false;
         landmarkGroupRef.current.add(line);
         if (side === 'left') handLinesRef.current.left.push(line);
@@ -1740,13 +1822,12 @@ const App: React.FC = () => {
       <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`}>
         <div className="status-dot" style={{
           backgroundColor: loadingProgress !== null ? '#fff' :
-            aiThinking ? '#ffd700' :
-              (activeNodes > 0 ? '#0f0' : (hasServerLlm ? '#00ccff' : '#f00')) // ノードがいれば緑、サーバー内蔵AIのみなら青
+            aiThinking ? '#ffd700' : (activeNodes > 0 || hasServerLlm ? '#0f0' : '#f00')
         }}></div>
         <span>
           {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
             aiThinking ? `推論中: ${processingNode}` :
-              (activeNodes > 0 ? `PC Node Active (${activeNodes})` : (hasServerLlm ? "Ready (Server Internal AI)" : "Disconnected (No AI Node)"))}
+              (activeNodes > 0 ? `PC Node Active (${activeNodes})` : (hasServerLlm ? "Ready (Inference Available)" : "Disconnected (No AI Node)"))}
         </span>
       </div>
 

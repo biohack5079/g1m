@@ -24,4 +24,7 @@ g1m-node/target/
 **/.venv/
 **/__pycache__/
 
-install/
+installer/exe/
+installer/target/
+
+dist/

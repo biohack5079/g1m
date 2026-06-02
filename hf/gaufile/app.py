@@ -19,6 +19,10 @@ sio = socketio.AsyncClient(reconnection=True)
 
 @sio.event
 async def connect():
+    if llm is None:
+        logger.error("❌ Model not loaded. Skipping staff registration.")
+        return
+
     sig_url = os.environ.get("SIGNALING_URL", "")
     # localhost以外に接続している場合は外部ノードとして振る舞う
     is_remote = "localhost" not in sig_url and "127.0.0.1" not in sig_url
@@ -28,7 +32,12 @@ async def connect():
     
     # 自分が AI 推論リソースであることを Render サーバーに登録
     # これによりフロントエンドの Nodes Active が増えます
-    registration_data = {'role': 'staff', 'nickname': node_name, 'anonymousId': 'distributed_pc_worker'}
+    registration_data = {
+        'role': 'staff', 
+        'nickname': node_name, 
+        'anonymousId': 'distributed_pc_worker',
+        'pocToken': '【HF Super Node】' if is_remote else '【Local Python Node】'
+    }
     await sio.emit('register_role', registration_data)
 
 
@@ -41,7 +50,9 @@ async def distribute_task(data):
     async with inference_lock:
         loop = asyncio.get_event_loop()
         system_prompt = await get_system_prompt()
-        full_prompt = f"<bos><start_of_turn>system\n{system_prompt}<end_of_turn>\n<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+        # キャラクター指示がない場合のデフォルトを強化
+        base_prompt = system_prompt if len(system_prompt) > 20 else "あなたはG1:Mちゃんです。親しみやすい日本語で回答してください。"
+        full_prompt = f"<bos><start_of_turn>system\n{base_prompt}<end_of_turn>\n<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
         
         # llama-cpp 推論
         output = await loop.run_in_executor(None, lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"]))

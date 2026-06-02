@@ -139,12 +139,9 @@ async fn handle_llm(
     log::info!("Trying Local Python Node at http://127.0.0.1:8000...");
     let python_endpoint = "http://127.0.0.1:8000/v1/chat/completions";
     
-    // start_g1m.sh とモデル名を合わせる (gemma3:4b-it-q4_K_M)
-    let python_model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b-it-q4_K_M".to_string());
-
     match state.client.post(python_endpoint)
         .json(&serde_json::json!({
-            "model": python_model,
+            "model": state.ollama_model, // AppStateに保持されたモデル名を使用
             "messages": [
                 { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
                 { "role": "user", "content": payload.prompt }
@@ -186,7 +183,7 @@ async fn handle_llm(
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
         // リクエストごとにランダム（UUIDベース）にノードを選択
         let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
-        let task_id = format!("task-{}", uuid::Uuid::new_v4().to_string()[..8].to_string());
+        let task_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
         println!("🚀 [LLM] Distributing task to all staff nodes (Ref: {})", task_id);
         
         // ルーム "staff" に参加しているすべてのブリッジに送信
@@ -203,16 +200,34 @@ async fn handle_llm(
 
     // 2. Failover to Hugging Face (助け舟)
     // どこにもノードが無い場合に初めてHFが助け舟を出す
-    if !state.hf_complex_url.is_empty() {
-        log::info!("Falling back to Hugging Face LLM endpoint...");
-        let api_path = if state.hf_complex_url.ends_with('/') {
+    // HF_COMPLEX_URL が空なら LLM_API_URL もフォールバック候補にする
+    let hf_url = if !state.hf_complex_url.is_empty() {
+        state.hf_complex_url.clone()
+    } else {
+        std::env::var("LLM_API_URL").unwrap_or_default()
+    };
+    
+    if !hf_url.is_empty() {
+        log::info!("☁️ Falling back to Hugging Face LLM endpoint: {}", hf_url);
+        let _ = state.io.emit("system_log", serde_json::json!({
+            "message": "☁️ PC Nodeが不在のため、HF Super Nodeへフォールバック中...",
+            "timestamp": "now"
+        }));
+        
+        let api_path = if hf_url.ends_with('/') {
             "v1/chat/completions"
         } else {
             "/v1/chat/completions"
         };
-        let target_url = format!("{}{}", state.hf_complex_url, api_path);
+        let target_url = format!("{}{}", hf_url, api_path);
         
-        let mut req = state.client.post(&target_url)
+        // HF用に15分タイムアウトのクライアントを使う（Cold Start対応）
+        let hf_client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(900))
+            .build()
+            .unwrap_or_else(|_| state.client.clone());
+        
+        let mut req = hf_client.post(&target_url)
             .json(&serde_json::json!({
                 "model": "llama-3.1-8b",
                 "messages": [
@@ -238,9 +253,13 @@ async fn handle_llm(
 
                 if status.is_success() && is_json {
                     if let Ok(data) = resp.json::<serde_json::Value>().await {
+                        // OpenAI形式とシンプルなtext形式の両方に対応
                         let text = data["choices"][0]["message"]["content"]
                             .as_str()
-                            .unwrap_or("回答を生成できませんでした。")
+                            .or_else(|| data["choices"][0]["text"].as_str())
+                            .or_else(|| data["text"].as_str())
+                            .or_else(|| data["response"].as_str())
+                            .unwrap_or("HFノードからの応答を解析できませんでした。")
                             .to_string();
                         log::info!("☁️ [HF Node] Inference successful: {}", text);
                         let display_text = format!("【HF Super Node】 {}", text);
@@ -249,20 +268,35 @@ async fn handle_llm(
 
                         return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
                     }
+                } else if status.is_success() && !is_json {
+                    // HF Spaces が HTML を返す場合（起動中/スリープ中）
+                    log::warn!("HF returned non-JSON (likely sleeping/starting). Status: {:?}", status);
+                    let _ = state.io.emit("system_log", serde_json::json!({
+                        "message": "⏳ HF Space がスリープ中です。起動を待っています...",
+                        "timestamp": "now"
+                    }));
+                } else {
+                    log::warn!("HF status code not success: {:?}, is_json: {}", status, is_json);
                 }
-                log::warn!("HF status code not success or not JSON: {:?}, is_json: {}", status, is_json);
             }
             Err(e) => {
                 log::error!("HF request failed: {:?}", e);
             }
         }
+    } else {
+        log::warn!("No HF endpoint configured (HF_COMPLEX_URL and LLM_API_URL both empty)");
     }
 
     // 全ての手段が失敗した場合
     log::error!("❌ No inference nodes available (Local, Staff, or HF).");
+    let error_msg = "現在、応答できるAIノードがありません。PC Nodeを起動するか、HFエンドポイントを設定してください。";
+    let _ = state.io.emit("system_log", serde_json::json!({
+        "message": format!("❌ {}", error_msg),
+        "timestamp": "now"
+    }));
     (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
         "error": "No available AI node found anywhere.",
-        "response": "現在、応答できるAIノードがありません。"
+        "response": error_msg
     }))).into_response()
 }
 
@@ -310,18 +344,39 @@ async fn handle_process(
 }
 
 async fn handle_bot_wallet() -> impl IntoResponse {
-    // Resolve relative path to z1m/AirWallet
+    // 実行バイナリの場所に関わらず、カレントディレクトリ(Dockerなら/app)からの相対パスで解決
     let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let paths_to_try = vec![
+    
+    // 実行バイナリの親ディレクトリからプロジェクトルートを推定
+    let exe_root = std::env::current_exe().ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| current_dir.clone());
+    
+    let mut paths_to_try = vec![
         current_dir.join("z1m/AirWallet/g1-m_chan.jpeg"),
         current_dir.join("public/z1m/AirWallet/g1-m_chan.jpeg"),
         current_dir.join("G1M/Assets/g1-m_chan.jpeg"),
+        std::path::PathBuf::from("z1m/AirWallet/g1-m_chan.jpeg"),
+        // Docker絶対パス (/app/z1m/AirWallet/)
+        std::path::PathBuf::from("/app/z1m/AirWallet/g1-m_chan.jpeg"),
+        // start_g1m.sh からの実行: バイナリは g1m-node/target/release/ にあるため2つ上
+        exe_root.join("../../z1m/AirWallet/g1-m_chan.jpeg"),
+        // g1m-nodeディレクトリからの相対パス
+        exe_root.join("../../../z1m/AirWallet/g1-m_chan.jpeg"),
     ];
+    // 正規化して重複を排除
+    paths_to_try.iter_mut().for_each(|p| {
+        if let Ok(canonical) = p.canonicalize() {
+            *p = canonical;
+        }
+    });
+    paths_to_try.dedup();
     
     let mut file_data = None;
-    for path in paths_to_try {
+    for path in &paths_to_try {
         if path.exists() {
             if let Ok(data) = fs::read(path) {
+                log::info!("✅ Bot QR loaded from: {:?}", path);
                 file_data = Some(data);
                 break;
             }
@@ -338,6 +393,7 @@ async fn handle_bot_wallet() -> impl IntoResponse {
             "wallet_type": "AirWallet"
         })).into_response()
     } else {
+        log::error!("❌ Bot QR file not found. Tried paths: {:?}", paths_to_try);
         (StatusCode::NOT_FOUND, "Bot QR file not found").into_response()
     }
 }
@@ -456,7 +512,8 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let ollama_alive = client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok();
             let python_alive = client.get("http://127.0.0.1:8000/health").send().await.is_ok();
             
-            let local_inference_available = !is_render && (ollama_alive || python_alive);
+            // Local AI または HF 設定があれば推論可能とみなす
+            let local_inference_available = (!is_render && (ollama_alive || python_alive)) || !st_cap.hf_complex_url.is_empty();
             
             let total_active_nodes = {
                 let parts = st_cap.participants.lock().unwrap();
@@ -532,13 +589,22 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         // `relay_signal` を使用するクロージャでは、`relay_signal` 自体をクローンして渡します。
 
         socket.on("register_role", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
-            let nickname = payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string());
+            let mut nickname = payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string());
+
+            // DBから保存済みのニックネームを取得して復元
+            if let Some(ref anon_id) = payload.anonymous_id {
+                let db = st.db_conn.lock().unwrap();
+                if let Ok(Some((db_nick, _))) = crate::db::get_nickname(&db, anon_id) {
+                    nickname = db_nick;
+                }
+            }
+
             let info = ParticipantInfo { 
                 id: socket.id.to_string(), 
                 role: payload.role.clone(), 
                 anonymous_id: payload.anonymous_id.clone(), 
                 poc_token: payload.poc_token.clone(),
-                nickname: nickname.clone(), 
+                nickname: nickname.clone(),
             };
             
             { 
@@ -558,7 +624,20 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
         socket.on("update_nickname", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
             let nickname = payload["nickname"].as_str().unwrap_or("ゲスト").to_string();
-            { let mut parts = st.participants.lock().unwrap(); if let Some(p) = parts.get_mut(&socket.id.to_string()) { p.nickname = nickname.clone(); } }
+            let anon_id = { 
+                let mut parts = st.participants.lock().unwrap(); 
+                if let Some(p) = parts.get_mut(&socket.id.to_string()) { 
+                    p.nickname = nickname.clone(); 
+                    p.anonymous_id.clone()
+                } else { None }
+            };
+
+            // DBにニックネームを保存
+            if let Some(id) = anon_id {
+                let db = st.db_conn.lock().unwrap();
+                let _ = crate::db::save_nickname(&db, &id, &nickname, true);
+            }
+
             let _ = socket.broadcast().emit("participant_updated", serde_json::json!({ "id": socket.id.to_string(), "nickname": nickname }));
         }});
 

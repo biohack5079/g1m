@@ -200,14 +200,14 @@ cloudflared トンネル ✅ 起動中
 # ショートカット
 fuser -k 3000/tcp 3001/tcp
 npm run dev
-~/cloudflared tunnel --url http://localhost:3001
+~/cloudflared tunnel --url http://localhost:3000
 
 npm run build
 cd frontend
 npm run build
 
 git add . && \
-git commit -m "feat: pcnode $(date +'%Y-%m-%d %H:%M:%S')" && \
+git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')" && \
 git push -u origin main || echo "Git push failed"
 
 ./start_g1m.sh https://your-tunnel-url.trycloudflare.com

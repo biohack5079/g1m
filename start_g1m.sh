@@ -3,7 +3,7 @@
 # G1M P2P Clustered Launcher (Rust + Libp2p + SQLite)
 # This script starts the local signaling server, P2P syncer, and front-end interface.
 
-echo "--- G1M P2P Launcher ---"
+echo "--- G1M P2P Launcher (Rust Core) ---"
 
 # 接続先 (Hub) の優先順位: 1. スクリプト引数 $1, 2. 環境変数, 3. Render (デフォルト)
 if [ ! -z "$1" ]; then
@@ -12,6 +12,10 @@ if [ ! -z "$1" ]; then
 elif [ -z "$REMOTE_G1M_URL" ]; then
     export REMOTE_G1M_URL="https://dj-g1m.onrender.com"
     echo "[Config] デフォルトの接続先 (Render) を使用します: $REMOTE_G1M_URL"
+fi
+
+if [[ "$REMOTE_G1M_URL" == *"trycloudflare.com"* ]]; then
+    echo "⚠️ [Tunnel Note] Cloudflare Tunnel を使用する場合、ポート 3000 (Rust) を公開してください。3001 (Vite) では AI 分散推論が動作しません。"
 fi
 
 # Force local-first inference configuration
@@ -39,6 +43,15 @@ if ! command -v cargo &> /dev/null; then
         echo "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
         exit 1
     fi
+fi
+
+# 0.5 Start Java Backend (Docker) for Wallet & DB features
+if command -v docker-compose &> /dev/null; then
+    echo "[0.5/3] Starting Java backend (Docker)..."
+    cd z1m/java-unit && docker-compose up -d && cd ../..
+    echo "✅ Java backend is starting in background (Port 8080)"
+else
+    echo "[Warning] docker-compose not found. Java backend (Wallet/Nickname) will not be available."
 fi
 
 # 1. Compile the Rust P2P signaling node
@@ -88,8 +101,8 @@ pkill -9 -f "node.*bridge" 2>/dev/null || true
 pkill -9 -f "uvicorn.*app:app" 2>/dev/null || true
 sleep 2 # OSがソケットを完全に解放するまで待機
 
-# Run the node
-./g1m-node/target/release/g1m-node > g1m_node.log 2>&1 &
+# Run the node (Output to both terminal and log file)
+./g1m-node/target/release/g1m-node 2>&1 | tee -a g1m_node.log &
 NODE_PID=$!
 
 echo "Waiting for Rust node to start on port 3000..."
@@ -148,6 +161,7 @@ echo "P2P Port: 4001"
 # これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
 echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
 export NODE_PATH="$(pwd)/frontend/node_modules"
+# cloudflared を 3000 番 (Rust) に向け、Node.js ブリッジも 3000 番を監視する
 node <<'EOF' 2>&1 | tee -a bridge.log &
 const io = require('socket.io-client');
 // Render等のプロキシ環境では、ポーリングをスキップして最初からWebSocketを使用することで
@@ -166,8 +180,21 @@ const connectionOptions = {
 const socket = io(process.env.REMOTE_G1M_URL, connectionOptions);
 const localSocket = io('http://localhost:3000', connectionOptions);
 
-const register = (s, name) => {
-    s.on('connect', () => {
+const register = async (s, name) => {
+    s.on('connect', async () => {
+        // Ollama の生存確認を行う
+        try {
+            const health = await fetch('http://127.0.0.1:11434/api/tags');
+            if (!health.ok) throw new Error('Ollama not ready');
+            console.log(`✅ [BRIDGE] AI Engine (Ollama) is alive.`);
+        } catch (e) {
+            console.warn(`⚠️ [BRIDGE] AI Engine not found. Registering as viewer only.`);
+            // AIがいない場合は viewer として登録し、Active Node カウントを増やさない
+            s.emit('register_role', { role: 'viewer', nickname: 'Local-PC (No-AI)' });
+            return;
+        }
+
+        // AIが生きている場合のみ staff として登録
         s.emit('register_role', { role: 'staff', pocToken: process.env.G1M_POC_TOKEN, nickname: 'Local-PC' });
         console.log(`✅ [BRIDGE] ${name} に接続成功 (${new Date().toLocaleTimeString()})`);
     });
@@ -193,7 +220,7 @@ const handleTask = async (s, data) => {
 
     try {
         console.log(`🤖 [BRIDGE] Ollamaにリクエスト送信中...`);
-        const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
+        const res = await fetch('http://127.0.0.1:11434/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -201,12 +228,13 @@ const handleTask = async (s, data) => {
                 messages: [
                     { role: 'system', content: 'あなたはG1:Mちゃんです。親しみやすい日本語で回答してください。' },
                     { role: 'user', content: data.prompt }
-                ]
+                ],
+                stream: false
             }),
             signal: controller.signal
         });
         const json = await res.json();
-        const text = json.choices ? json.choices[0].message.content : (json.response || json.text || "⚠️ Ollamaからの応答が空です");
+        const text = json.message ? json.message.content : (json.error || "⚠️ Ollamaからの応答が空です");
         console.log(`✅ [BRIDGE] 推論成功。結果を返送します。`);
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {
@@ -225,5 +253,5 @@ BRIDGE_PID=$!
 echo "Press Ctrl+C to shut down all local processes."
 
 # Maintain running processes
-trap "echo -e '\nStopping all services...'; kill -9 $NODE_PID $BRIDGE_PID 2>/dev/null; fuser -k 3000/tcp 4001/tcp 2>/dev/null; exit" INT TERM
+trap "echo -e '\nStopping all services...'; kill -9 $NODE_PID $BRIDGE_PID 2>/dev/null; fuser -k 3000/tcp 4001/tcp 2>/dev/null; cd z1m/java-unit && docker-compose down && cd ../..; exit" INT TERM
 wait

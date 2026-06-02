@@ -49,6 +49,18 @@ pub fn init_db(path: &str) -> Result<Connection> {
         [],
     )?;
 
+    // ゲスト自動ネーミング用テーブル
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS nicknames (
+            anonymous_id TEXT PRIMARY KEY,
+            nickname TEXT NOT NULL DEFAULT 'ゲスト',
+            is_custom INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+
     Ok(conn)
 }
 
@@ -92,6 +104,66 @@ pub fn get_recent_messages(conn: &Connection, limit: usize) -> Result<Vec<Messag
         messages.push(msg?);
     }
     // Reverse so it's in chronological order
+    messages.reverse();
+    Ok(messages)
+}
+
+/// 匿名IDに対するニックネームを取得する（DB登録済みの場合）
+pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(String, bool)>> {
+    let mut stmt = conn.prepare(
+        "SELECT nickname, is_custom FROM nicknames WHERE anonymous_id = ?1",
+    )?;
+    let result = stmt.query_row([anonymous_id], |row| {
+        let nickname: String = row.get(0)?;
+        let is_custom: bool = row.get::<_, i32>(1)? != 0;
+        Ok((nickname, is_custom))
+    });
+    match result {
+        Ok(r) => Ok(Some(r)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// ニックネームを保存する（is_custom=trueの場合、AI命名で上書きしない）
+pub fn save_nickname(conn: &Connection, anonymous_id: &str, nickname: &str, is_custom: bool) -> Result<()> {
+    conn.execute(
+        "INSERT INTO nicknames (anonymous_id, nickname, is_custom, updated_at)
+         VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+         ON CONFLICT(anonymous_id) DO UPDATE SET
+           nickname = CASE WHEN excluded.is_custom = 1 OR nicknames.is_custom = 0 THEN excluded.nickname ELSE nicknames.nickname END,
+           is_custom = CASE WHEN excluded.is_custom = 1 THEN 1 ELSE nicknames.is_custom END,
+           updated_at = CURRENT_TIMESTAMP",
+        params![anonymous_id, nickname, if is_custom { 1 } else { 0 }],
+    )?;
+    Ok(())
+}
+
+/// 特定ユーザーの最近の会話を取得（AI命名の判断材料用）
+#[allow(dead_code)]
+pub fn get_user_messages(conn: &Connection, sender_name: &str, limit: usize) -> Result<Vec<Message>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, text, image, is_user, sender_name, created_at
+         FROM messages
+         WHERE sender_name = ?1
+         ORDER BY created_at DESC
+         LIMIT ?2",
+    )?;
+    let msg_iter = stmt.query_map(params![sender_name, limit], |row| {
+        let is_user_int: i32 = row.get(3)?;
+        Ok(Message {
+            id: row.get(0)?,
+            text: row.get(1)?,
+            image: row.get(2)?,
+            is_user: is_user_int != 0,
+            sender_name: row.get(4)?,
+            created_at: row.get(5)?,
+        })
+    })?;
+    let mut messages = Vec::new();
+    for msg in msg_iter {
+        messages.push(msg?);
+    }
     messages.reverse();
     Ok(messages)
 }

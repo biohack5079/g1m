@@ -40,6 +40,9 @@ COPY --from=backend-builder /app/g1m-node/target/release/g1m-node /usr/local/bin
 # Copy the frontend built assets
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# QRコード画像などの共有アセットをコピー
+COPY z1m ./z1m
+
 # Expose HTTP port
 EXPOSE 3000
 

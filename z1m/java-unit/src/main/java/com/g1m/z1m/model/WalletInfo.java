@@ -15,6 +15,8 @@ public class WalletInfo {
 
     private String walletImageData; // Base64 or path to image
     
+    private String nickname; // UUIDに紐付いた表示名
+    
     private String walletType; // e.g., "AirWallet", "PayPay", "Stripe"
     
     private String huggingFaceUrl; // HuggingFace model URL

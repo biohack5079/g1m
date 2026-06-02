@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 1. Initialize SQLite Database
     log::info!("Initializing SQLite database...");
-    let db_conn = db::init_db("g1m.db")?;
+    let db_conn = db::init_db("../g1m.db")?; // プロジェクトルートのDBを使用
     let db_shared = Arc::new(Mutex::new(db_conn));
 
     // 1.5 起動時のデータベース検証
@@ -158,6 +158,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 .unwrap_or_default();
                             let metadata = val["metadata"].clone();
                             let _ = db::add_knowledge(&db, &content, &embedding, &metadata);
+                        }
+                    }
+                    if table == "chat_history" {
+                        if let Ok(messages) = serde_json::from_str::<Vec<db::Message>>(&data) {
+                            let db = db_event_clone.lock().unwrap();
+                            for msg in messages {
+                                let _ = db::save_message(
+                                    &db, 
+                                    &msg.id, 
+                                    &msg.text, 
+                                    msg.image.as_deref(), 
+                                    msg.is_user, 
+                                    &msg.sender_name
+                                );
+                            }
                         }
                     }
                 }

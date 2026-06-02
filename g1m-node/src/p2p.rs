@@ -95,40 +95,24 @@ pub async fn run_p2p_node(
         tokio::select! {
             // Receive command from Web API / user interface
             Some(cmd) = cmd_rx.recv() => {
+                let mut publish_msg = |topic: &gossipsub::IdentTopic, payload: serde_json::Value| {
+                    let data = serde_json::to_vec(&payload).unwrap_or_default();
+                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), data) {
+                        if !format!("{:?}", e).contains("InsufficientPeers") {
+                            log::warn!("Gossipsub publish error to {:?}: {:?}", topic, e);
+                        }
+                    }
+                };
+
                 match cmd {
                     P2PCommand::PublishChat { id, text, sender_name } => {
-                        let payload = serde_json::json!({
-                            "id": id,
-                            "text": text,
-                            "sender_name": sender_name
-                        });
-                        let data = serde_json::to_vec(&payload).unwrap_or_default();
-                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(chat_topic.clone(), data) {
-                            log::warn!("Gossipsub publish chat error: {:?}", e);
-                        }
+                        publish_msg(&chat_topic, serde_json::json!({ "id": id, "text": text, "sender_name": sender_name }));
                     }
                     P2PCommand::PublishSignal { target_id, payload } => {
-                        let json_payload = serde_json::json!({
-                            "target_id": target_id,
-                            "payload": payload
-                        });
-                        let data = serde_json::to_vec(&json_payload).unwrap_or_default();
-                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(signal_topic.clone(), data) {
-                            log::warn!("Gossipsub publish signal error: {:?}", e);
-                        }
+                        publish_msg(&signal_topic, serde_json::json!({ "target_id": target_id, "payload": payload }));
                     }
                     P2PCommand::SyncDatabase { table, data } => {
-                        let json_payload = serde_json::json!({
-                            "table": table,
-                            "data": data
-                        });
-                        let payload_bytes = serde_json::to_vec(&json_payload).unwrap_or_default();
-                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(sync_topic.clone(), payload_bytes) {
-                            // ピアが見つからない場合の警告はノイズになるため、それ以外の場合のみログ出力
-                            if !format!("{:?}", e).contains("InsufficientPeers") {
-                                log::warn!("Gossipsub publish db sync error: {:?}", e);
-                            }
-                        }
+                        publish_msg(&sync_topic, serde_json::json!({ "table": table, "data": data }));
                     }
                 }
             }
