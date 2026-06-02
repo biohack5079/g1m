@@ -639,9 +639,6 @@ const App: React.FC = () => {
       }
     }
 
-    // VRM 1.0 (three-vrm v3) では humanoid の更新が必要な場合がある
-    vrm.update(0);
-    if (vrm.humanoid && (vrm.humanoid as any).update) (vrm.humanoid as any).update();
   };
 
   // 3Dランドマーク（デジタルツイン）の更新
@@ -663,11 +660,14 @@ const App: React.FC = () => {
     const vrm = vrmsRef.current['local'];
     if (!vrm?.humanoid) return;
 
+    // スケルトンの位置と回転をVRMモデルに同期させる
+    landmarkGroupRef.current.position.copy(vrm.scene.position);
+    landmarkGroupRef.current.rotation.copy(vrm.scene.rotation);
+
     // VRMボーン取得ヘルパー
     const getB = (name: string) => (vrm.humanoid as any).getNormalizedBoneNode?.(name) || (vrm.humanoid as any).getBoneNode?.(name) || (vrm.humanoid as any).getRawBoneNode?.(name);
 
     // アバターのワールドポジションに合わせる
-    const headPos = new THREE.Vector3(); getB('head')?.getWorldPosition(headPos);
     const hipsPos = new THREE.Vector3(); getB('hips')?.getWorldPosition(hipsPos);
     const lHandPos = new THREE.Vector3(); getB('leftHand')?.getWorldPosition(lHandPos);
     const rHandPos = new THREE.Vector3(); getB('rightHand')?.getWorldPosition(rHandPos);
@@ -681,7 +681,7 @@ const App: React.FC = () => {
           if (i <= 10) { p.visible = false; return; }
           const offsetX = (lm.x - 0.5) * 1.5;
           const offsetY = (1.0 - lm.y) * 1.8;
-          p.position.set(hipsPos.x + offsetX, offsetY, hipsPos.z + 0.5);
+          p.position.set(hipsPos.x + offsetX, hipsPos.y + (offsetY - 1.0), hipsPos.z + 0.3);
           p.visible = lm.visibility !== undefined ? lm.visibility > 0.5 : true;
         }
       });
@@ -1179,7 +1179,8 @@ const App: React.FC = () => {
           setAiThinking(true);
           setSubtitle("[G1:M] ...");
           setProcessingNode("Routing...");
-          scheduleSubtitleClear(15000); // 長めに設定
+          // HF等の低速ノードを考慮し、字幕消去タイマーを10分(600,000ms)に設定
+          scheduleSubtitleClear(600000);
 
           const res = await fetch(`${apiBase}/api/llm`, {
             method: 'POST',
