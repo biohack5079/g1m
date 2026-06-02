@@ -167,7 +167,10 @@ const localSocket = io('http://localhost:3000', connectionOptions);
 const register = (s, name) => {
     s.on('connect', () => {
         s.emit('register_role', { role: 'staff', pocToken: process.env.G1M_POC_TOKEN, nickname: 'Local-PC' });
-        console.log(`✅ [BRIDGE] ${name} に接続完了。推論タスクの待機を開始します。`);
+        console.log(`✅ [BRIDGE] ${name} に接続成功 (${new Date().toLocaleTimeString()})`);
+    });
+    s.on('disconnect', (reason) => {
+        console.warn(`⚠️ [BRIDGE] ${name} から切断されました: ${reason}`);
     });
     s.on('connect_error', (err) => {
         console.error(`❌ [BRIDGE] ${name} 接続エラー: ${err.message}`);

@@ -186,14 +186,12 @@ async fn handle_llm(
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
         // リクエストごとにランダム（UUIDベース）にノードを選択
         let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
-        let task_id = uuid::Uuid::new_v4().to_string();
-        println!("🚀 [LLM] Delegating task to Staff Node: {} (Task: {})", sid, task_id);
+        let task_id = format!("task-{}", uuid::Uuid::new_v4().to_string()[..8].to_string());
+        println!("🚀 [LLM] Distributing task to all staff nodes (Ref: {})", task_id);
         
-        let _ = state.io.emit("system_log", serde_json::json!({
-            "message": format!("🔗 タスクをPCノードに転送しました (Node: {})", &sid[..6])
-        }));
-
-        let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
+        // ルーム "staff" に参加しているすべてのブリッジに送信
+        // 一番早く計算が終わったノードが task_result を返せばOK
+        let _ = state.io.to("staff").emit("distribute_task", serde_json::json!({
             "taskId": task_id,
             "prompt": payload.prompt.clone()
         }));
@@ -543,7 +541,10 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 nickname: nickname.clone(), 
             };
             
-            { let mut parts = st.participants.lock().unwrap(); parts.insert(socket.id.to_string(), info.clone()); let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
+            { 
+                let mut parts = st.participants.lock().unwrap(); parts.insert(socket.id.to_string(), info.clone()); 
+                if payload.role == "staff" { let _ = socket.join("staff"); } // スタッフルームに参加
+                let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
             log::info!("Register role: {} as {}", socket.id, payload.role); let _ = socket.broadcast().emit("participant_joined", info);
 
             // スタッフノードが参加した場合、全クライアントに最新のノード数を通知する
