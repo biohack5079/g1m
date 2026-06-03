@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         
     let ollama_url = std::env::var("OLLAMA_HOST")
         .or_else(|_| std::env::var("OLLAMA_URL"))
-        .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
+        .unwrap_or_else(|_| "".to_string());
 
     let ollama_model = std::env::var("OLLAMA_MODEL")
         .unwrap_or_else(|_| "gemma3:4b-it-q4_K_M".to_string());

@@ -63,7 +63,12 @@ fn setup_environment(root: &Path) {
         env::set_var("REMOTE_G1M_URL", "https://dj-g1m.onrender.com");
     }
     env::set_var("OLLAMA_URL", "http://127.0.0.1:11434");
-    env::set_var("OLLAMA_MODEL", TARGET_MODEL);
+    if env::var("OLLAMA_MODEL").is_err() {
+        env::set_var("OLLAMA_MODEL", TARGET_MODEL);
+    }
+    if env::var("BOT_CNC_ID").is_err() {
+        env::set_var("BOT_CNC_ID", "bot");
+    }
 
     let node_id_path = root.join(".g1m_node_id");
     let node_id = if node_id_path.exists() {

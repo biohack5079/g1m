@@ -23,6 +23,7 @@ export OLLAMA_URL="http://127.0.0.1:11434"
 export OLLAMA_HOST="http://127.0.0.1:11434"
 export OLLAMA_MODEL="gemma3:4b-it-q4_K_M"
 export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
+export BOT_CNC_ID="bot" # 管理人のUUIDに置き換え可能
 
 # 共有サーバーでの衝突を防ぐため、実行者固有のIDを生成
 if [ ! -f .g1m_node_id ]; then

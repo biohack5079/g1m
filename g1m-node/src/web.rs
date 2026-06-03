@@ -66,8 +66,11 @@ pub struct ProcessRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProfileRegisterRequest {
     pub anonymous_id: String,
+    pub nickname: Option<String>,
     pub wallet_image: Option<String>,
     pub cnc_url: Option<String>,
+    pub email: Option<String>,
+    pub notification_enabled: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -404,10 +407,16 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         use base64::Engine;
         let base64_data = base64::engine::general_purpose::STANDARD.encode(bitmap);
         let data_url = format!("data:image/jpeg;base64,{}", base64_data);
+
+        // 管理人が連絡を受け取るためのUUIDを環境変数から取得（デフォルトは "bot"）
+        let bot_id = std::env::var("BOT_CNC_ID").unwrap_or_else(|_| "bot".to_string());
+
         Json(serde_json::json!({
-            "anonymous_id": "bot",
+            "anonymous_id": bot_id,
             "wallet_image_data": data_url,
-            "wallet_type": "AirWallet"
+            "wallet_type": "AirWallet",
+            "cnc_url": format!("https://cnc-pwa.onrender.com?id={}", bot_id),
+            "nickname": "G1:Mちゃん (AI)"
         })).into_response()
     } else {
         log::error!("❌ Bot QR file not found. Tried paths: {:?}", paths_to_try);
@@ -421,11 +430,13 @@ async fn handle_get_wallet(
 ) -> impl IntoResponse {
     let db = state.db_conn.lock().unwrap();
     match crate::db::get_nickname(&db, &anonymous_id) {
-        Ok(Some((nickname, _, wallet_image, cnc_url))) => Json(serde_json::json!({
+        Ok(Some((nickname, _, wallet_image, cnc_url, email, notify))) => Json(serde_json::json!({
             "anonymous_id": anonymous_id,
             "nickname": nickname,
             "wallet_image_data": wallet_image,
-            "cnc_url": cnc_url
+            "cnc_url": cnc_url,
+            "email": email,
+            "notification_enabled": notify
         })).into_response(),
         Ok(None) => (StatusCode::NOT_FOUND, "Wallet not found").into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "Wallet not found").into_response(),
@@ -440,9 +451,11 @@ async fn handle_register_wallet(
     let res = crate::db::update_user_profile(
         &db, 
         &payload.anonymous_id, 
-        None, 
+        payload.nickname.as_deref(), 
         payload.wallet_image.as_deref(), 
-        payload.cnc_url.as_deref()
+        payload.cnc_url.as_deref(),
+        payload.email.as_deref(),
+        payload.notification_enabled
     );
     
     match res {
@@ -512,21 +525,35 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 .timeout(std::time::Duration::from_millis(1200)) // 素早いレスポンスを期待
                 .build().unwrap_or_default();
 
-            // Ollama と Python ノードの生存確認 (実際にリクエストを飛ばす)
+            // Ollama と Python ノードの生存確認 (URLが設定されている場合のみ実行)
             let ollama_url = st_cap.ollama_url.trim_end_matches('/');
-            let ollama_alive = client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok();
+            let ollama_alive = if !ollama_url.is_empty() {
+                client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok()
+            } else {
+                false
+            };
+            
             let python_alive = client.get("http://127.0.0.1:8000/health").send().await.is_ok();
-            let pc_ready = (!is_render && (ollama_alive || python_alive));
+            let pc_ready = !is_render && (ollama_alive || python_alive);
             
             // HF Super Node の生存確認 (設定がある場合のみ)
-            let hf_url = st_cap.hf_complex_url.trim_end_matches('/');
+            let hf_url_candidate = if !st_cap.hf_complex_url.is_empty() {
+                st_cap.hf_complex_url.clone()
+            } else {
+                std::env::var("LLM_API_URL").unwrap_or_default()
+            };
+            let hf_url = hf_url_candidate.trim_end_matches('/');
             let hf_ready = if !hf_url.is_empty() {
-                // ヘルスチェックを非同期で実行。失敗してもパニックせず false を返す
-                let check = match client.get(format!("{}/health", hf_url)).send().await {
-                    Ok(resp) => Ok(resp),
-                    Err(_) => client.get(hf_url).send().await,
-                };
-                check.map(|resp| resp.status().is_success()).unwrap_or(false)
+                // ヘルスチェックを非同期で実行。/health がなければルートへのリクエストで生存確認を行う
+                match client.get(format!("{}/health", hf_url)).send().await {
+                    Ok(resp) if resp.status().is_success() => true,
+                    _ => {
+                        // /health が失敗した場合はルートパスを試す
+                        client.get(hf_url).send().await
+                            .map(|resp| resp.status().is_success())
+                            .unwrap_or(false)
+                    }
+                }
             } else {
                 false
             };
@@ -536,7 +563,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 parts.values().filter(|p| p.role == "staff").count()
             };
 
-            log::info!("📊 Capability: PC={}, HF={}, Staff={}", pc_ready, hf_ready, total_active_nodes);
+            log::info!("📊 Capability Check: LocalAI={}, SuperNode={}, ActiveStaff={}", pc_ready, hf_ready, total_active_nodes);
 
             // 初回送信
             let _ = socket_cap.emit("server_capabilities", serde_json::json!({
@@ -626,7 +653,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             // DBから保存済みのニックネームを取得して復元
             if let Some(ref anon_id) = payload.anonymous_id {
                 let db = st.db_conn.lock().unwrap();
-                if let Ok(Some((db_nick, _, _, _))) = crate::db::get_nickname(&db, anon_id) {
+                if let Ok(Some((db_nick, _, _, _, _, _))) = crate::db::get_nickname(&db, anon_id) {
                     nickname = db_nick;
                 }
             }

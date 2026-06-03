@@ -57,6 +57,8 @@ pub fn init_db(path: &str) -> Result<Connection> {
             is_custom INTEGER NOT NULL DEFAULT 0,
             wallet_image TEXT,
             cnc_url TEXT,
+            email TEXT,
+            notification_enabled INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
@@ -111,16 +113,18 @@ pub fn get_recent_messages(conn: &Connection, limit: usize) -> Result<Vec<Messag
 }
 
 /// 匿名IDに対するニックネームを取得する（DB登録済みの場合）
-pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(String, bool, Option<String>, Option<String>)>> {
+pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(String, bool, Option<String>, Option<String>, Option<String>, bool)>> {
     let mut stmt = conn.prepare(
-        "SELECT nickname, is_custom, wallet_image, cnc_url FROM nicknames WHERE anonymous_id = ?1",
+        "SELECT nickname, is_custom, wallet_image, cnc_url, email, notification_enabled FROM nicknames WHERE anonymous_id = ?1",
     )?;
     let result = stmt.query_row([anonymous_id], |row| {
         let nickname: String = row.get(0)?;
         let is_custom: bool = row.get::<_, i32>(1)? != 0;
         let wallet_image: Option<String> = row.get(2)?;
         let cnc_url: Option<String> = row.get(3)?;
-        Ok((nickname, is_custom, wallet_image, cnc_url))
+        let email: Option<String> = row.get(4)?;
+        let notification_enabled: bool = row.get::<_, i32>(5)? != 0;
+        Ok((nickname, is_custom, wallet_image, cnc_url, email, notification_enabled))
     });
     match result {
         Ok(r) => Ok(Some(r)),
@@ -144,16 +148,18 @@ pub fn save_nickname(conn: &Connection, anonymous_id: &str, nickname: &str, is_c
 }
 
 /// ユーザーのプロフィール情報を一括更新する
-pub fn update_user_profile(conn: &Connection, anonymous_id: &str, nickname: Option<&str>, wallet_image: Option<&str>, cnc_url: Option<&str>) -> Result<()> {
+pub fn update_user_profile(conn: &Connection, anonymous_id: &str, nickname: Option<&str>, wallet_image: Option<&str>, cnc_url: Option<&str>, email: Option<&str>, notification_enabled: Option<bool>) -> Result<()> {
     conn.execute(
-        "INSERT INTO nicknames (anonymous_id, nickname, wallet_image, cnc_url, updated_at)
-         VALUES (?1, COALESCE(?2, 'ゲスト'), ?3, ?4, CURRENT_TIMESTAMP)
+        "INSERT INTO nicknames (anonymous_id, nickname, wallet_image, cnc_url, email, notification_enabled, updated_at)
+         VALUES (?1, COALESCE(?2, 'ゲスト'), ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)
          ON CONFLICT(anonymous_id) DO UPDATE SET
            nickname = COALESCE(?2, nickname),
            wallet_image = COALESCE(?3, wallet_image),
            cnc_url = COALESCE(?4, cnc_url),
+           email = COALESCE(?5, email),
+           notification_enabled = COALESCE(?6, notification_enabled),
            updated_at = CURRENT_TIMESTAMP",
-        params![anonymous_id, nickname, wallet_image, cnc_url],
+        params![anonymous_id, nickname, wallet_image, cnc_url, email, notification_enabled.map(|b| if b { 1 } else { 0 })],
     )?;
     Ok(())
 }
