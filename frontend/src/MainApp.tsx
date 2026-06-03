@@ -1577,11 +1577,27 @@ const App: React.FC = () => {
 
     socket.on('system_log', (log: { message: string, timestamp: string }) => {
       setSystemLogs(prev => [...prev.slice(-19), log]); // 直近20件を保持
+      // 推論開始・転送のログから状態を更新
+      if (log.message.includes("HF Super Node") || log.message.includes("HF Space")) {
+        setHfReady(true);
+      }
+      if (log.message.includes("PC Node") && !log.message.includes("不在")) {
+        setPcReady(true);
+      }
     });
 
     socket.on('bot_response', (data: { text: string }) => {
       console.log('Received bot_response via socket:', data.text);
       setProcessingNode(null);
+      
+      // AIからの返答プレフィックスでオンライン状態を復元（緑ランプ）
+      if (data.text.includes("【Local PC Node】") || data.text.includes("【Local Python Node】")) {
+        setPcReady(true);
+      }
+      if (data.text.includes("【HF Super Node】") || data.text.includes("【HF Node】")) {
+        setHfReady(true);
+      }
+      
       processAiResponse(data.text);
     });
 

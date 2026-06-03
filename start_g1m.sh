@@ -244,7 +244,8 @@ const handleTask = async (s, data) => {
             signal: timeoutSignal
         });
         const json = await res.json();
-        const text = json.message ? json.message.content : (json.error || "⚠️ Ollamaからの応答が空です");
+        // OpenAI互換形式 (choices[0].message.content) と Ollama標準形式 (message.content) の両方に対応
+        const text = (json.choices && json.choices[0] && json.choices[0].message) ? json.choices[0].message.content : (json.message ? json.message.content : (json.error || "⚠️ Ollamaからの応答が空です"));
         console.log(`✅ [BRIDGE] 推論成功。結果を返送します。`);
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {

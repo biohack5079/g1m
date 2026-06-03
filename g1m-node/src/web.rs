@@ -87,8 +87,14 @@ async fn health_check() -> impl IntoResponse {
 }
 
 fn normalize_url(url: &str) -> String {
-    if url.ends_with('/') { url.to_string() }
-    else { format!("{}/", url) }
+    let trimmed = url.trim().trim_end_matches('/');
+    if trimmed.is_empty() {
+        return "".to_string();
+    }
+    if !trimmed.starts_with("http") {
+        return format!("http://{}", trimmed);
+    }
+    trimmed.to_string()
 }
 
 // LLM request handler with failover (HF -> local Ollama)
@@ -121,9 +127,12 @@ async fn handle_llm(
     log::info!("🤖 [LLM] Routing to Local Ollama...");
     // 1. Try Local Ollama
     let ollama_base = normalize_url(&state.ollama_url);
-    let ollama_endpoint = format!("{}api/chat", ollama_base);
+    if ollama_base.is_empty() {
+        log::warn!("⚠️ Ollama URL is not configured. Skipping local direct attempt.");
+    } else {
+        let ollama_endpoint = format!("{}/api/chat", ollama_base);
     
-    match state.client.post(&ollama_endpoint)
+        match state.client.post(&ollama_endpoint)
         .json(&serde_json::json!({
             "model": state.ollama_model,
             "options": { "num_predict": 512 },
@@ -151,6 +160,7 @@ async fn handle_llm(
         Err(e) => {
             log::warn!("Local Ollama unavailable ({}): trying next node...", e);
         }
+    }
     }
 
     // 1.5 Try Local Python AI Node (Internal logic priority)
@@ -239,8 +249,9 @@ async fn handle_llm(
 
         tokio::spawn(async move {
             log::info!("☁️ [HF TASK] Dispatching prompt to: {}", hf_url_task);
-            let api_path = if hf_url_task.ends_with('/') { "v1/chat/completions" } else { "/v1/chat/completions" };
-            let target_url = format!("{}{}", hf_url_task, api_path);
+            // パスの重複を防ぐため、ベースURLの末尾スラッシュを除去してから結合
+            let base_url = hf_url_task.trim_end_matches('/');
+            let target_url = format!("{}/v1/chat/completions", base_url);
             
             let hf_client = reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(900))
@@ -324,16 +335,6 @@ async fn handle_llm(
     }))).into_response()
 }
 
-// Helper to determine if target URL ends in /
-trait EndsOk {
-    fn ends_ok(&self) -> bool;
-}
-impl EndsOk for String {
-    fn ends_ok(&self) -> bool {
-        self.ends_with('/')
-    }
-}
-
 async fn handle_process(
     State(state): State<AppState>,
     Json(payload): Json<ProcessRequest>,
@@ -341,11 +342,7 @@ async fn handle_process(
     // Check if we should redirect to HF
     if !state.hf_complex_url.is_empty() {
         let client = reqwest::Client::new();
-        let target_url = if state.hf_complex_url.ends_ok() {
-            format!("{}api/process", state.hf_complex_url)
-        } else {
-            format!("{}/api/process", state.hf_complex_url)
-        };
+        let target_url = format!("{}/api/process", state.hf_complex_url.trim_end_matches('/'));
         
         match client.post(&target_url).json(&payload).send().await {
             Ok(resp) => {
@@ -526,9 +523,9 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 .build().unwrap_or_default();
 
             // Ollama と Python ノードの生存確認 (URLが設定されている場合のみ実行)
-            let ollama_url = st_cap.ollama_url.trim_end_matches('/');
-            let ollama_alive = if !ollama_url.is_empty() {
-                client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok()
+            let ollama_base = normalize_url(&st_cap.ollama_url);
+            let ollama_alive = if !ollama_base.is_empty() {
+                client.get(format!("{}/api/tags", ollama_base)).send().await.is_ok()
             } else {
                 false
             };

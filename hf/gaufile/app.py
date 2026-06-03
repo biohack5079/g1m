@@ -86,6 +86,7 @@ try:
     threads = max(1, threads)
     llm = Llama(model_path=model_path, n_ctx=1024, n_threads=threads, n_gpu_layers=0)
     logger.info("Model loaded successfully (Optimized for CPU).")
+    logger.info("🚀 G1:M AI Node is now READY to handle requests.")
 except Exception as e:
     logger.error(f"Model load failed: {e}")
     llm = None
@@ -173,7 +174,7 @@ async def evolve_logic(user_query, ai_response, current_prompt):
 
 @app.api_route("/", methods=["GET", "POST"])
 @app.api_route("/v1/chat/completions", methods=["POST"])
-async def universal_handler(request: Request, prompt: str = None):
+async def universal_handler(request: Request, prompt: str = None):    
     user_prompt = ""
 
     # 1. GETパラメータから取得 (?prompt=xxx)
@@ -202,7 +203,10 @@ async def universal_handler(request: Request, prompt: str = None):
         return {"response": "プロンプトが空です。?prompt=こんにちは 等を試してください。"}
 
     if not llm:
-        return {"error": "Model not loaded"}
+        return {"status": "loading", "message": "Model is still initializing..."}
+
+    if request.method == "GET" and user_prompt == "health":
+        return {"status": "ok", "model": "gemma-3-4b-it"}
 
     # 1. 現在の進化済みプロンプトを取得
     system_prompt = await get_system_prompt()

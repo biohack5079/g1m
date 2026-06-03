@@ -200,7 +200,8 @@ cloudflared トンネル ✅ 起動中
 # ショートカット
 fuser -k 3000/tcp 3001/tcp
 npm run dev
-~/cloudflared tunnel --url http://localhost:3000
+~/cloudflared tunnel --url http://localhost:3000 --protocol http2
+
 
 npm run build
 cd frontend
