@@ -284,13 +284,20 @@ async fn handle_llm(
 
                     if status.is_success() && is_json {
                         if let Ok(data) = resp.json::<serde_json::Value>().await {
-                            let text = data["choices"][0]["message"]["content"]
-                                .as_str()
-                                .or_else(|| data["choices"][0]["text"].as_str())
-                                .or_else(|| data["text"].as_str())
-                                .or_else(|| data["response"].as_str())
-                                .unwrap_or("解析不能")
-                                .to_string();
+                            let text = if let Some(choices) = data.get("choices").and_then(|c| c.as_array()) {
+                                choices.first().and_then(|first| {
+                                    first.get("message").and_then(|m| m.get("content")).and_then(|c| c.as_str())
+                                        .or_else(|| first.get("text").and_then(|t| t.as_str()))
+                                })
+                            } else {
+                                None
+                            }
+                            .or_else(|| data.get("text").and_then(|t| t.as_str()))
+                            .or_else(|| data.get("response").and_then(|r| r.as_str()))
+                            .or_else(|| data.get("error").and_then(|e| e.as_str()))
+                            .or_else(|| data.get("message").and_then(|m| m.as_str()))
+                            .unwrap_or("解析不能")
+                            .to_string();
                             log::info!("☁️ [HF Node] Inference successful");
                             let display_text = format!("【HF Super Node】 {}", text);
                             let _ = state_task.io.emit("bot_response", serde_json::json!({ "text": display_text }));

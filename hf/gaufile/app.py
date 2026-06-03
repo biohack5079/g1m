@@ -2,6 +2,8 @@ import os
 import logging
 import asyncio
 from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+import json
 from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from supabase import create_client
@@ -15,60 +17,65 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 app = FastAPI()
 
-sio = socketio.AsyncClient(reconnection=True)
+# 動的に複数のSocket.IOクライアントを管理
+active_sio_clients = []
 
-@sio.event
-async def connect():
-    if llm is None:
-        logger.error("❌ Model not loaded. Skipping staff registration.")
-        return
-
-    sig_url = os.environ.get("SIGNALING_URL", "")
-    # localhost以外に接続している場合は外部ノードとして振る舞う
-    is_remote = "localhost" not in sig_url and "127.0.0.1" not in sig_url
-    node_name = "Distributed AI Node" if is_remote else "Local AI Node"
+def create_sio_client(url):
+    client = socketio.AsyncClient(reconnection=True)
     
-    logger.info(f"✅ {node_name} connected to Signaling Server: {sig_url}")
-    
-    # 自分が AI 推論リソースであることを Render サーバーに登録
-    # これによりフロントエンドの Nodes Active が増えます
-    registration_data = {
-        'role': 'staff', 
-        'nickname': node_name, 
-        'anonymousId': 'distributed_pc_worker',
-        'pocToken': '【HF Super Node】' if is_remote else '【Local Python Node】'
-    }
-    await sio.emit('register_role', registration_data)
+    @client.event
+    async def connect():
+        if llm is None:
+            logger.error(f"❌ Model not loaded. Skipping staff registration for {url}.")
+            return
 
-
-@sio.event
-async def distribute_task(data):
-    logger.info(f"📥 Received inference task: {data}")
-    prompt = data.get('prompt') or data.get('payload')
-    
-    # 実際の推論を実行（排他的ロックを使用）
-    async with inference_lock:
-        loop = asyncio.get_event_loop()
-        system_prompt = await get_system_prompt()
-        # キャラクター指示がない場合のデフォルトを強化
-        base_prompt = system_prompt if len(system_prompt) > 20 else "あなたはG1:Mちゃんです。親しみやすい日本語で回答してください。"
-        full_prompt = f"<bos><start_of_turn>system\n{base_prompt}<end_of_turn>\n<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+        is_remote = "localhost" not in url and "127.0.0.1" not in url
+        node_name = "Distributed AI Node" if is_remote else "Local AI Node"
         
-        # llama-cpp 推論
-        output = await loop.run_in_executor(None, lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"]))
-        result_text = output["choices"][0]["text"].strip()
+        logger.info(f"✅ {node_name} connected to Signaling Server: {url}")
+        
+        registration_data = {
+            'role': 'staff', 
+            'nickname': node_name, 
+            'anonymousId': 'distributed_pc_worker',
+            'pocToken': '【HF Super Node】' if is_remote else '【Local Python Node】'
+        }
+        await client.emit('register_role', registration_data)
 
-    # 結果を Render サーバー経由でスマホへ返す
-    await sio.emit('task_result', {'taskId': data.get('taskId'), 'result': result_text})
+    @client.event
+    async def distribute_task(data):
+        logger.info(f"📥 Received inference task from {url}: {data}")
+        prompt = data.get('prompt') or data.get('payload')
+        
+        if not llm:
+            await client.emit('task_result', {'taskId': data.get('taskId'), 'result': "Model is still initializing..."})
+            return
+            
+        async with inference_lock:
+            loop = asyncio.get_event_loop()
+            system_prompt = await get_system_prompt()
+            base_prompt = system_prompt if len(system_prompt) > 20 else "あなたはG1:Mちゃんです。親しみやすい日本語で回答してください。"
+            full_prompt = f"<bos><start_of_turn>system\n{base_prompt}<end_of_turn>\n<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+            
+            output = await loop.run_in_executor(None, lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"], echo=False))
+            result_text = output["choices"][0]["text"].strip()
+
+        await client.emit('task_result', {'taskId': data.get('taskId'), 'result': result_text})
+        
+    return client
 
 @app.on_event("startup")
 async def startup_event():
-    try:
-        url = os.environ.get("SIGNALING_URL", "http://localhost:3000")
-        # WebSocketトランスポートを明示的に指定
-        await sio.connect(url, transports=['websocket'])
-    except Exception as e:
-        logger.error(f"Failed to connect to signaling server: {e}")
+    urls_env = os.environ.get("SIGNALING_URLS", os.environ.get("SIGNALING_URL", "https://dj-g1m.onrender.com"))
+    urls = [u.strip() for u in urls_env.split(",") if u.strip()]
+    
+    for url in urls:
+        try:
+            client = create_sio_client(url)
+            await client.connect(url, transports=['websocket'])
+            active_sio_clients.append(client)
+        except Exception as e:
+            logger.error(f"Failed to connect to signaling server {url}: {e}")
 
 # 推論の競合を防ぐためのロック
 inference_lock = asyncio.Lock()
@@ -208,35 +215,50 @@ async def universal_handler(request: Request, prompt: str = None):
     if request.method == "GET" and user_prompt == "health":
         return {"status": "ok", "model": "gemma-3-4b-it"}
 
-    # 1. 現在の進化済みプロンプトを取得
-    system_prompt = await get_system_prompt()
-    
-    # 推論
-    full_prompt = f"<bos><start_of_turn>system\n{system_prompt}<end_of_turn>\n<start_of_turn>user\n{user_prompt}<end_of_turn>\n<start_of_turn>model\n"
+    async def response_generator():
+        # 1. 現在の進化済みプロンプトを取得
+        system_prompt = await get_system_prompt()
+        full_prompt = f"<bos><start_of_turn>system\n{system_prompt}<end_of_turn>\n<start_of_turn>user\n{user_prompt}<end_of_turn>\n<start_of_turn>model\n"
 
-    # 修正: ロックを使用して一度に1リクエストのみ処理
-    async with inference_lock:
+        loop = asyncio.get_event_loop()
+
+        async def run_inference():
+            async with inference_lock:
+                return await loop.run_in_executor(
+                    None, 
+                    lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"], echo=False)
+                )
+
+        # 推論タスクをバックグラウンドで開始
+        task = asyncio.create_task(run_inference())
+
+        # HFルーターの60秒タイムアウト対策: 10秒ごとに空白(スペース)をストリーミング送信して接続を維持
+        while not task.done():
+            yield b" "
+            await asyncio.sleep(10)
+
         try:
-            loop = asyncio.get_event_loop()
-            # スレッドプールで推論を実行（非ブロッキング）
-            output = await loop.run_in_executor(
-                None, 
-                lambda: llm(full_prompt, max_tokens=200, stop=["<end_of_turn>"], echo=False)
-            )
-            # AIの回答をSupabaseに保存（ログとして）
-            asyncio.create_task(save_chat_to_supabase("G1:M", output["choices"][0]["text"].strip()))
+            output = task.result()
             res_text = output["choices"][0]["text"].strip()
+            
+            # AIの回答をSupabaseに保存（ログとして）
+            asyncio.create_task(save_chat_to_supabase("G1:M", res_text))
+            
+            # 進化ロジックはバックグラウンド実行
+            try:
+                asyncio.create_task(evolve_logic(user_prompt, res_text, system_prompt))
+            except Exception as evolution_err:
+                logger.warning(f"Evolution task failed to start: {evolution_err}")
+
+            response_obj = {
+                "choices": [{"message": {"content": res_text}}],
+                "response": res_text
+            }
+            yield json.dumps(response_obj).encode("utf-8")
         except Exception as e:
             logger.error(f"Inference error: {e}")
-            return {"error": str(e)}
+            error_obj = {"error": str(e)}
+            yield json.dumps(error_obj).encode("utf-8")
 
-    # 進化ロジックはロックの外でバックグラウンド実行
-    try:
-        asyncio.create_task(evolve_logic(user_prompt, res_text, system_prompt))
-    except Exception as evolution_err:
-        logger.warning(f"Evolution task failed to start: {evolution_err}")
-
-    return {
-        "choices": [{"message": {"content": res_text}}],
-        "response": res_text
-    }
+    # StreamingResponseを返し、JSONペイロードの先頭に空白を含めてタイムアウトを回避
+    return StreamingResponse(response_generator(), media_type="application/json")
