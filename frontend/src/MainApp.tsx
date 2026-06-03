@@ -687,14 +687,20 @@ const App: React.FC = () => {
     // スケルトンの位置と回転をVRMモデルに同期させる
     landmarkGroupRef.current.position.copy(vrm.scene.position);
     landmarkGroupRef.current.rotation.copy(vrm.scene.rotation);
+    landmarkGroupRef.current.updateMatrixWorld();
 
     // VRMボーン取得ヘルパー
     const getB = (name: string) => (vrm.humanoid as any).getNormalizedBoneNode?.(name) || (vrm.humanoid as any).getBoneNode?.(name) || (vrm.humanoid as any).getRawBoneNode?.(name);
 
     // アバターのワールドポジションに合わせる
     const hipsPos = new THREE.Vector3(); getB('hips')?.getWorldPosition(hipsPos);
+    if (hipsPos) landmarkGroupRef.current.worldToLocal(hipsPos);
+    
     const lHandPos = new THREE.Vector3(); getB('leftHand')?.getWorldPosition(lHandPos);
+    if (lHandPos) landmarkGroupRef.current.worldToLocal(lHandPos);
+    
     const rHandPos = new THREE.Vector3(); getB('rightHand')?.getWorldPosition(rHandPos);
+    if (rHandPos) landmarkGroupRef.current.worldToLocal(rHandPos);
 
     // ポーズドット (全身) の位置更新
     if (res.poseLandmarks) {
@@ -1859,8 +1865,8 @@ const App: React.FC = () => {
 
       <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: pcReady ? '#0f0' : '#f00', marginRight: '8px', boxShadow: pcReady ? '0 0 12px #0f0' : 'none' }}></span>
-          <span style={{ fontWeight: 'bold' }}>LOCAL AI: {pcReady ? 'READY' : 'OFFLINE'}</span>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (pcReady && (activeNodes > 0 || (aiThinking && (processingNode === 'PC Node (Brain)' || processingNode === 'Local WebGPU (Helper)')))) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (pcReady && (activeNodes > 0 || (aiThinking && (processingNode === 'PC Node (Brain)' || processingNode === 'Local WebGPU (Helper)')))) ? '0 0 12px #0f0' : 'none' }}></span>
+          <span style={{ fontWeight: 'bold' }}>LOCAL AI: {(pcReady && (activeNodes > 0 || (aiThinking && (processingNode === 'PC Node (Brain)' || processingNode === 'Local WebGPU (Helper)')))) ? 'READY' : 'OFFLINE'}</span>
         </div>
         <div style={{ marginTop: '4px', fontSize: '11px', opacity: 0.8 }}>
           Cluster Nodes: {activeNodes}
@@ -1880,13 +1886,13 @@ const App: React.FC = () => {
 
       <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`} style={{ right: '10px', left: 'auto' }}>
         <div className="status-dot" style={{
-          backgroundColor: hfReady ? '#0f0' : '#f00',
-          boxShadow: hfReady ? '0 0 10px #0f0' : 'none'
+          backgroundColor: (hfReady || (aiThinking && processingNode?.includes('HF'))) ? '#0f0' : '#f00',
+          boxShadow: (hfReady || (aiThinking && processingNode?.includes('HF'))) ? '0 0 10px #0f0' : 'none'
         }}></div>
         <span>
           {loadingProgress !== null ? `LOAD ${loadingProgress}%` :
             aiThinking ? `THINKING...` :
-              (hfReady ? "SUPER NODE: ONLINE" : "SUPER NODE: OFFLINE")}
+              ((hfReady || processingNode?.includes('HF')) ? "SUPER NODE: ONLINE" : "SUPER NODE: OFFLINE")}
         </span>
       </div>
 
