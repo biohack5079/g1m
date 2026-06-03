@@ -19,6 +19,12 @@ public class WalletInfo {
     
     private String walletType; // e.g., "AirWallet", "PayPay", "Stripe"
     
+    private String cncUrl; // CyberNetCall P2P connection URL
+    
+    private String email; // For notifications/sign-in
+    
+    private boolean notificationEnabled; // Notification preference
+    
     private String huggingFaceUrl; // HuggingFace model URL
     
     private String createdAt;

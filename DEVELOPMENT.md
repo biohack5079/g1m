@@ -78,8 +78,8 @@ curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloud
 # ターミナル1
 npm run dev
 
-# ターミナル2
-~/cloudflared tunnel --url http://localhost:3001
+# ターミナル2 (UDP制限がある環境では --protocol http2 を追加して安定化させます)
+~/cloudflared tunnel --url http://localhost:3001 --protocol http2
 ```
 表示された `https://xxxx.trycloudflare.com` のURLにアクセスします。
 

@@ -15,7 +15,7 @@ elif [ -z "$REMOTE_G1M_URL" ]; then
 fi
 
 if [[ "$REMOTE_G1M_URL" == *"trycloudflare.com"* ]]; then
-    echo "⚠️ [Tunnel Note] Cloudflare Tunnel を使用する場合、ポート 3000 (Rust) を公開してください。3001 (Vite) では AI 分散推論が動作しません。"
+    echo "⚠️ [Tunnel Note] Cloudflare Tunnel を使用する場合、ポート 3000 (Rust) を公開してください。接続が不安定な場合は --protocol http2 を付けて実行してください。"
 fi
 
 # Force local-first inference configuration
@@ -46,12 +46,18 @@ if ! command -v cargo &> /dev/null; then
 fi
 
 # 0.5 Start Java Backend (Docker) for Wallet & DB features
-if command -v docker-compose &> /dev/null; then
+DOCKER_COMPOSE_CMD=""
+if command -v docker-compose &> /dev/null; then DOCKER_COMPOSE_CMD="docker-compose";
+elif docker compose version &> /dev/null; then DOCKER_COMPOSE_CMD="docker compose"; fi
+
+if [ ! -z "$DOCKER_COMPOSE_CMD" ]; then
     echo "[0.5/3] Starting Java backend (Docker)..."
-    cd z1m/java-unit && docker-compose up -d && cd ../..
+    cd z1m/java-unit && $DOCKER_COMPOSE_CMD up -d --build && cd ../..
+    sleep 3
+    docker ps | grep z1m-java-unit || echo "⚠️ Java backend failed to start. Check 'docker logs z1m-java-unit-1'"
     echo "✅ Java backend is starting in background (Port 8080)"
 else
-    echo "[Warning] docker-compose not found. Java backend (Wallet/Nickname) will not be available."
+    echo "[Warning] Docker Compose not found. Java backend will not be available."
 fi
 
 # 1. Compile the Rust P2P signaling node
@@ -220,7 +226,10 @@ const handleTask = async (s, data) => {
 
     try {
         console.log(`🤖 [BRIDGE] Ollamaにリクエスト送信中...`);
-        const res = await fetch('http://127.0.0.1:11434/api/chat', {
+        // タイムアウト設定を追加 (524エラー対策)
+        const timeoutSignal = AbortSignal.timeout(60000); // 60秒
+        
+        const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -231,7 +240,7 @@ const handleTask = async (s, data) => {
                 ],
                 stream: false
             }),
-            signal: controller.signal
+            signal: timeoutSignal
         });
         const json = await res.json();
         const text = json.message ? json.message.content : (json.error || "⚠️ Ollamaからの応答が空です");

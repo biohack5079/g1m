@@ -55,6 +55,8 @@ pub fn init_db(path: &str) -> Result<Connection> {
             anonymous_id TEXT PRIMARY KEY,
             nickname TEXT NOT NULL DEFAULT 'ゲスト',
             is_custom INTEGER NOT NULL DEFAULT 0,
+            wallet_image TEXT,
+            cnc_url TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
@@ -109,14 +111,16 @@ pub fn get_recent_messages(conn: &Connection, limit: usize) -> Result<Vec<Messag
 }
 
 /// 匿名IDに対するニックネームを取得する（DB登録済みの場合）
-pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(String, bool)>> {
+pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(String, bool, Option<String>, Option<String>)>> {
     let mut stmt = conn.prepare(
-        "SELECT nickname, is_custom FROM nicknames WHERE anonymous_id = ?1",
+        "SELECT nickname, is_custom, wallet_image, cnc_url FROM nicknames WHERE anonymous_id = ?1",
     )?;
     let result = stmt.query_row([anonymous_id], |row| {
         let nickname: String = row.get(0)?;
         let is_custom: bool = row.get::<_, i32>(1)? != 0;
-        Ok((nickname, is_custom))
+        let wallet_image: Option<String> = row.get(2)?;
+        let cnc_url: Option<String> = row.get(3)?;
+        Ok((nickname, is_custom, wallet_image, cnc_url))
     });
     match result {
         Ok(r) => Ok(Some(r)),
@@ -135,6 +139,21 @@ pub fn save_nickname(conn: &Connection, anonymous_id: &str, nickname: &str, is_c
            is_custom = CASE WHEN excluded.is_custom = 1 THEN 1 ELSE nicknames.is_custom END,
            updated_at = CURRENT_TIMESTAMP",
         params![anonymous_id, nickname, if is_custom { 1 } else { 0 }],
+    )?;
+    Ok(())
+}
+
+/// ユーザーのプロフィール情報を一括更新する
+pub fn update_user_profile(conn: &Connection, anonymous_id: &str, nickname: Option<&str>, wallet_image: Option<&str>, cnc_url: Option<&str>) -> Result<()> {
+    conn.execute(
+        "INSERT INTO nicknames (anonymous_id, nickname, wallet_image, cnc_url, updated_at)
+         VALUES (?1, COALESCE(?2, 'ゲスト'), ?3, ?4, CURRENT_TIMESTAMP)
+         ON CONFLICT(anonymous_id) DO UPDATE SET
+           nickname = COALESCE(?2, nickname),
+           wallet_image = COALESCE(?3, wallet_image),
+           cnc_url = COALESCE(?4, cnc_url),
+           updated_at = CURRENT_TIMESTAMP",
+        params![anonymous_id, nickname, wallet_image, cnc_url],
     )?;
     Ok(())
 }

@@ -30,14 +30,13 @@ const SMOOTH_FACTOR = 0.3; // 0.1(滑らか) 〜 1.0(高速)
 
 // 座標補間ヘルパー
 const lerpLandmarks = (prev: any, curr: any) => {
-  if (!curr) return null; // 追跡が途切れたらnullを返し、残像（キャッシュ）が残るのを防ぐ
+  if (!curr) return prev; // 追跡が途切れても直前の値を保持してガクつきを抑える
   if (!prev) return curr;
   return curr.map((lm: any, i: number) => {
     const p = prev[i];
     if (!p) return lm;
     return {
-      x: p.x + (lm.x - p.x) * SMOOTH_FACTOR,
-      y: p.y + (lm.y - p.y) * SMOOTH_FACTOR,
+      x: p.x + (lm.x - p.x) * SMOOTH_FACTOR, y: p.y + (lm.y - p.y) * SMOOTH_FACTOR,
       z: p.z + (lm.z - p.z) * SMOOTH_FACTOR,
       visibility: lm.visibility ?? p.visibility
     };
@@ -60,6 +59,8 @@ const App: React.FC = () => {
   const [userWalletImage, setUserWalletImage] = useState<string | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [tappedWalletImage, setTappedWalletImage] = useState<string | null>(null);
+  const [tappedCncUrl, setTappedCncUrl] = useState<string | null>(null);
+  const [qrMode, setQrMode] = useState<'wallet' | 'cnc'>('wallet');
   const [tappedModelId, setTappedModelId] = useState<string>("");
   const [tappedSocketId, setTappedSocketId] = useState<string>("");
   const [nickname, setNickname] = useState<string>("ゲスト");
@@ -231,10 +232,13 @@ const App: React.FC = () => {
       setAnonymousId(id);
       // Supabase経由でWallet情報を取得してみる
       fetch(`/api/kampa/wallet/${id}`)
-        .then(res => res.ok ? res.json() : fetch(`http://localhost:8080/api/kampa/wallet/${id}`).then(r => r.json()))
+        .then(res => res.ok ? res.json() : Promise.reject())
         .then(data => {
           if (data && data.wallet_image_data) {
             setUserWalletImage(data.wallet_image_data);
+          }
+          if (data && data.cnc_url) {
+            // CNC URLの初期化
           }
           if (data && data.nickname) {
             setNickname(data.nickname);
@@ -250,17 +254,21 @@ const App: React.FC = () => {
 
     // Spring Boot サーバーにニックネームを保存
     try {
-      await fetch("http://localhost:8080/api/kampa/nickname", {
+      await fetch("/api/kampa/wallet/register", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ anonymousId, nickname: newNick })
+        body: JSON.stringify({
+          anonymous_id: anonymousId,
+          nickname: newNick,
+          cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}` // CNC用URLを自動生成
+        })
       });
     } catch (e) {
       console.error("Nickname sync to SpringBoot failed", e);
     }
 
     if (socketRef.current) {
-      socketRef.current.emit('update_nickname', { nickname: newNick });
+      socketRef.current.emit('update_nickname', { nickname: newNick, isCustom: true });
     }
   };
 
@@ -327,9 +335,9 @@ const App: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            anonymousId,
-            walletImageData: base64,
-            walletType: "AirWallet"
+            anonymous_id: anonymousId,
+            wallet_image: base64,
+            cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}`
           })
         });
         setStatus("Wallet登録完了");
@@ -372,7 +380,7 @@ const App: React.FC = () => {
         setTappedSocketId(id);
         // setShowHideButton(true); // 中央のボタンは出さない
 
-        // タップされたモデルの anonymousId を特定
+        // タップされたモデルの anonymousId を特定        
         let targetAnonymousId: string | null = null;
 
         if (id === 'local') {
@@ -383,9 +391,8 @@ const App: React.FC = () => {
           setTappedModelId('G1:Mちゃん (AI)');
           setTappedSocketId(id);
 
-          fetch(`${apiBase}/api/kampa/wallet/bot`)
+          fetch(`/api/kampa/wallet/bot`)
             .then(res => res.ok ? res.json() : Promise.reject())
-            .catch(() => fetch(`http://localhost:8080/api/kampa/wallet/bot`).then(r => r.json()))
             .then(data => {
               setTappedWalletImage(data?.wallet_image_data || null); // DBから取得した画像を表示
               setIsQrModalOpen(true);
@@ -408,13 +415,15 @@ const App: React.FC = () => {
           setTappedSocketId(id);
 
           // Supabase経由でWallet情報を取得
-          fetch(`${apiBase}/api/kampa/wallet/${targetAnonymousId}`)
-            .then(res => res.ok ? res.json() : fetch(`http://localhost:8080/api/kampa/wallet/${targetAnonymousId}`).then(r => r.json()))
+          fetch(`/api/kampa/wallet/${targetAnonymousId}`)
+            .then(res => res.ok ? res.json() : Promise.reject())
             .then(data => {
               if (data && data.wallet_image_data) {
                 setTappedWalletImage(data.wallet_image_data);
+                setTappedCncUrl(data.cnc_url || null);
               } else {
                 setTappedWalletImage(null);
+                setTappedCncUrl(data.cnc_url || null);
               }
               setIsQrModalOpen(true);
             })
@@ -446,14 +455,14 @@ const App: React.FC = () => {
 
     // ボーン取得ヘルパー: 全てのAPI差異を吸収し、確実にノードを取得する
     const getBone = (name: string) => {
-      const h = vrm.humanoid as any;
-      return h.getNormalizedBoneNode?.(name) || h.getBoneNode?.(name) || h.getRawBoneNode?.(name) || vrm.scene.getObjectByName(name);
+      if (!vrm.humanoid) return null;
+      return vrm.humanoid.getNormalizedBoneNode(name as any) || (vrm.humanoid as any).getBoneNode?.(name) || vrm.scene.getObjectByName(name);
     };
 
     const kalido = (window as any).Kalidokit || (window as any).Kalido;
     if (kalido) {
       // --- KalidoKit 統合 ---
-      // 1. Face (Head Rotation, Mouth, Eyes)
+      // 1. Face (Head Rotation, Mouth, Eyes)      
       if (res.faceLandmarks) {
         const faceRig = kalido.Face.solve(res.faceLandmarks, {
           runtime: 'mediapipe',
@@ -508,7 +517,7 @@ const App: React.FC = () => {
       }
 
       // 3. Left Hand (Fingers)
-      if (res.leftHandLandmarks) {
+      if (res.leftHandLandmarks && res.leftHandLandmarks.length > 0) {
         const leftHandRig = kalido.Hand.solve(res.leftHandLandmarks, 'Left');
         if (leftHandRig) {
           const fingers = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
@@ -530,7 +539,7 @@ const App: React.FC = () => {
       }
 
       // 4. Right Hand (Fingers)
-      if (res.rightHandLandmarks) {
+      if (res.rightHandLandmarks && res.rightHandLandmarks.length > 0) {
         const rightHandRig = kalido.Hand.solve(res.rightHandLandmarks, 'Right');
         if (rightHandRig) {
           const fingers = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
@@ -715,7 +724,7 @@ const App: React.FC = () => {
     const updateLine = (line: THREE.Line, p1: THREE.Vector3, p2: THREE.Vector3, v1: boolean, v2: boolean) => {
       if (!line) return;
       if (v1 && v2) {
-        // 高速化: setFromPointsではなくBufferAttributeを直接更新してGCを抑制
+        // 高速化: setFromPointsではなくBufferAttributeを直接更新してGCを抑制        
         const posAttr = line.geometry.attributes.position;
         posAttr.setXYZ(0, p1.x, p1.y, p1.z);
         posAttr.setXYZ(1, p2.x, p2.y, p2.z);
@@ -1164,12 +1173,22 @@ const App: React.FC = () => {
     setSubtitle(`[自分] ${text}`);
     setChatInput("");
 
-    // AI Bot 対応 (一人の時)
-    if (Object.keys(dataChannelsRef.current).length === 0 && vrmsRef.current['bot']) {
-      // Generate system prompt based on detected language
-      const systemPrompt = generateSystemPrompt(detectedLang);
+    // DM判定: "/msg socketId message" という形式をサポート
+    if (text.startsWith("/msg ")) {
+      const parts = text.split(" ");
+      if (parts.length >= 3) {
+        const targetId = parts[1];
+        const msg = parts.slice(2).join(" ");
+        socketRef.current?.emit("private_message", { targetId, text: msg, senderName: nickname });
+        setSubtitle(`[DM to ${targetId.slice(0, 4)}] ${msg}`);
+        return;
+      }
+    }
+
+    // Brain (Rustサーバー) に判断を委ねる
+    if (vrmsRef.current['bot']) {
       const poseContext = getUserPoseDescription();
-      const fullPrompt = `${systemPrompt}\n\nUser: ${poseContext} ${text}`;
+      const fullPrompt = `${poseContext} ${text}`;
 
       (async () => {
         try {
@@ -1554,6 +1573,11 @@ const App: React.FC = () => {
     socket.on('chat_message', (data: { text: string, senderName: string, id: string }) => {
       setSubtitle(`[${data.senderName}] ${data.text}`);
       scheduleSubtitleClear();
+    });
+
+    socket.on('private_message', (data: { text: string, senderName: string, from: string }) => {
+      setSubtitle(`[DM from ${data.senderName}] ${data.text}`);
+      scheduleSubtitleClear(10000);
     });
 
     socket.on('distribute_task', (data: { taskId: string, prompt: string }) => {
@@ -1971,20 +1995,37 @@ const App: React.FC = () => {
       {isQrModalOpen && (
         <div className="modal-overlay" onClick={() => setIsQrModalOpen(false)}>
           <div className="modal-content qr-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{tappedModelId} のQRコード</h3>
+            <h3>{tappedModelId} の連絡先</h3>
+
+            <div className="qr-tabs" style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
+              <button onClick={() => setQrMode('wallet')} style={{ padding: '8px 15px', borderRadius: '15px 0 0 15px', border: '1px solid #555', background: qrMode === 'wallet' ? '#444' : '#222', color: 'white' }}>カンパ</button>
+              <button onClick={() => setQrMode('cnc')} style={{ padding: '8px 15px', borderRadius: '0 15px 15px 0', border: '1px solid #555', background: qrMode === 'cnc' ? '#444' : '#222', color: 'white' }}>CyberNetCall</button>
+            </div>
+
             <div className="qr-container">
-              {tappedWalletImage ? (
-                <img src={tappedWalletImage} alt="Wallet QR" className="qr-image" />
+              {qrMode === 'wallet' ? (
+                tappedWalletImage ? (
+                  <img src={tappedWalletImage} alt="Wallet QR" className="qr-image" />
+                ) : (
+                  <div className="qr-placeholder"><p>💳</p><p>QRコード未登録</p></div>
+                )
               ) : (
-                <div className="qr-placeholder">
-                  <p>💳</p>
-                  <p>QRコード未登録</p>
-                  <p className="qr-hint">
-                    {tappedModelId === nickname
-                      ? '自分のQRはカンパから登録できます'
-                      : '相手のQRは未登録です'}
-                  </p>
-                </div>
+                tappedCncUrl ? (
+                  <div className="cnc-qr-area">
+                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>P2P通話を開始します</p>
+                    <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline' }}>通話を開始する</a>
+                  </div>
+                ) : (
+                  <div className="qr-placeholder">
+                    <p>📞</p>
+                    <p>CNC未設定</p>
+                    <p className="qr-hint">
+                      {tappedModelId === nickname
+                        ? '設定から通話用URLを登録できます'
+                        : '相手の通話設定は未登録です'}
+                    </p>
+                  </div>
+                )
               )}
             </div>
 

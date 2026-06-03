@@ -20,7 +20,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/kampa")
-@CrossOrigin(origins = "*") // PoCのため全許可
+@CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS}, maxAge = 3600)
 public class KampaController {
 
     @Autowired
@@ -73,6 +73,9 @@ public class KampaController {
         toSave.setWalletImageData(walletInfo.getWalletImageData());
         toSave.setWalletType(walletInfo.getWalletType());
         toSave.setNickname(walletInfo.getNickname());
+        toSave.setCncUrl(walletInfo.getCncUrl());
+        toSave.setEmail(walletInfo.getEmail());
+        toSave.setNotificationEnabled(walletInfo.isNotificationEnabled());
         toSave.setHuggingFaceUrl(walletInfo.getHuggingFaceUrl());
         toSave.setCreatedAt(LocalDateTime.now().toString());
 
@@ -115,5 +118,13 @@ public class KampaController {
         private String nickname;
         public String getAnonymousId() { return anonymousId; }
         public String getNickname() { return nickname; }
+    }
+
+    /**
+     * CORSプリフライトリクエストのためのOPTIONSハンドラ
+     */
+    @RequestMapping(method = RequestMethod.OPTIONS)
+    public ResponseEntity<?> options() {
+        return ResponseEntity.ok().build();
     }
 }

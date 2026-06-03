@@ -74,6 +74,13 @@ pub struct WalletRegisterRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ProfileRegisterRequest {
+    pub anonymous_id: String,
+    pub wallet_image: Option<String>,
+    pub cnc_url: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DonateRequest {
     pub amount: u32,
 }
@@ -97,10 +104,28 @@ async fn handle_llm(
     // io: SocketIo, // SocketIoはAppStateから取得するため削除
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
-    // ターミナルにリクエストを表示
-    println!("\n🤖 [LLM Request] prompt: {}", payload.prompt);
-    log::info!("🤖 [LLM] Requesting Local Ollama: {}", payload.prompt);
+    log::info!("🤖 [Brain] Processing request: {}", payload.prompt);
 
+    // --- RAG: 知識ベースからの検索 (Brain機能) ---
+    let mut context_augmented_prompt = payload.prompt.clone();
+    {
+        let db = state.db_conn.lock().unwrap();
+        // 簡易的なキーワードまたは埋め込み検索 (本来は埋め込みモデルを通すが、ここではDBのmatch_knowledgeを利用)
+        // ダミーのクエリベクトル（本来はpromptをベクトル化する）
+        let query_vec = vec![0.0; 384]; 
+        if let Ok(matches) = crate::db::match_knowledge(&db, &query_vec, 0.1, 3) {
+            if !matches.is_empty() {
+                let context = matches.iter()
+                    .map(|m| m.content.clone())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                context_augmented_prompt = format!("以下の知識を参考に答えてください:\n{}\n\n質問: {}", context, payload.prompt);
+                log::info!("📚 [RAG] Context injected from knowledge base.");
+            }
+        }
+    }
+
+    log::info!("🤖 [LLM] Routing to Local Ollama...");
     // 1. Try Local Ollama
     let ollama_base = normalize_url(&state.ollama_url);
     let ollama_endpoint = format!("{}api/chat", ollama_base);
@@ -111,7 +136,7 @@ async fn handle_llm(
             "options": { "num_predict": 512 },
             "messages": [
                 { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。" },
-                { "role": "user", "content": payload.prompt }
+                { "role": "user", "content": context_augmented_prompt }
             ],
             "stream": false
         })).send().await {
@@ -144,7 +169,7 @@ async fn handle_llm(
             "model": state.ollama_model, // AppStateに保持されたモデル名を使用
             "messages": [
                 { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
-                { "role": "user", "content": payload.prompt }
+                { "role": "user", "content": context_augmented_prompt }
             ],
             "max_tokens": 512,
             "temperature": 0.8
@@ -190,7 +215,7 @@ async fn handle_llm(
         // 一番早く計算が終わったノードが task_result を返せばOK
         let _ = state.io.to("staff").emit("distribute_task", serde_json::json!({
             "taskId": task_id,
-            "prompt": payload.prompt.clone()
+            "prompt": context_augmented_prompt.clone()
         }));
         return Json(LlmResponse { 
             response: format!("【Distributed】PCノード({})にタスクを送信しました...", &sid[..4]), 
@@ -208,81 +233,88 @@ async fn handle_llm(
     };
     
     if !hf_url.is_empty() {
-        log::info!("☁️ Falling back to Hugging Face LLM endpoint: {}", hf_url);
         let _ = state.io.emit("system_log", serde_json::json!({
-            "message": "☁️ PC Nodeが不在のため、HF Super Nodeへフォールバック中...",
+            "message": "☁️ PC Node不在。HF Super Nodeへ転送中 (回答まで数分かかる場合があります)",
             "timestamp": "now"
         }));
-        
-        let api_path = if hf_url.ends_with('/') {
-            "v1/chat/completions"
-        } else {
-            "/v1/chat/completions"
-        };
-        let target_url = format!("{}{}", hf_url, api_path);
-        
-        // HF用に15分タイムアウトのクライアントを使う（Cold Start対応）
-        let hf_client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(900))
-            .build()
-            .unwrap_or_else(|_| state.client.clone());
-        
-        let mut req = hf_client.post(&target_url)
-            .json(&serde_json::json!({
-                "model": "llama-3.1-8b",
-                "messages": [
-                    { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
-                    { "role": "user", "content": payload.prompt }
-                ],
-                "max_tokens": 512,
-                "temperature": 0.8
-            }));
+
+        let _ = state.io.emit("subtitle", serde_json::json!({ "text": "[G1:M] クラウドで考え中..." }));
+
+        // HFリクエストをバックグラウンドで実行し、HTTPレスポンスは即座に返す
+        let state_task = state.clone();
+        let prompt_task = payload.prompt.clone();
+        let hf_url_task = hf_url.clone();
+
+        tokio::spawn(async move {
+            log::info!("☁️ [TASK] Background HF Inference started for: {}", hf_url_task);
+            let api_path = if hf_url_task.ends_with('/') { "v1/chat/completions" } else { "/v1/chat/completions" };
+            let target_url = format!("{}{}", hf_url_task, api_path);
             
-        if !state.huggingface_token.is_empty() {
-            req = req.bearer_auth(&state.huggingface_token);
-        }
-        
-        match req.send().await {
-            Ok(resp) => {
-                let status = resp.status();
-                let is_json = resp.headers()
-                    .get("content-type")
-                    .and_then(|ct| ct.to_str().ok())
-                    .map(|ct| ct.contains("application/json"))
-                    .unwrap_or(false);
+            let hf_client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(900))
+                .build()
+                .unwrap_or_else(|_| state_task.client.clone());
+            
+            let mut req = hf_client.post(&target_url)
+                .json(&serde_json::json!({
+                    "model": "llama-3.1-8b",
+                    "messages": [
+                        { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
+                        { "role": "user", "content": context_augmented_prompt } // Augmented prompt
+                    ],
+                    "max_tokens": 512,
+                    "temperature": 0.8
+                }));
+                
+            if !state_task.huggingface_token.is_empty() {
+                req = req.bearer_auth(&state_task.huggingface_token);
+            }
 
-                if status.is_success() && is_json {
-                    if let Ok(data) = resp.json::<serde_json::Value>().await {
-                        // OpenAI形式とシンプルなtext形式の両方に対応
-                        let text = data["choices"][0]["message"]["content"]
-                            .as_str()
-                            .or_else(|| data["choices"][0]["text"].as_str())
-                            .or_else(|| data["text"].as_str())
-                            .or_else(|| data["response"].as_str())
-                            .unwrap_or("HFノードからの応答を解析できませんでした。")
-                            .to_string();
-                        log::info!("☁️ [HF Node] Inference successful: {}", text);
-                        let display_text = format!("【HF Super Node】 {}", text);
+            match req.send().await {
+                Ok(resp) => {
+                    let status = resp.status();
+                    let is_json = resp.headers()
+                        .get("content-type")
+                        .and_then(|ct| ct.to_str().ok())
+                        .map(|ct| ct.contains("application/json"))
+                        .unwrap_or(false);
 
-                        let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text, "actionName": "" }));
-
-                        return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+                    if status.is_success() && is_json {
+                        if let Ok(data) = resp.json::<serde_json::Value>().await {
+                            let text = data["choices"][0]["message"]["content"]
+                                .as_str()
+                                .or_else(|| data["choices"][0]["text"].as_str())
+                                .or_else(|| data["text"].as_str())
+                                .or_else(|| data["response"].as_str())
+                                .unwrap_or("解析不能")
+                                .to_string();
+                            log::info!("☁️ [HF Node] Inference successful");
+                            let display_text = format!("【HF Super Node】 {}", text);
+                            let _ = state_task.io.emit("bot_response", serde_json::json!({ "text": display_text }));
+                        }                        
+                    } else if status.is_success() && !is_json {
+                        let _ = state_task.io.emit("system_log", serde_json::json!({
+                            "message": "⏳ HF Space が起動中のようです。数分後に再試行してください。",
+                            "timestamp": "now"
+                        }));
+                    } else {
+                        log::warn!("HF task failed with status: {:?}", status);
+                        let _ = state_task.io.emit("system_log", serde_json::json!({
+                            "message": format!("❌ HF Node Error: {}", status),
+                            "timestamp": "now"
+                        }));
                     }
-                } else if status.is_success() && !is_json {
-                    // HF Spaces が HTML を返す場合（起動中/スリープ中）
-                    log::warn!("HF returned non-JSON (likely sleeping/starting). Status: {:?}", status);
-                    let _ = state.io.emit("system_log", serde_json::json!({
-                        "message": "⏳ HF Space がスリープ中です。起動を待っています...",
-                        "timestamp": "now"
-                    }));
-                } else {
-                    log::warn!("HF status code not success: {:?}, is_json: {}", status, is_json);
+                }
+                Err(e) => {
+                    log::error!("HF task request failed: {:?}", e);
                 }
             }
-            Err(e) => {
-                log::error!("HF request failed: {:?}", e);
-            }
-        }
+        });
+
+        return Json(LlmResponse { 
+            response: "【HF Super Node】リクエストを送信しました。クラウドで推論中のため、回答が届くまで最大10分〜15分程度かかる場合があります。このままお待ちください...".to_string(), 
+            text: "Processing...".to_string() 
+        }).into_response();
     } else {
         log::warn!("No HF endpoint configured (HF_COMPLEX_URL and LLM_API_URL both empty)");
     }
@@ -403,22 +435,12 @@ async fn handle_get_wallet(
     Path(anonymous_id): Path<String>,
 ) -> impl IntoResponse {
     let db = state.db_conn.lock().unwrap();
-    let mut stmt = match db.prepare("SELECT image, wallet_type FROM messages WHERE sender_name = ?1 AND image IS NOT NULL LIMIT 1") {
-        Ok(stmt) => stmt,
-        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "DB Error").into_response(),
-    };
-    
-    let result = stmt.query_row([&anonymous_id], |row| {
-        let img: String = row.get(0)?;
-        let w_type: Option<String> = row.get(1)?;
-        Ok((img, w_type.unwrap_or_else(|| "AirWallet".to_string())))
-    });
-    
-    match result {
-        Ok((img, w_type)) => Json(serde_json::json!({
+    match crate::db::get_nickname(&db, &anonymous_id) {
+        Ok(Some((nickname, _, wallet_image, cnc_url))) => Json(serde_json::json!({
             "anonymous_id": anonymous_id,
-            "wallet_image_data": img,
-            "wallet_type": w_type
+            "nickname": nickname,
+            "wallet_image_data": wallet_image,
+            "cnc_url": cnc_url
         })).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "Wallet not found").into_response(),
     }
@@ -426,18 +448,15 @@ async fn handle_get_wallet(
 
 async fn handle_register_wallet(
     State(state): State<AppState>,
-    Json(payload): Json<WalletRegisterRequest>,
+    Json(payload): Json<ProfileRegisterRequest>,
 ) -> impl IntoResponse {
     let db = state.db_conn.lock().unwrap();
-    let res = db.execute(
-        "INSERT OR REPLACE INTO messages (id, text, image, is_user, sender_name)
-         VALUES (?1, ?2, ?3, 1, ?4)",
-        rusqlite::params![
-            uuid::Uuid::new_v4().to_string(),
-            "AirWallet registered",
-            payload.wallet_image_data,
-            payload.anonymous_id
-        ],
+    let res = crate::db::update_user_profile(
+        &db, 
+        &payload.anonymous_id, 
+        None, 
+        payload.wallet_image.as_deref(), 
+        payload.cnc_url.as_deref()
     );
     
     match res {
@@ -562,6 +581,24 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                         sender_name: name.to_string() 
                     });
                 }
+            }
+        });
+
+        // --- DM (Direct Message) 機能 ---
+        socket.on("private_message", {
+            let st = st.clone();
+            move |socket: SocketRef, Data(payload): Data<Value>| {
+                let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
+                let message = payload["text"].as_str().unwrap_or_default().to_string();
+                
+                log::info!("💌 [DM] From {} to {}: {}", socket.id, target_id, message);
+                
+                // 指定した相手にのみ送信
+                let _ = socket.to(target_id).emit("private_message", serde_json::json!({
+                    "from": socket.id.to_string(),
+                    "text": message,
+                    "senderName": payload["senderName"].as_str().unwrap_or("不明")
+                }));
             }
         });
 
