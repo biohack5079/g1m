@@ -91,17 +91,18 @@ const App: React.FC = () => {
   useEffect(() => { isModelHiddenRef.current = isModelHidden; }, [isModelHidden]);
   const holisticRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
-  const threeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const threeCameraRef = useRef<THREE.PerspectiveCamera>(new THREE.PerspectiveCamera(35.0, window.innerWidth / window.innerHeight, 0.1, 1000.0));
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const lastResultsRef = useRef<any>(null);
   const smoothedResultsRef = useRef<any>({
-    poseLandmarks: null,
-    poseWorldLandmarks: null,
-    leftHandLandmarks: null,
-    rightHandLandmarks: null,
-    faceLandmarks: null
+    poseLandmarks: null, poseWorldLandmarks: null, leftHandLandmarks: null, rightHandLandmarks: null, faceLandmarks: null
   });
-  const apiBase = window.location.port === '3001' ? `${window.location.protocol}//${window.location.hostname}:3000` : '';
+
+  // APIベースURLの判定をより堅牢に（Cloudflare Tunnel対応）
+  const apiBase = window.location.port === '3001'
+    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    : window.location.origin;
+
   const landmarkGroupRef = useRef<THREE.Group>(new THREE.Group());
   const poseDotsRef = useRef<THREE.Mesh[]>([]);
   const poseLinesRef = useRef<THREE.Line[]>([]);
@@ -231,7 +232,7 @@ const App: React.FC = () => {
     getAnonymousId().then(id => {
       setAnonymousId(id);
       // Supabase経由でWallet情報を取得してみる
-      fetch(`/api/kampa/wallet/${id}`)
+      fetch(`${apiBase}/api/kampa/wallet/${id}`)
         .then(res => res.ok ? res.json() : Promise.reject())
         .then(data => {
           if (data && data.wallet_image_data) {
@@ -456,7 +457,14 @@ const App: React.FC = () => {
     // ボーン取得ヘルパー: 全てのAPI差異を吸収し、確実にノードを取得する
     const getBone = (name: string) => {
       if (!vrm.humanoid) return null;
-      return vrm.humanoid.getNormalizedBoneNode(name as any) || (vrm.humanoid as any).getBoneNode?.(name) || vrm.scene.getObjectByName(name);
+      // VRMボーン名のゆらぎを吸収
+      const boneName = name.charAt(0).toLowerCase() + name.slice(1);
+      const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+      return (
+        vrm.humanoid.getNormalizedBoneNode(boneName as any) ||
+        vrm.humanoid.getNormalizedBoneNode(capitalized as any) ||
+        vrm.scene.getObjectByName(boneName)
+      );
     };
 
     const kalido = (window as any).Kalidokit || (window as any).Kalido;
@@ -822,7 +830,7 @@ const App: React.FC = () => {
   // アバター読み込み
   const loadVRM = useCallback(async (url: string, id: string) => {
     // 既に読み込み済み、または読み込み中の場合はスキップ
-    if (vrmsRef.current[id] || loadingVrmsRef.current.has(id) || !sceneRef.current) return;
+    if (vrmsRef.current[id] || loadingVrmsRef.current.has(id)) return;
     loadingVrmsRef.current.add(id);
 
     const loader = new GLTFLoader();
@@ -844,7 +852,7 @@ const App: React.FC = () => {
       const vrm = gltf.userData.vrm as VRM;
       if (vrm) {
         vrmsRef.current[id] = vrm;
-        sceneRef.current.add(vrm.scene);
+        sceneRef.current?.add(vrm.scene);
         vrm.scene.rotation.y = 0;
         updateLayout();
 
@@ -1197,8 +1205,8 @@ const App: React.FC = () => {
           setStatus("AI思考中...");
           setAiThinking(true);
           setSubtitle("[G1:M] ...");
-          setProcessingNode("Routing...");
-          // HF等の低速ノードを考慮し、字幕消去タイマーを10分(600,000ms)に設定
+          setProcessingNode("PC Node (Routing)...");
+          // HF等の低速ノードを考慮し、字幕消去タイマーを10分に設定
           scheduleSubtitleClear(600000);
 
           const res = await fetch(`${apiBase}/api/llm`, {
@@ -1470,14 +1478,13 @@ const App: React.FC = () => {
     if (rendererRef.current || !canvasRef.current) return;
 
     // --- Socket.IO 初期化 ---
-    // 接続先を明示的に現在のホストにする（Renderへ勝手に繋ぎに行かないようにする）
-    const socketUrl = window.location.port === '3001'
-      ? `${window.location.protocol}//${window.location.hostname}:3000`
-      : window.location.origin;
+    // トンネル環境では port 3000 を指定せず origin を使う（サーバーがフロントもホストするため）
+    const socketUrl = window.location.port === '3001' ? `${window.location.protocol}//${window.location.hostname}:3000` : window.location.origin;
 
     // Proxyエラーを回避するため、最初からWebSocketを優先し、ポーリングをスキップする設定
     const socket = io(socketUrl, {
-      transports: ['websocket'],
+      // Cloudflare経由の場合はポーリングから開始したほうが安定する場合があるため、transportsを制限しすぎない
+      transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       timeout: 10000
     });
@@ -2012,8 +2019,11 @@ const App: React.FC = () => {
               ) : (
                 tappedCncUrl ? (
                   <div className="cnc-qr-area">
-                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>P2P通話を開始します</p>
-                    <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline' }}>通話を開始する</a>
+                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>アバターTV電話を開始</p>
+                    {/* Google Chart APIを使用してUUIDからQRコードを動的生成 */}
+                    <img src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(tappedCncUrl)}&choe=UTF-8`} alt="CNC QR" className="qr-image" />
+                    <br />
+                    <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline', fontSize: '12px' }}>ブラウザで直接通話</a>
                   </div>
                 ) : (
                   <div className="qr-placeholder">

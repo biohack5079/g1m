@@ -64,16 +64,6 @@ pub struct ProcessRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct WalletRegisterRequest {
-    #[serde(rename = "anonymousId")]
-    pub anonymous_id: String,
-    #[serde(rename = "walletImageData")]
-    pub wallet_image_data: String,
-    #[serde(rename = "walletType")]
-    pub wallet_type: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ProfileRegisterRequest {
     pub anonymous_id: String,
     pub wallet_image: Option<String>,
@@ -198,11 +188,11 @@ async fn handle_llm(
     }
 
     // 1.8 Try to delegate directly to connected Staff Nodes (Distributed)
-    // ローカルノードが見つからない場合、接続中のPCノード（スタッフ）を探す
     let staff_ids: Vec<String> = {
         let parts = state.participants.lock().unwrap();
         parts.values().filter(|p| p.role == "staff").map(|p| p.id.clone()).collect()
     };
+    log::info!("📡 Available Staff Nodes: {}", staff_ids.len());
 
     if !staff_ids.is_empty() {
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
@@ -242,11 +232,10 @@ async fn handle_llm(
 
         // HFリクエストをバックグラウンドで実行し、HTTPレスポンスは即座に返す
         let state_task = state.clone();
-        let prompt_task = payload.prompt.clone();
         let hf_url_task = hf_url.clone();
 
         tokio::spawn(async move {
-            log::info!("☁️ [TASK] Background HF Inference started for: {}", hf_url_task);
+            log::info!("☁️ [HF TASK] Dispatching prompt to: {}", hf_url_task);
             let api_path = if hf_url_task.ends_with('/') { "v1/chat/completions" } else { "/v1/chat/completions" };
             let target_url = format!("{}{}", hf_url_task, api_path);
             
@@ -396,22 +385,18 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         // g1m-nodeディレクトリからの相対パス
         exe_root.join("../../../z1m/AirWallet/g1-m_chan.jpeg"),
     ];
-    // 正規化して重複を排除
-    paths_to_try.iter_mut().for_each(|p| {
-        if let Ok(canonical) = p.canonicalize() {
-            *p = canonical;
-        }
-    });
+
+    // パスを整理
+    paths_to_try.retain(|p| p.exists());
+    paths_to_try.sort();
     paths_to_try.dedup();
     
     let mut file_data = None;
     for path in &paths_to_try {
-        if path.exists() {
-            if let Ok(data) = fs::read(path) {
-                log::info!("✅ Bot QR loaded from: {:?}", path);
-                file_data = Some(data);
-                break;
-            }
+        if let Ok(data) = fs::read(path) {
+            log::info!("✅ Bot QR loaded from: {:?}", path);
+            file_data = Some(data);
+            break;
         }
     }
     
@@ -442,6 +427,7 @@ async fn handle_get_wallet(
             "wallet_image_data": wallet_image,
             "cnc_url": cnc_url
         })).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "Wallet not found").into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "Wallet not found").into_response(),
     }
 }
@@ -586,7 +572,6 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
         // --- DM (Direct Message) 機能 ---
         socket.on("private_message", {
-            let st = st.clone();
             move |socket: SocketRef, Data(payload): Data<Value>| {
                 let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
                 let message = payload["text"].as_str().unwrap_or_default().to_string();
@@ -631,7 +616,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             // DBから保存済みのニックネームを取得して復元
             if let Some(ref anon_id) = payload.anonymous_id {
                 let db = st.db_conn.lock().unwrap();
-                if let Ok(Some((db_nick, _))) = crate::db::get_nickname(&db, anon_id) {
+                if let Ok(Some((db_nick, _, _, _))) = crate::db::get_nickname(&db, anon_id) {
                     nickname = db_nick;
                 }
             }
