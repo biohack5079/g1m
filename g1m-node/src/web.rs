@@ -516,22 +516,32 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let ollama_url = st_cap.ollama_url.trim_end_matches('/');
             let ollama_alive = client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok();
             let python_alive = client.get("http://127.0.0.1:8000/health").send().await.is_ok();
+            let pc_ready = (!is_render && (ollama_alive || python_alive));
             
-            // Local AI または HF 設定があれば推論可能とみなす
-            let local_inference_available = (!is_render && (ollama_alive || python_alive)) || !st_cap.hf_complex_url.is_empty();
-            
+            // HF Super Node の生存確認 (設定がある場合のみ)
+            let hf_url = st_cap.hf_complex_url.trim_end_matches('/');
+            let hf_ready = if !hf_url.is_empty() {
+                // ヘルスチェックを非同期で実行。失敗してもパニックせず false を返す
+                let check = match client.get(format!("{}/health", hf_url)).send().await {
+                    Ok(resp) => Ok(resp),
+                    Err(_) => client.get(hf_url).send().await,
+                };
+                check.map(|resp| resp.status().is_success()).unwrap_or(false)
+            } else {
+                false
+            };
+
             let total_active_nodes = {
                 let parts = st_cap.participants.lock().unwrap();
-                // すべてのスタッフノード（ブリッジを含む）をカウント
                 parts.values().filter(|p| p.role == "staff").count()
             };
 
-            log::info!("📊 Node Capability (Verified) - Local: {}, Staff: {}, Total: {}", 
-                local_inference_available, total_active_nodes, total_active_nodes);
+            log::info!("📊 Capability: PC={}, HF={}, Staff={}", pc_ready, hf_ready, total_active_nodes);
 
             // 初回送信
             let _ = socket_cap.emit("server_capabilities", serde_json::json!({
-                "has_local_llm": local_inference_available,
+                "pc_ready": pc_ready,
+                "hf_ready": hf_ready,
                 "active_nodes": total_active_nodes
             }));
         });

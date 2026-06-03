@@ -71,7 +71,8 @@ const App: React.FC = () => {
   const [tokenGauge, setTokenGauge] = useState<number>(0);
   const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
-  const [hasServerLlm, setHasServerLlm] = useState(false);
+  const [pcReady, setPcReady] = useState(false);
+  const [hfReady, setHfReady] = useState(false);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusBeforeAiRef = useRef<string>(status);
@@ -261,7 +262,7 @@ const App: React.FC = () => {
         body: JSON.stringify({
           anonymous_id: anonymousId,
           nickname: newNick,
-          cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}` // CNC用URLを自動生成
+          cnc_url: `https://g1m-cnc.onrender.com/join?invite=${anonymousId}` // CNC招待URLを自動生成
         })
       });
     } catch (e) {
@@ -338,7 +339,7 @@ const App: React.FC = () => {
           body: JSON.stringify({
             anonymous_id: anonymousId,
             wallet_image: base64,
-            cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}`
+            cnc_url: `https://g1m-cnc.onrender.com/join?invite=${anonymousId}`
           })
         });
         setStatus("Wallet登録完了");
@@ -457,14 +458,7 @@ const App: React.FC = () => {
     // ボーン取得ヘルパー: 全てのAPI差異を吸収し、確実にノードを取得する
     const getBone = (name: string) => {
       if (!vrm.humanoid) return null;
-      // VRMボーン名のゆらぎを吸収
-      const boneName = name.charAt(0).toLowerCase() + name.slice(1);
-      const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-      return (
-        vrm.humanoid.getNormalizedBoneNode(boneName as any) ||
-        vrm.humanoid.getNormalizedBoneNode(capitalized as any) ||
-        vrm.scene.getObjectByName(boneName)
-      );
+      return vrm.humanoid.getNormalizedBoneNode(name as any) || (vrm.humanoid as any).getBoneNode?.(name) || vrm.scene.getObjectByName(name);
     };
 
     const kalido = (window as any).Kalidokit || (window as any).Kalido;
@@ -1502,8 +1496,9 @@ const App: React.FC = () => {
       });
     });
 
-    socket.on('server_capabilities', (data: { has_local_llm: boolean, active_nodes: number }) => {
-      if (data.has_local_llm !== undefined) setHasServerLlm(data.has_local_llm);
+    socket.on('server_capabilities', (data: { pc_ready: boolean, hf_ready: boolean, active_nodes: number }) => {
+      if (data.pc_ready !== undefined) setPcReady(data.pc_ready);
+      if (data.hf_ready !== undefined) setHfReady(data.hf_ready);
       if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
 
@@ -1835,8 +1830,8 @@ const App: React.FC = () => {
 
       <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
-          <span style={{ fontWeight: 'bold' }}>PC NODE: {(activeNodes > 0) ? 'ACTIVE' : 'DISCONNECTED'}</span>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: pcReady ? '#0f0' : '#f00', marginRight: '8px', boxShadow: pcReady ? '0 0 12px #0f0' : 'none' }}></span>
+          <span style={{ fontWeight: 'bold' }}>PC NODE: {pcReady ? 'ACTIVE' : 'OFFLINE'}</span>
         </div>
         <div style={{ marginTop: '5px' }}>
           Token Gauge: {tokenGauge}%
@@ -1851,15 +1846,15 @@ const App: React.FC = () => {
         )}
       </div>
 
-      <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`}>
+      <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`} style={{ right: '10px', left: 'auto' }}>
         <div className="status-dot" style={{
-          backgroundColor: loadingProgress !== null ? '#fff' :
-            aiThinking ? '#ffd700' : (activeNodes > 0 || hasServerLlm ? '#0f0' : '#f00')
+          backgroundColor: hfReady ? '#0f0' : '#f00',
+          boxShadow: hfReady ? '0 0 10px #0f0' : 'none'
         }}></div>
         <span>
-          {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
-            aiThinking ? `推論中: ${processingNode}` :
-              (activeNodes > 0 ? `PC Node Active (${activeNodes})` : (hasServerLlm ? "Ready (Inference Available)" : "Disconnected (No AI Node)"))}
+          {loadingProgress !== null ? `LOAD ${loadingProgress}%` :
+            aiThinking ? `THINKING...` :
+              (hfReady ? "HF: ONLINE" : "HF: OFFLINE")}
         </span>
       </div>
 
@@ -2006,7 +2001,7 @@ const App: React.FC = () => {
 
             <div className="qr-tabs" style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
               <button onClick={() => setQrMode('wallet')} style={{ padding: '8px 15px', borderRadius: '15px 0 0 15px', border: '1px solid #555', background: qrMode === 'wallet' ? '#444' : '#222', color: 'white' }}>カンパ</button>
-              <button onClick={() => setQrMode('cnc')} style={{ padding: '8px 15px', borderRadius: '0 15px 15px 0', border: '1px solid #555', background: qrMode === 'cnc' ? '#444' : '#222', color: 'white' }}>CyberNetCall</button>
+              <button onClick={() => setQrMode('cnc')} style={{ padding: '8px 15px', borderRadius: '0 15px 15px 0', border: '1px solid #555', background: qrMode === 'cnc' ? '#444' : '#222', color: 'white' }}>CNC</button>
             </div>
 
             <div className="qr-container">
@@ -2019,11 +2014,12 @@ const App: React.FC = () => {
               ) : (
                 tappedCncUrl ? (
                   <div className="cnc-qr-area">
-                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>アバターTV電話を開始</p>
-                    {/* Google Chart APIを使用してUUIDからQRコードを動的生成 */}
+                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>CNC: アバター招待 & TV電話</p>
+                    {/* Google Chart APIを使用して招待URLからQRコードを生成 */}
                     <img src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(tappedCncUrl)}&choe=UTF-8`} alt="CNC QR" className="qr-image" />
+                    <p style={{ fontSize: '10px', color: '#888', marginTop: '5px' }}>スキャンしてG1:Mに友達招待</p>
                     <br />
-                    <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline', fontSize: '12px' }}>ブラウザで直接通話</a>
+                    <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline', fontSize: '12px' }}>通話を開始する</a>
                   </div>
                 ) : (
                   <div className="qr-placeholder">
