@@ -528,48 +528,43 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
     io.ns("/", move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
-        // 推論能力の判定 (非同期で実際のサービス状態を確認)
-        let st_cap = st.clone();
-        let socket_cap = socket.clone();
-        tokio::spawn(async move {
-            let is_render = std::env::var("RENDER").is_ok();
-            let client = reqwest::Client::builder()
-                .timeout(std::time::Duration::from_millis(1500))
-                .build().unwrap_or_default();
+        // 能力チェックと通知を行う共通ロジック
+        let emit_capabilities = |st: AppState, target: Option<SocketRef>| {
+            tokio::spawn(async move {                
+                let total_active_nodes = {
+                    let active_sockets = st.io.sockets().unwrap_or_default();
+                    let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
+                    let mut parts = st.participants.lock().unwrap();
+                    parts.retain(|id, _| active_ids.contains(id));
+                    parts.values().filter(|p| p.role == "staff").count()
+                };
 
-            let ollama_url = st_cap.ollama_url.trim_end_matches('/');
-            let ollama_alive = if !ollama_url.is_empty() {
-                client.get(format!("{}/api/tags", ollama_url)).send().await.map(|r| r.status().is_success()).unwrap_or(false)
-            } else { false };
+                // サーバー自身の環境変数ではなく、実際に接続されている staff ノードの有無で判定
+                let local_ai_available = total_active_nodes > 0;
+                let hf_available = !st.hf_complex_url.is_empty();
 
-            let python_alive = client.get("http://127.0.0.1:8000/health").send().await.map(|r| r.status().is_success()).unwrap_or(false);
-            
-            let local_ai_available = !is_render && (ollama_alive || python_alive);
-            let hf_available = !st_cap.hf_complex_url.is_empty();
-            
-            let total_active_nodes = {
-                let active_sockets = st_cap.io.sockets().unwrap_or_default();
-                let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
-                let mut parts = st_cap.participants.lock().unwrap();
-                // ゾンビ（切断済みだがMapに残っている）ノードを掃除
-                parts.retain(|id, _| active_ids.contains(id));
-                parts.values().filter(|p| p.role == "staff").count()
-            };
+                let payload = serde_json::json!({
+                    "has_local_ai": local_ai_available,
+                    "has_hf": hf_available,
+                    "active_nodes": total_active_nodes 
+                });
 
-            if total_active_nodes > 0 {
-                log::info!("📊 Capability Check - Local AI: {}, HF: {}, Active Staff Nodes: {}", 
-                    local_ai_available, hf_available, total_active_nodes);
-            }
+                if let Some(s) = target {
+                    let _ = s.emit("server_capabilities", payload);
+                } else {
+                    let _ = st.io.emit("server_capabilities", payload);
+                }
+            });
+        };
 
-            let _ = socket_cap.emit("server_capabilities", serde_json::json!({
-                "has_local_ai": local_ai_available,
-                "has_hf": hf_available,
-                "active_nodes": total_active_nodes
-            }));
-        });
+        // 接続直後のチェック
+        emit_capabilities(st.clone(), Some(socket.clone()));
 
         // 手動同期リクエストへの対応
-        socket.on("request_participants", { let st = st.clone(); move |socket: SocketRef| {
+        socket.on("request_participants", { let st = st.clone(); let emit_cap = emit_capabilities.clone(); move |socket: SocketRef| {
+            // 同期リクエスト時にも能力を再送
+            emit_cap(st.clone(), Some(socket.clone()));
+            
             let mut parts = st.participants.lock().unwrap();
             // ゾンビ対策: 同期リクエスト時にも実体を確認
             let active_sockets = st.io.sockets().unwrap_or_default();
@@ -579,20 +574,8 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let _ = socket.emit("participants_list", others);
         }});
 
-        socket.on("request_capabilities", { let st = st.clone(); move |socket: SocketRef| {
-            let is_render = std::env::var("RENDER").is_ok();
-            let total_active_nodes = {
-                let mut parts = st.participants.lock().unwrap();
-                let active_sockets = st.io.sockets().unwrap_or_default();
-                let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
-                parts.retain(|id, _| active_ids.contains(id));
-                parts.values().filter(|p| p.role == "staff").count()
-            };
-            let _ = socket.emit("server_capabilities", serde_json::json!({
-                "has_local_ai": !is_render,
-                "has_hf": !st.hf_complex_url.is_empty(),
-                "active_nodes": total_active_nodes
-            }));
+        socket.on("request_capabilities", { let st = st.clone(); let emit_cap = emit_capabilities.clone(); move |socket: SocketRef| {
+            emit_cap(st.clone(), Some(socket));
         }});
 
         // 接続時に現在のチャット履歴をコンソールに出力
@@ -663,7 +646,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         // `st.participants` を使用する各 `socket.on` クロージャ内で `st` をクローンします。
         // `relay_signal` を使用するクロージャでは、`relay_signal` 自体をクローンして渡します。
 
-        socket.on("register_role", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
+        socket.on("register_role", { let st = st.clone(); let emit_cap = emit_capabilities.clone(); move |socket: SocketRef, Data(payload): Data<RegisterPayload>| {
             let mut nickname = payload.nickname.clone().unwrap_or_else(|| "ゲスト".to_string());
 
             // DBから保存済みのニックネームを取得して復元
@@ -694,18 +677,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             
             log::info!("Register role: {} as {}", socket.id, payload.role); 
             let _ = socket.broadcast().emit("participant_joined", info);
-
-            // 状態が変わったので全クライアントへ最新の能力情報を再送
-            let total_active_nodes = {
-                let parts = st.participants.lock().unwrap();
-                parts.values().filter(|p| p.role == "staff").count()
-            };
-
-            let _ = st.io.emit("server_capabilities", serde_json::json!({
-                "has_local_ai": !std::env::var("RENDER").is_ok(), // 簡易判定。再接続時に再評価される。
-                "has_hf": !st.hf_complex_url.is_empty(),
-                "active_nodes": total_active_nodes
-            }));
+            emit_cap(st.clone(), None); // 全員に正確な能力情報を再送
         }});
 
         socket.on("update_nickname", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
@@ -731,27 +703,14 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("answer", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "answer".to_string(), target_id, payload); } });
         socket.on("candidate", { let rs = relay_signal.clone(); move |socket: SocketRef, Data(payload): Data<Value>| { let target_id = payload["targetId"].as_str().unwrap_or_default().to_string(); rs(socket, "candidate".to_string(), target_id, payload); } });
 
-        socket.on_disconnect({ let st = st.clone(); move |socket: SocketRef, _reason: DisconnectReason| {
+        socket.on_disconnect({ let st = st.clone(); let emit_cap = emit_capabilities.clone(); move |socket: SocketRef, _reason: DisconnectReason| {
             let _leaving_role = {
                 let mut parts = st.participants.lock().unwrap();
                 parts.remove(&socket.id.to_string()).map(|p| p.role)
             };
             log::info!("Socket disconnected: {}", socket.id);
             let _ = socket.broadcast().emit("participant_left", serde_json::json!({ "id": socket.id.to_string() }));
-
-            // 離脱時は常に最新の能力情報を全クライアントに通知して同期を保つ
-            let total_active_nodes = {
-                let mut parts = st.participants.lock().unwrap();
-                let active_sockets = st.io.sockets().unwrap_or_default();
-                let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
-                parts.retain(|id, _| active_ids.contains(id));
-                parts.values().filter(|p| p.role == "staff").count()
-            };
-            let _ = st.io.emit("server_capabilities", serde_json::json!({
-                "has_local_ai": !std::env::var("RENDER").is_ok(),
-                "has_hf": !st.hf_complex_url.is_empty(),
-                "active_nodes": total_active_nodes
-            }));
+            emit_cap(st.clone(), None);
         }});
 
         socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
