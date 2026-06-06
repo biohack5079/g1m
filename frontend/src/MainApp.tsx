@@ -72,6 +72,7 @@ const App: React.FC = () => {
   const [processingNode, setProcessingNode] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [hasHf, setHasHf] = useState(false);
+  const [botCncId, setBotCncId] = useState("g1m"); // 動的ボットID保持用
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusBeforeAiRef = useRef<string>(status);
@@ -241,8 +242,8 @@ const App: React.FC = () => {
           if (data && data.wallet_image_data) {
             setUserWalletImage(data.wallet_image_data);
           }
-          if (data && data.cnc_url) {
-            // CNC URLの初期化
+          if (data && data.bot_cnc_id) {
+            setBotCncId(data.bot_cnc_id);
           }
           if (data && data.nickname) {
             setNickname(data.nickname);
@@ -262,9 +263,9 @@ const App: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          anonymous_id: anonymousId,
+          anonymousId: anonymousId,
           nickname: newNick,
-          cnc_url: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
+          cncUrl: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
         })
       });
     } catch (e) {
@@ -339,14 +340,41 @@ const App: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            anonymous_id: anonymousId,
-            wallet_image: base64,
-          cnc_url: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
+            anonymousId: anonymousId,
+            walletImageData: base64,
+            walletType: "◯◯Pay",
+            cncUrl: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
           })
         });
         setStatus("Wallet登録完了");
       } catch (err) {
         console.error("Backend error:", err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // CNC QR登録 (画像アップロード)
+  const handleUploadCnc = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = ev.target?.result as string;
+      // CNC QR画像をバックエンドへ送信。バックエンド側で解析してUUIDを抽出・保存させる
+      try {
+        await fetch("/api/kampa/wallet/register", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            anonymousId: anonymousId,
+            cncQrImage: base64
+          })
+        });
+        setStatus("CNC QR登録完了");
+      } catch (err) {
+        console.error("CNC Register error:", err);
       }
     };
     reader.readAsDataURL(file);
@@ -399,12 +427,12 @@ const App: React.FC = () => {
             .then(res => res.ok ? res.json() : Promise.reject())
             .then(data => {
               setTappedWalletImage(data?.wallet_image_data || data?.wallet_image || null);
-              setTappedCncUrl(data?.cnc_url || "https://cnc-pwa.onrender.com/?id=bot");
+              setTappedCncUrl(data?.cnc_url || `https://cnc-pwa.onrender.com/?id=${botCncId}`);
               setIsQrModalOpen(true);
             })
             .catch(() => {
               setTappedWalletImage(null);
-              setTappedCncUrl("https://cnc-pwa.onrender.com/?id=bot");
+              setTappedCncUrl(`https://cnc-pwa.onrender.com/?id=${botCncId}`);
               setIsQrModalOpen(true);
             });
           return;
@@ -413,6 +441,11 @@ const App: React.FC = () => {
           const participant = participantsRef.current.find(p => p.id === id);
           targetAnonymousId = participant?.anonymousId || null;
         }
+
+        // 各ユーザー固有のCNC URL（これが一致しないと通話できない）
+        const defaultCncUrl = targetAnonymousId 
+          ? `https://cnc-pwa.onrender.com/?id=${targetAnonymousId}`
+          : `https://cnc-pwa.onrender.com/?id=${botCncId}`;
 
         if (targetAnonymousId) {
           // 他の参加者ならニックネームを表示
@@ -424,17 +457,13 @@ const App: React.FC = () => {
           fetch(`/api/kampa/wallet/${targetAnonymousId}`)
             .then(res => res.ok ? res.json() : Promise.reject())
             .then(data => {
-              if (data && data.wallet_image_data) {
-                setTappedWalletImage(data.wallet_image_data);
-                setTappedCncUrl(data.cnc_url || null);
-              } else {
-                setTappedWalletImage(null);
-                setTappedCncUrl(data.cnc_url || null);
-              }
+              setTappedWalletImage(data?.wallet_image_data || data?.wallet_image || null);
+              setTappedCncUrl(data?.cnc_url || defaultCncUrl);
               setIsQrModalOpen(true);
             })
             .catch(() => {
               setTappedWalletImage(null);
+              setTappedCncUrl(defaultCncUrl);
               setIsQrModalOpen(true);
             });
         } else {
@@ -2006,13 +2035,13 @@ const App: React.FC = () => {
           <div className="modal-content">
             <h3>G1:Mちゃんを応援する</h3>
             <div className="qr-container">
-              <p>G1:Mの投げ銭用QR</p>
+              <p>G1:Mの◯◯Pay QR</p>
               <img src="/z1m/AirWallet/g1-m_chan.jpeg" alt="G1:M QR" className="qr-image" />
             </div>
 
             <div className="donation-form">
               <div className="input-group">
-                <label>自分のAirWalletを登録 (任意)</label>
+                <label>自分の◯◯Payを登録 (任意)</label>
                 <input type="file" accept="image/*" onChange={handleUploadWallet} />
                 {userWalletImage && <div className="wallet-mini-preview"><img src={userWalletImage} alt="Your Wallet" /><span>登録済</span></div>}
               </div>
@@ -2035,11 +2064,11 @@ const App: React.FC = () => {
       {isQrModalOpen && (
         <div className="modal-overlay" onClick={() => setIsQrModalOpen(false)}>
           <div className="modal-content qr-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{tappedModelId} の連絡先</h3>
+            <h3>{tappedModelId} のQRコード</h3>
 
             <div className="qr-tabs" style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
               <button onClick={() => setQrMode('wallet')} style={{ padding: '8px 15px', borderRadius: '15px 0 0 15px', border: '1px solid #555', background: qrMode === 'wallet' ? '#444' : '#222', color: 'white' }}>カンパ</button>
-              <button onClick={() => setQrMode('cnc')} style={{ padding: '8px 15px', borderRadius: '0 15px 15px 0', border: '1px solid #555', background: qrMode === 'cnc' ? '#444' : '#222', color: 'white' }}>CyberNetCall</button>
+              <button onClick={() => setQrMode('cnc')} style={{ padding: '8px 15px', borderRadius: '0 15px 15px 0', border: '1px solid #555', background: qrMode === 'cnc' ? '#444' : '#222', color: 'white' }}>通話・LINE</button>
             </div>
 
             <div className="qr-container">
@@ -2052,9 +2081,9 @@ const App: React.FC = () => {
               ) : (
                 tappedCncUrl ? (
                   <div className="cnc-qr-area">
-                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>P2P通話を開始します</p>
+                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>通話またはLINEへ接続</p>
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tappedCncUrl)}`} alt="CNC QR" className="qr-image" style={{ marginBottom: '10px' }} />
-                    <p style={{ fontSize: '11px', marginBottom: '10px', opacity: 0.8 }}>スキャンしてP2P通話を開始</p>
+                    <p style={{ fontSize: '11px', marginBottom: '10px', opacity: 0.8 }}>スキャンして接続を開始</p>
                     <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline' }}>通話を開始する</a>
                   </div>
                 ) : (
@@ -2070,6 +2099,16 @@ const App: React.FC = () => {
                 )
               )}
             </div>
+
+            {/* 自分のモデルをタップした場合のみ、CNC/LINEのQRコード更新ボタンを表示 */}
+            {tappedSocketId === 'local' && qrMode === 'cnc' && (
+              <div className="input-group" style={{marginTop: '10px', textAlign: 'center'}}>
+                <label style={{fontSize: '11px', display: 'block', marginBottom: '5px', color: '#00f2ff'}}>
+                  自分のCNC/LINE用QRを登録/更新
+                </label>
+                <input type="file" accept="image/*" onChange={handleUploadCnc} style={{fontSize: '10px', color: '#ccc'}} />
+              </div>
+            )}
 
             <div className="modal-btns">
               <button

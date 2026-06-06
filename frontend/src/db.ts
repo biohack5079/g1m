@@ -4,16 +4,10 @@
 
 /** UUID v4 を生成する */
 const generateUUID = (): string => {
-    // crypto.randomUUID が使える場合はそれを使う
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
-    // フォールバック
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
+    // CyberNetCall (CNC) の ID 生成仕様に合わせ、英数字のランダム文字列を生成
+    // 通常 CNC では Math.random().toString(36).slice(2) 形式が使われる
+    return Math.random().toString(36).substring(2, 12) + 
+           Math.random().toString(36).substring(2, 12);
 };
 
 export const getAnonymousId = async (): Promise<string> => {

@@ -16,6 +16,9 @@ public class WalletInfo {
     @Column(columnDefinition = "TEXT")
     private String walletImageData; // Base64 or path to image
     
+    @Column(columnDefinition = "TEXT")
+    private String cncQrImage; // CyberNetCall QR Image (Base64)
+
     private String nickname; // UUIDに紐付いた表示名
     
     private String walletType; // e.g., "AirWallet", "PayPay", "Stripe"

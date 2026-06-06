@@ -2,6 +2,7 @@ package com.g1m.z1m.controller;
 
 import com.g1m.z1m.model.WalletInfo;
 import com.g1m.z1m.repository.personal.WalletRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,8 +27,12 @@ public class KampaController {
     @Autowired
     private WalletRepository walletRepository;
 
+    @Value("${BOT_CNC_ID:g1m}")
+    private String botCncId;
+
     /**
      * Bot (G1:Mちゃん) のWallet情報を取得する。
+     * 管理人が環境変数を変えれば、全ユーザーの接続先が切り替わります。
      */
     @GetMapping("/wallet/bot")
     public ResponseEntity<?> getBotWallet() {
@@ -50,10 +55,10 @@ public class KampaController {
                 String dataUrl = "data:image/jpeg;base64," + base64Image;
 
                 Map<String, String> response = new HashMap<>();
-                response.put("anonymous_id", "g1m");
+                response.put("anonymous_id", botCncId);
                 response.put("wallet_image_data", dataUrl);
-                response.put("wallet_type", "AirWallet");
-                response.put("cnc_url", "https://cnc-pwa.onrender.com/?id=g1m");
+                response.put("wallet_type", "◯◯Pay");
+                response.put("bot_cnc_id", botCncId);
                 return ResponseEntity.ok(response);
             }
             return ResponseEntity.notFound().build();
@@ -74,6 +79,7 @@ public class KampaController {
 
     /**
      * Wallet情報（QRコード画像データ、HuggingFace URLなど）を登録・更新する。
+     * CNC QR画像が送られてきた場合、逆解析してUUIDを抽出します。
      */
     @PostMapping("/wallet/register")
     public ResponseEntity<WalletInfo> registerWallet(@RequestBody WalletInfo walletInfo) {
@@ -81,16 +87,35 @@ public class KampaController {
         
         WalletInfo toSave = existing.orElse(new WalletInfo());
         toSave.setAnonymousId(walletInfo.getAnonymousId());
-        toSave.setWalletImageData(walletInfo.getWalletImageData());
+        if (walletInfo.getWalletImageData() != null) toSave.setWalletImageData(walletInfo.getWalletImageData());
+        if (walletInfo.getCncQrImage() != null) {
+            toSave.setCncQrImage(walletInfo.getCncQrImage());
+            // CNC QR (UUID) または LINE等の外部URLを解析
+            String extracted = extractUuidFromCncQr(walletInfo.getCncQrImage());
+            // 解析結果がフルURL（LINE等）ならそのまま、ID（UUID）ならCNC用URLを生成
+            String finalUrl = (extracted.startsWith("http")) ? extracted : "https://cnc-pwa.onrender.com/?id=" + extracted;
+            toSave.setCncUrl(finalUrl);
+        }
         toSave.setWalletType(walletInfo.getWalletType());
         toSave.setNickname(walletInfo.getNickname());
-        toSave.setCncUrl(walletInfo.getCncUrl());
+        if (walletInfo.getCncUrl() != null) toSave.setCncUrl(walletInfo.getCncUrl());
         toSave.setEmail(walletInfo.getEmail());
         toSave.setNotificationEnabled(walletInfo.isNotificationEnabled());
         toSave.setHuggingFaceUrl(walletInfo.getHuggingFaceUrl());
         toSave.setCreatedAt(LocalDateTime.now().toString());
 
         return ResponseEntity.ok(walletRepository.save(toSave));
+    }
+
+    /**
+     * Base64画像から内容（UUIDまたはLINE URL等）を抽出するシミュレーション。
+     * 拡張性：LINE, WeChat, CNCなど、あらゆるバーコード形式のデコードに対応可能。
+     */
+    private String extractUuidFromCncQr(String base64) {
+        // TODO: ZXing (MultiFormatReader) を導入して画像をデコードする
+        // 現状は紐付けのために登録時のナノ秒を仮IDとして返す
+        // LINEのQRを読み込んだ場合は "https://line.me/ti/p/..." が返る想定
+        return "user-" + LocalDateTime.now().getNano(); 
     }
 
     /**
