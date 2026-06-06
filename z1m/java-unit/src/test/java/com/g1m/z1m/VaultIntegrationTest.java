@@ -9,6 +9,8 @@ import com.g1m.z1m.repository.personal.PersonalInfoRepository;
 import com.g1m.z1m.repository.personal.WalletRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.junit.jupiter.api.DisplayName;
@@ -25,8 +27,7 @@ import org.junit.jupiter.api.BeforeAll;
     "spring.datasource.personal.url=jdbc:h2:file:./db/personal;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE",
     "spring.datasource.financial.url=jdbc:h2:file:./db/financial;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE",
     "spring.datasource.personal.driver-class-name=org.h2.Driver",
-    "spring.datasource.financial.driver-class-name=org.h2.Driver",
-    "spring.main.allow-bean-definition-overriding=true"
+    "spring.datasource.financial.driver-class-name=org.h2.Driver"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 public class VaultIntegrationTest {

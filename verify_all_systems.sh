@@ -10,8 +10,6 @@ echo "[0/5] Cleaning up ports and preparing environment..."
 fuser -k 3000/tcp 3001/tcp 2>/dev/null || true
 rm -rf z1m/java-unit/db/
 
-# 1. Java ディレクトリ構造の強制セットアップ
-echo "[1/5] Setting up Java Directory Structure..."
 cd z1m/java-unit
 mkdir -p src/main/java/com/g1m/z1m/entity src/main/java/com/g1m/z1m/config \
          src/main/java/com/g1m/z1m/repository/personal src/main/java/com/g1m/z1m/repository/financial \

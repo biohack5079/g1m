@@ -260,7 +260,7 @@ const App: React.FC = () => {
         body: JSON.stringify({
           anonymous_id: anonymousId,
           nickname: newNick,
-          cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}` // CNC用URLを自動生成
+          cnc_url: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
         })
       });
     } catch (e) {
