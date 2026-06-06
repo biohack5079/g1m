@@ -527,15 +527,16 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         tokio::spawn(async move {
             let is_render = std::env::var("RENDER").is_ok();
             let client = reqwest::Client::builder()
-                .timeout(std::time::Duration::from_millis(1200)) // 素早いレスポンスを期待
+                .timeout(std::time::Duration::from_millis(1500))
                 .build().unwrap_or_default();
 
-            // Ollama と Python ノードの生存確認 (実際にリクエストを飛ばす)
             let ollama_url = st_cap.ollama_url.trim_end_matches('/');
-            let ollama_alive = client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok();
-            let python_alive = client.get("http://127.0.0.1:8000/health").send().await.is_ok();
+            let ollama_alive = if !ollama_url.is_empty() {
+                client.get(format!("{}/api/tags", ollama_url)).send().await.map(|r| r.status().is_success()).unwrap_or(false)
+            } else { false };
+
+            let python_alive = client.get("http://127.0.0.1:8000/health").send().await.map(|r| r.status().is_success()).unwrap_or(false);
             
-            // Local AI (Ollama/Python) と HF を分離して判定
             let local_ai_available = !is_render && (ollama_alive || python_alive);
             let hf_available = !st_cap.hf_complex_url.is_empty();
             
@@ -545,10 +546,9 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 parts.values().filter(|p| p.role == "staff").count()
             };
 
-            log::info!("📊 Node Capability (Verified) - Local AI: {}, HF: {}, Staff Nodes: {}", 
+            log::info!("📊 Capability Check - Local AI: {}, HF: {}, Staff: {}", 
                 local_ai_available, hf_available, total_active_nodes);
 
-            // 初回送信
             let _ = socket_cap.emit("server_capabilities", serde_json::json!({
                 "has_local_ai": local_ai_available,
                 "has_hf": hf_available,
@@ -647,14 +647,16 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 let mut parts = st.participants.lock().unwrap(); parts.insert(socket.id.to_string(), info.clone()); 
                 if payload.role == "staff" { let _ = socket.join("staff"); } // スタッフルームに参加
                 let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
-            log::info!("Register role: {} as {}", socket.id, payload.role); let _ = socket.broadcast().emit("participant_joined", info);
+            
+            log::info!("Register role: {} as {}", socket.id, payload.role); 
+            let _ = socket.broadcast().emit("participant_joined", info);
 
-            // スタッフノードが参加した場合、全クライアントに最新のノード数を通知する
-            let parts = st.participants.lock().unwrap();
-            let count = parts.values().filter(|p| p.role == "staff").count();
-            // has_local_llm は起動時の判定に任せ、ここではアクティブノード数のみ更新
+            // 状態が変わったので全クライアントへ最新の能力情報を再送
+            let total_active_nodes = st.participants.lock().unwrap().values().filter(|p| p.role == "staff").count();
             let _ = st.io.emit("server_capabilities", serde_json::json!({
-                "active_nodes": count
+                "has_local_ai": !std::env::var("RENDER").is_ok(), // 簡易判定。再接続時に再評価される。
+                "has_hf": !st.hf_complex_url.is_empty(),
+                "active_nodes": total_active_nodes
             }));
         }});
 
@@ -691,9 +693,12 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
             // スタッフが離脱した場合も全通知
             if leaving_role == Some("staff".to_string()) {
-                let parts = st.participants.lock().unwrap();
-                let count = parts.values().filter(|p| p.role == "staff").count();
-                let _ = st.io.emit("server_capabilities", serde_json::json!({ "active_nodes": count }));
+                let total_active_nodes = st.participants.lock().unwrap().values().filter(|p| p.role == "staff").count();
+                let _ = st.io.emit("server_capabilities", serde_json::json!({
+                    "has_local_ai": !std::env::var("RENDER").is_ok(),
+                    "has_hf": !st.hf_complex_url.is_empty(),
+                    "active_nodes": total_active_nodes
+                }));
             }
         }});
 

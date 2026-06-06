@@ -48,7 +48,6 @@ const App: React.FC = () => {
   const [subtitle, setSubtitle] = useState("");
   const [isMicActive, setIsMicActive] = useState(false);
   const [status, setStatus] = useState("システム起動中...");
-  const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isModelHidden, setIsModelHidden] = useState(false);
@@ -71,7 +70,6 @@ const App: React.FC = () => {
   const [tokenGauge, setTokenGauge] = useState<number>(0);
   const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
-  const [hasLocalAi, setHasLocalAi] = useState(false);
   const [hasHf, setHasHf] = useState(false);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -837,10 +835,7 @@ const App: React.FC = () => {
           url,
           resolve,
           (progress) => {
-            if (progress.lengthComputable) {
-              const percent = Math.round((progress.loaded / progress.total) * 100);
-              if (id === 'local') setLoadingProgress(percent);
-            } else {
+            if (!progress.lengthComputable) {
               // ファイルサイズが不明な場合のフォールバック表示 (MB単位)
               const loadedMB = (progress.loaded / (1024 * 1024)).toFixed(1);
               if (id === 'local') setStatus(`読込中: ${loadedMB}MB...`);
@@ -885,7 +880,6 @@ const App: React.FC = () => {
           spawnBot();
         }
       }
-      setLoadingProgress(null);
     } catch (e) {
       console.error(`Failed to load VRM for ${id}:`, e);
       if (id === 'local') setStatus("読み込みエラー");
@@ -1504,7 +1498,6 @@ const App: React.FC = () => {
     });
 
     socket.on('server_capabilities', (data: { has_local_ai: boolean, has_hf: boolean, active_nodes: number }) => {
-      if (data.has_local_ai !== undefined) setHasLocalAi(data.has_local_ai);
       if (data.has_hf !== undefined) setHasHf(data.has_hf);
       if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
@@ -1601,12 +1594,6 @@ const App: React.FC = () => {
 
     socket.on('participant_left', (data: { id: string }) => {
       if (!data || !data.id) return;
-      const leavingParticipant = participantsRef.current.find(p => p.id === data.id);
-      setParticipants(prev => Array.isArray(prev) ? prev.filter(p => p.id !== data.id) : []);
-      // 退出したのが推論ノード(staff)だった場合のみカウントを減らす。最小値は0。
-      if (leavingParticipant?.role === 'staff') {
-        setActiveNodes(prev => Math.max(0, prev - 1));
-      }
       const vrm = vrmsRef.current[data.id];
       if (vrm) {
         disposeVRM(vrm);
@@ -1615,6 +1602,7 @@ const App: React.FC = () => {
         delete peersRef.current[data.id];
         delete dataChannelsRef.current[data.id];
       }
+      setParticipants(prev => Array.isArray(prev) ? prev.filter(p => p.id !== data.id) : []);
     });
 
     // --- Three.js 初期化 ---
@@ -1835,46 +1823,36 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* PC Node Status (Left) */}
-      <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none', minWidth: '120px' }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (hasLocalAi || activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (hasLocalAi || activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
-          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>PC NODE: {(hasLocalAi || activeNodes > 0) ? 'ACTIVE' : 'OFFLINE'}</span>
-        </div>
-        <div style={{ marginTop: '5px', fontSize: '10px' }}>
-          Token Gauge: {tokenGauge}%
-          <div style={{ width: '100px', height: '10px', background: '#333', borderRadius: '5px', marginTop: '2px' }}>
-            <div style={{ width: `${tokenGauge}%`, height: '100%', background: 'cyan', borderRadius: '5px', transition: 'width 0.3s' }}></div>
+      {/* Status Panels Area (Symmetrical) */}
+      <div className="nodes-status-overlay" style={{ position: 'absolute', top: 65, left: 15, right: 15, zIndex: 100, display: 'flex', justifyContent: 'space-between', pointerEvents: 'none' }}>
+        
+        {/* Left: PC NODE */}
+        <div style={{ background: 'rgba(0,0,0,0.6)', padding: '10px 15px', borderRadius: '12px', color: 'white', minWidth: '140px', border: aiThinking && processingNode?.includes('PC') ? '1px solid #0f0' : '1px solid transparent' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (activeNodes > 0) ? '#0f0' : '#f00', boxShadow: (activeNodes > 0) ? '0 0 10px #0f0' : 'none' }}></span>
+            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>PC NODE: {(activeNodes > 0) ? 'ACTIVE' : 'OFFLINE'}</span>
+          </div>
+          <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
+            {activeNodes > 0 ? `Distributed: ${activeNodes} nodes` : 'Inference: Unavailable'}
+          </div>
+          <div style={{ width: '100%', height: '4px', background: '#333', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
+            <div style={{ width: `${tokenGauge}%`, height: '100%', background: '#0ff', transition: 'width 0.3s' }}></div>
           </div>
         </div>
-        {aiThinking && (
-          <div style={{ marginTop: '5px', fontSize: '11px', color: '#ffd700', fontWeight: 'bold' }}>
-            ⚡ RUNNING ON: {processingNode}
+
+        {/* Right: HF NODE */}
+        <div style={{ background: 'rgba(0,0,0,0.6)', padding: '10px 15px', borderRadius: '12px', color: 'white', minWidth: '140px', textAlign: 'right', border: aiThinking && processingNode?.includes('HF') ? '1px solid #0f0' : '1px solid transparent' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>HF NODE: {(hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? 'ACTIVE' : 'OFFLINE'}</span>
+            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '#0f0' : '#f00', boxShadow: (hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '0 0 10px #0f0' : 'none' }}></span>
           </div>
-        )}
-      </div>
-
-      {/* HF Node Status (Right) */}
-      <div style={{ position: 'absolute', top: 60, right: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none', minWidth: '120px', textAlign: 'right' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>HF NODE: {hasHf ? 'ACTIVE' : 'OFFLINE'}</span>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: hasHf ? '#0f0' : '#f00', marginLeft: '8px', boxShadow: hasHf ? '0 0 12px #0f0' : 'none' }}></span>
+          <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
+            {(aiThinking && processingNode?.includes('HF')) ? '🚀 Pinch Mode: Cloud Support' : (hasHf && activeNodes === 0) ? 'Cloud Super Node: Ready' : (hasHf ? 'Standby (PC Node Active)' : 'Cloud Config: NONE')}
+          </div>
+          <div style={{ marginTop: '8px', height: '4px', fontSize: '9px', color: '#888' }}>
+            {aiThinking && processingNode?.includes('HF') ? '⚡ PROCESSING...' : 'IDLE'}
+          </div>
         </div>
-        <div style={{ marginTop: '5px', fontSize: '10px' }}>
-          {hasHf ? 'Cloud Inference: OK' : 'Cloud Config: NONE'}
-        </div>
-      </div>
-
-      <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`}>
-        <div className="status-dot" style={{
-          backgroundColor: loadingProgress !== null ? '#fff' :
-            aiThinking ? '#ffd700' : (activeNodes > 0 || hasLocalAi || hasHf ? '#0f0' : '#f00')
-        }}></div>
-        <span>
-          {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
-            aiThinking ? `推論中: ${processingNode}` :
-              (activeNodes > 0 || hasLocalAi ? `PC Node Active (${activeNodes + (hasLocalAi ? 1 : 0)})` : (hasHf ? "HF Ready" : "Disconnected (No AI Node)"))}
-        </span>
       </div>
 
       {subtitle && <div id="subtitle-area" style={{ zIndex: 50 }}>{subtitle}</div>}
