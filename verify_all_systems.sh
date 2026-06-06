@@ -88,8 +88,8 @@ if [ -f "$FRONTEND_FILE" ]; then
     # PC NODE ステータス色ロジックの確認
     grep -q "activeNodes > 0.*#0f0.*#f00" "$FRONTEND_FILE" && echo "✅ UI Logic: PC NODE Green/Red color logic verified." || echo "❌ UI Logic: PC NODE color logic mismatch."
     
-    # AI推論中(aiThinking)のステータスドット色ロジックの確認
-    grep -q "aiThinking.*#ffd700" "$FRONTEND_FILE" && echo "✅ UI Logic: AI Thinking (Yellow) logic verified." || echo "❌ UI Logic: Thinking color logic mismatch."
+    # AI推論中(aiThinking)に枠線が光る(Green)ロジックの確認
+    grep -q "aiThinking.*#0f0" "$FRONTEND_FILE" && echo "✅ UI Logic: AI Thinking (Node Highlight) logic verified." || echo "❌ UI Logic: Thinking highlight logic mismatch."
 
     # CNC URLにIDが付加されているかの確認
     grep -q "cnc_url:.*id=\${anonymousId}" "$FRONTEND_FILE" && echo "✅ UI Logic: Guest CNC URL with UUID verified." || echo "❌ UI Logic: Guest CNC URL UUID missing."
