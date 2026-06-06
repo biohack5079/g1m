@@ -182,8 +182,8 @@ async fn handle_llm(
         let task_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
         log::info!("🚀 [LLM] Distributing task to PC Bridge: {} (TaskID: {})", sid, task_id);
         
-        // 名前空間を明示して確実に配信
-        let _ = state.io.of("/").unwrap().to(sid.clone()).emit("distribute_task", serde_json::json!({
+        // 特定のソケット（ルームID=SID）へ直接配信
+        let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
             "taskId": task_id,
             "prompt": context_augmented_prompt.clone()
         }));

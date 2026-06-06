@@ -209,16 +209,13 @@ register(localSocket, 'Local Node');
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 // ポート8000(Python)ではなく11434(Ollama)のOpenAI互換エンドポイントを使用
 const handleTask = async (s, data) => {
-    console.log(`\n📥 [BRIDGE] タスク受信 (${new Date().toLocaleTimeString()}): "${data.prompt.substring(0,50)}..."`);
-    s.emit('system_log', { message: `⚡ ローカルPCで推論を開始しました... (TaskId: ${data.taskId.substring(0,8)})` });
+    console.log(`📥 [BRIDGE] Task Received: ${data.taskId} - Prompt: "${data.prompt.substring(0,30)}..."`);
+    s.emit('system_log', { message: `⚡ PC Node (${process.env.G1M_POC_TOKEN}) で推論を開始...` });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
 
     try {
-        console.log(`🤖 [BRIDGE] Ollamaにリクエスト送信中...`);
-        // タイムアウトを延長 (ローカル推論が重い場合や、モデル初回ロード時間を考慮)
-        
         const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -245,8 +242,8 @@ const handleTask = async (s, data) => {
     }
 };
 
-socket.on('distribute_task', (data) => handleTask(socket, data));
-localSocket.on('distribute_task', (data) => handleTask(localSocket, data));
+socket.on('distribute_task', (data) => { console.log("📡 [Remote] distribute_task received"); handleTask(socket, data); });
+localSocket.on('distribute_task', (data) => { console.log("📡 [Local] distribute_task received"); handleTask(localSocket, data); });
 EOF
 BRIDGE_PID=$!
 
