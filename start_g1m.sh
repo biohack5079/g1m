@@ -242,8 +242,19 @@ const handleTask = async (s, data) => {
     }
 };
 
-socket.on('distribute_task', (data) => { console.log(`📡 [Remote] distribute_task received: ${data.taskId}`); handleTask(socket, data); });
-localSocket.on('distribute_task', (data) => { console.log(`📡 [Local] distribute_task received: ${data.taskId}`); handleTask(localSocket, data); });
+// アプリケーションレベルのハートビート (Render等のプロキシ切断対策)
+setInterval(() => {
+    if (socket.connected) {
+        socket.emit('bridge_ping', { ts: Date.now() });
+    }
+    if (localSocket.connected) {
+        localSocket.emit('bridge_ping', { ts: Date.now() });
+    }
+    process.stdout.write("💓"); // 生存確認としてターミナルに小さなドットを出す
+}, 15000);
+
+socket.on('distribute_task', (data) => { console.log(`\n📡 [Remote] distribute_task received: ${data.taskId}`); handleTask(socket, data); });
+localSocket.on('distribute_task', (data) => { console.log(`\n📡 [Local] distribute_task received: ${data.taskId}`); handleTask(localSocket, data); });
 EOF
 BRIDGE_PID=$!
 

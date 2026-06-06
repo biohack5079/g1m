@@ -588,6 +588,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             emit_cap(st.clone(), Some(socket));
         }});
 
+        // ブリッジからの生存確認（ハートビート）
+        socket.on("bridge_ping", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let _ = socket.emit("bridge_pong", payload);
+        });
+
         // 接続時に現在のチャット履歴をコンソールに出力
         log::info!("📡 [SYSTEM] New participant connected: {}", socket.id);
         let _ = socket.emit("system_log", serde_json::json!({
