@@ -50,10 +50,10 @@ public class KampaController {
                 String dataUrl = "data:image/jpeg;base64," + base64Image;
 
                 Map<String, String> response = new HashMap<>();
-                response.put("anonymous_id", "bot");
+                response.put("anonymous_id", "g1m");
                 response.put("wallet_image_data", dataUrl);
                 response.put("wallet_type", "AirWallet");
-                response.put("cnc_url", "https://cnc-pwa.onrender.com/?id=bot");
+                response.put("cnc_url", "https://cnc-pwa.onrender.com/?id=g1m");
                 return ResponseEntity.ok(response);
             }
             return ResponseEntity.notFound().build();

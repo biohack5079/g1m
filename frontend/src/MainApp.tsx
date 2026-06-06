@@ -398,7 +398,7 @@ const App: React.FC = () => {
             })
             .catch(() => {
               setTappedWalletImage(null);
-              setTappedCncUrl("https://g1m-cnc.onrender.com/call?id=bot");
+              setTappedCncUrl("https://cnc-pwa.onrender.com/?id=bot");
               setIsQrModalOpen(true);
             });
           return;
@@ -2051,6 +2051,8 @@ const App: React.FC = () => {
                 tappedCncUrl ? (
                   <div className="cnc-qr-area">
                     <p style={{ fontSize: '12px', marginBottom: '10px' }}>P2P通話を開始します</p>
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tappedCncUrl)}`} alt="CNC QR" className="qr-image" style={{ marginBottom: '10px' }} />
+                    <p style={{ fontSize: '11px', marginBottom: '10px', opacity: 0.8 }}>スキャンしてP2P通話を開始</p>
                     <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline' }}>通話を開始する</a>
                   </div>
                 ) : (
