@@ -135,6 +135,7 @@ async fn handle_llm(
         let ollama_endpoint = format!("{}api/chat", ollama_base);
         
         match state.client.post(&ollama_endpoint)
+            .timeout(std::time::Duration::from_secs(2))
             .json(&serde_json::json!({
                 "model": state.ollama_model,
                 "options": { "num_predict": 512 },
@@ -201,6 +202,7 @@ async fn handle_llm(
     let python_endpoint = "http://127.0.0.1:8000/v1/chat/completions";
     
     match state.client.post(python_endpoint)
+        .timeout(std::time::Duration::from_secs(2))
         .json(&serde_json::json!({
             "model": state.ollama_model,
             "messages": [
