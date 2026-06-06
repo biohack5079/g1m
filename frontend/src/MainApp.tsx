@@ -68,6 +68,7 @@ const App: React.FC = () => {
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(true);
   const [showSystemLog, setShowSystemLog] = useState(true);
   const [tokenGauge, setTokenGauge] = useState<number>(0);
+  const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [hasHf, setHasHf] = useState(false);
@@ -110,20 +111,17 @@ const App: React.FC = () => {
 
   // 最新の参加者リストをRefで保持（Socket通信のクロージャ対策）
   const participantsRef = useRef<Participant[]>([]);
-
-  // 参加者リストからPCノード(staffロール)の数を直接算出する（ズレを防止）
-  const activeNodes = participants.filter(p => p.role === 'staff').length;
-
+  
   useEffect(() => {
     participantsRef.current = participants;
   }, [participants]);
 
-  const scheduleSubtitleClear = useCallback((delay = 3000) => {
+  const scheduleSubtitleClear = useCallback(() => {
     if (subtitleTimeoutRef.current) {
       clearTimeout(subtitleTimeoutRef.current);
     }
-    // 自動消去の setTimeout を削除し、次のメッセージが来るまで維持するように変更
-  }, [setSubtitle]);
+    // 自動消去を廃止し、次の表示まで維持
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1201,8 +1199,8 @@ const App: React.FC = () => {
           setAiThinking(true);
           setSubtitle("[G1:M] ...");
           setProcessingNode("Routing...");
-          // HF等の低速ノードを考慮し、字幕消去タイマーを10分(600,000ms)に設定
-          scheduleSubtitleClear(600000);
+          // 次の回答が来るまで字幕を維持
+          scheduleSubtitleClear();
 
           const res = await fetch(`${apiBase}/api/llm`, {
             method: 'POST',
@@ -1227,7 +1225,7 @@ const App: React.FC = () => {
             setAiThinking(false);
             setStatus("G1:M 接続エラー");
             setProcessingNode(null);
-            scheduleSubtitleClear(10000);
+            scheduleSubtitleClear();
           }
         } catch (e) {
           console.error('LLM Error:', e);
@@ -1235,7 +1233,7 @@ const App: React.FC = () => {
           setAiThinking(false);
           setStatus(statusBeforeAiRef.current || "G1:M 準備完了");
           setProcessingNode(null);
-          scheduleSubtitleClear(10000);
+          scheduleSubtitleClear();
         }
       })();
     }
@@ -1489,7 +1487,7 @@ const App: React.FC = () => {
     });
     socketRef.current = socket;
 
-    // スマホ等でconnectイベントの前に接続済みになるケースを考慮
+    // スマホ等でconnectイベントの前に接続済みになるケースを考慮し即時フラグセット
     if (socket.connected) setIsConnected(true);
 
     socket.on('config', (data: { showSystemLog: boolean }) => {
@@ -1521,6 +1519,7 @@ const App: React.FC = () => {
 
     socket.on('server_capabilities', (data: { has_local_ai: boolean, has_hf: boolean, active_nodes: number }) => {
       if (data.has_hf !== undefined) setHasHf(data.has_hf);
+      if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
 
     socket.on('participants_list', (list: Participant[]) => {
@@ -1558,6 +1557,10 @@ const App: React.FC = () => {
         if (prev.find(existing => existing.id === p.id)) return prev;
         return [...prev, p];
       });
+      // staffノードの入室を検知してカウント更新
+      if (p.role === 'staff') {
+        setActiveNodes(prev => prev + 1);
+      }
       // PCノード以外ならアバター表示
       if (p.role !== 'staff') {
         loadVRM('/g1-m_chan.glb', p.id);
@@ -1615,7 +1618,7 @@ const App: React.FC = () => {
 
     socket.on('private_message', (data: { text: string, senderName: string, from: string }) => {
       setSubtitle(`[DM from ${data.senderName}] ${data.text}`);
-      scheduleSubtitleClear(10000);
+      scheduleSubtitleClear();
     });
 
     socket.on('distribute_task', (data: { taskId: string, prompt: string }) => {
