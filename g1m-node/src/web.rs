@@ -745,10 +745,13 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         }});
 
         socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
+            let task_id = payload["taskId"].as_str().unwrap_or("unknown");
             let result = payload["result"].as_str().unwrap_or("");
             if result.is_empty() {
+                log::warn!("⚠️ [LLM] Received empty task result from {} (TaskID: {})", socket.id, task_id);
                 return;
             }
+            log::info!("📥 [LLM] Task result arrived at server: {} (TaskID: {})", socket.id, task_id);
             let result = result.to_string();
             
             // タスクを返してきたクライアントの poc_token を取得
@@ -765,8 +768,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             };
 
             let msg = serde_json::json!({ "text": final_result, "actionName": "" });
-            // 全員（AIの回答を待っているユーザー全員）に送信
-            let _ = st.io.emit("bot_response", msg);
+            
+            // Render環境での配信を確実にするため、名前空間を明示して全クライアントに送信
+            let _ = st.io.of("/").unwrap().emit("bot_response", msg);
+            
+            log::info!("🚀 [LLM] Final result relayed to all viewers (Len: {}, TaskID: {})", final_result.chars().count(), task_id);
             
             // タスク完了をP2P全体に通知（チャット形式でリザルトを共有）
             let _ = st.p2p_tx.try_send(P2PCommand::PublishChat {
