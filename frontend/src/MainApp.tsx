@@ -117,12 +117,6 @@ const App: React.FC = () => {
     participantsRef.current = participants;
   }, [participants]);
 
-  // 参加者リストに「PCノード(staff)」が実際に存在するかを常に監視して同期
-  useEffect(() => {
-    const staffCount = participants.filter(p => p.role === 'staff').length;
-    setActiveNodes(staffCount);
-  }, [participants]);
-
   const scheduleSubtitleClear = useCallback(() => {
     if (subtitleTimeoutRef.current) {
       clearTimeout(subtitleTimeoutRef.current);
@@ -137,6 +131,21 @@ const App: React.FC = () => {
       }
     };
   }, []);
+
+  // サーバーへ最新の参加者リストを要求する（強制同期）
+  const requestSync = useCallback(() => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('request_participants');
+    }
+  }, []);
+
+  // 定期的な同期 (10秒ごと)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      requestSync();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [requestSync]);
 
   const processVideoForMotion = useCallback(async (file: File) => {
     const video = document.createElement('video');
@@ -1276,6 +1285,9 @@ const App: React.FC = () => {
     // チャットをWebSocketとWebRTC DataChannelの両方で送信 (フォールバック)
     socketRef.current?.emit('chat_message', { text, senderName: nickname });
 
+    // アクションがあったタイミングで同期を要求
+    requestSync();
+
     const data = JSON.stringify({ type: 'chat', payload: text });
     Object.values(dataChannelsRef.current).forEach(dc => {
       if (dc.readyState === 'open') dc.send(data);
@@ -1553,8 +1565,9 @@ const App: React.FC = () => {
     });
 
     socket.on('server_capabilities', (data: { has_local_ai: boolean, has_hf: boolean, active_nodes: number }) => {
+      // サーバーが把握している最新の状態（スナップショット）で強制同期する
       if (data.has_hf !== undefined) setHasHf(data.has_hf);
-      // ここでの直接セットは行わず、participantsリストとの同期に任せる
+      if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
 
     socket.on('participants_list', (list: Participant[]) => {
@@ -1575,6 +1588,11 @@ const App: React.FC = () => {
       });
 
       setParticipants(validList);
+
+      // リストからもPCノード（staff）の数を再計算して整合性を保つ
+      const staffCount = validList.filter(p => p.role === 'staff').length;
+      setActiveNodes(staffCount);
+
       setStatus("他ユーザーの読み込み中...");
       // role が staff 以外の参加者のみ 3D表示とP2P接続を行う
       validList.forEach(p => {
@@ -1913,11 +1931,11 @@ const App: React.FC = () => {
         {/* Right: HF NODE */}
         <div style={{ background: 'rgba(0,0,0,0.6)', padding: '10px 15px', borderRadius: '12px', color: 'white', minWidth: '140px', textAlign: 'right', border: aiThinking && processingNode?.includes('HF') ? '1px solid #0f0' : '1px solid transparent' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>HF NODE: {(isConnected && hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? 'ACTIVE' : 'OFFLINE'}</span>
-            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (isConnected && hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '#0f0' : '#f00', boxShadow: (isConnected && hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '0 0 10px #0f0' : 'none' }}></span>
+            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>HF NODE: {(isConnected && hasHf) ? 'ACTIVE' : 'OFFLINE'}</span>
+            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (isConnected && hasHf) ? '#0f0' : '#f00', boxShadow: (isConnected && hasHf) ? '0 0 10px #0f0' : 'none' }}></span>
           </div>
           <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
-            {(isConnected && aiThinking && processingNode?.includes('HF')) ? '🚀 Pinch Mode: Cloud Support' : (isConnected && hasHf && activeNodes === 0) ? 'Cloud Super Node: Ready' : (isConnected && hasHf ? 'Standby (PC Node Active)' : 'Cloud Config: NONE')}
+            {aiThinking && processingNode?.includes('HF') ? '🚀 Processing in Cloud' : (isConnected && hasHf ? 'Cloud Super Node: Ready' : 'Cloud Config: NONE')}
           </div>
           <div style={{ marginTop: '8px', height: '4px', fontSize: '9px', color: '#888' }}>
             {aiThinking && processingNode?.includes('HF') ? '⚡ PROCESSING...' : 'IDLE'}
