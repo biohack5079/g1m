@@ -242,8 +242,8 @@ const handleTask = async (s, data) => {
     }
 };
 
-socket.on('distribute_task', (data) => { console.log("📡 [Remote] distribute_task received"); handleTask(socket, data); });
-localSocket.on('distribute_task', (data) => { console.log("📡 [Local] distribute_task received"); handleTask(localSocket, data); });
+socket.on('distribute_task', (data) => { console.log(`📡 [Remote] distribute_task received: ${data.taskId}`); handleTask(socket, data); });
+localSocket.on('distribute_task', (data) => { console.log(`📡 [Local] distribute_task received: ${data.taskId}`); handleTask(localSocket, data); });
 EOF
 BRIDGE_PID=$!
 

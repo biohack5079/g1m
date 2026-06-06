@@ -165,25 +165,28 @@ async fn handle_llm(
     }
 
     // 2. ローカルOllama失敗時 → 接続中のstaffノード（他PCのBridge）へ委譲
-    let staff_ids: Vec<String> = {
-        let parts = state.participants.lock().unwrap();
-        // 現在実際にSocket接続が維持されているノードのみをフィルタリング
-        // [PC-...] トークンを持つ実際のPCブリッジのみを対象にする
-        state.io.sockets().unwrap_or_default().into_iter()
-            .filter(|s| parts.get(&s.id.to_string()).map_or(false, |p| {
-                p.role == "staff" && p.poc_token.as_deref().map_or(false, |t| t.contains("[PC-"))
-            }))
-            .map(|s| s.id.to_string())
+    let staff_nodes: Vec<(String, String)> = {
+        let mut parts = state.participants.lock().unwrap();
+        let active_sockets = state.io.sockets().unwrap_or_default();
+        let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
+        
+        // 配信直前にゾンビを掃除し、確実に生きている接続のみを抽出
+        parts.retain(|id, _| active_ids.contains(id));
+
+        parts.iter()
+            .filter(|(_, p)| p.role == "staff" && p.poc_token.as_deref().map_or(false, |t| t.contains("[PC-")))
+            .map(|(id, p)| (id.clone(), p.poc_token.clone().unwrap_or_default()))
             .collect()
     };
 
-    if !staff_ids.is_empty() {
-        let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
+    if !staff_nodes.is_empty() {
+        let (sid, token) = staff_nodes[uuid::Uuid::new_v4().as_u128() as usize % staff_nodes.len()].clone();
         let task_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
-        log::info!("🚀 [LLM] Distributing task to PC Bridge: {} (TaskID: {})", sid, task_id);
+        log::info!("🚀 [LLM] Distributing task to PC Bridge: {} (Token: {}, TaskID: {})", sid, token, task_id);
         
         // 特定のソケット（ルームID=SID）へ直接配信
-        let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
+        // Render環境での到達性を高めるため、名前空間を明示
+        let _ = state.io.of("/").unwrap().to(sid.clone()).emit("distribute_task", serde_json::json!({
             "taskId": task_id,
             "prompt": context_augmented_prompt.clone()
         }));
