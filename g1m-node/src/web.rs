@@ -530,23 +530,26 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
         // 能力チェックと通知を行う共通ロジック
         let emit_capabilities = |st: AppState, target: Option<SocketRef>| {
-            tokio::spawn(async move {                
-                let total_active_nodes = {
+            tokio::spawn(async move {
+                let (pc_nodes, hf_active) = {
                     let active_sockets = st.io.sockets().unwrap_or_default();
                     let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
                     let mut parts = st.participants.lock().unwrap();
                     parts.retain(|id, _| active_ids.contains(id));
-                    parts.values().filter(|p| p.role == "staff").count()
+                    
+                    // [PC-...] トークンを持つものだけを PC Node としてカウント
+                    let pc_count = parts.values().filter(|p| p.role == "staff" && p.poc_token.as_deref().map_or(false, |t| t.contains("[PC-"))).count();
+                    // 【HF Super Node】トークンを持つか、設定URLがある場合に HF Active とする
+                    let hf_node_active = parts.values().any(|p| p.role == "staff" && p.poc_token.as_deref() == Some("【HF Super Node】"));
+                    (pc_count, hf_node_active)
                 };
 
-                // サーバー自身の環境変数ではなく、実際に接続されている staff ノードの有無で判定
-                let local_ai_available = total_active_nodes > 0;
-                let hf_available = !st.hf_complex_url.is_empty();
+                let hf_available = hf_active || !st.hf_complex_url.is_empty();
 
                 let payload = serde_json::json!({
-                    "has_local_ai": local_ai_available,
+                    "has_local_ai": pc_nodes > 0, // UIの PC NODE 表示に連動
                     "has_hf": hf_available,
-                    "active_nodes": total_active_nodes 
+                    "active_nodes": pc_nodes
                 });
 
                 if let Some(s) = target {
@@ -675,7 +678,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 if payload.role == "staff" { let _ = socket.join("staff"); } // スタッフルームに参加
                 let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
             
-            log::info!("Register role: {} as {}", socket.id, payload.role); 
+            log::info!("Register role: {} as {} (Token: {:?})", socket.id, payload.role, payload.poc_token); 
             let _ = socket.broadcast().emit("participant_joined", info);
             emit_cap(st.clone(), None); // 全員に正確な能力情報を再送
         }});
