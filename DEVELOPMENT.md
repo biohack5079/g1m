@@ -214,3 +214,5 @@ git push -u origin main || echo "Git push failed"
 ./start_g1m.sh https://your-tunnel-url.trycloudflare.com
 
 sqlitebrowser g1m.db
+
+./verify_all_systems.sh

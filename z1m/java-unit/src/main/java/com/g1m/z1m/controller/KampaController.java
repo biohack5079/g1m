@@ -1,7 +1,7 @@
 package com.g1m.z1m.controller;
 
 import com.g1m.z1m.model.WalletInfo;
-import com.g1m.z1m.repository.WalletRepository;
+import com.g1m.z1m.repository.personal.WalletRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -43,6 +43,7 @@ public class KampaController {
                 response.put("anonymous_id", "bot");
                 response.put("wallet_image_data", dataUrl);
                 response.put("wallet_type", "AirWallet");
+                response.put("cnc_url", "https://g1m-cnc.onrender.com/call?id=bot");
                 return ResponseEntity.ok(response);
             }
             return ResponseEntity.notFound().build();

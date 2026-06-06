@@ -63,14 +63,22 @@ pub struct ProcessRequest {
     pub base64_data: String,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WalletRegisterRequest {
+    #[serde(rename = "anonymousId")]
+    pub anonymous_id: String,
+    #[serde(rename = "walletImageData")]
+    pub wallet_image_data: String,
+    #[serde(rename = "walletType")]
+    pub wallet_type: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProfileRegisterRequest {
     pub anonymous_id: String,
-    pub nickname: Option<String>,
     pub wallet_image: Option<String>,
     pub cnc_url: Option<String>,
-    pub email: Option<String>,
-    pub notification_enabled: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -87,14 +95,8 @@ async fn health_check() -> impl IntoResponse {
 }
 
 fn normalize_url(url: &str) -> String {
-    let trimmed = url.trim().trim_end_matches('/');
-    if trimmed.is_empty() {
-        return "".to_string();
-    }
-    if !trimmed.starts_with("http") {
-        return format!("http://{}", trimmed);
-    }
-    trimmed.to_string()
+    if url.ends_with('/') { url.to_string() }
+    else { format!("{}/", url) }
 }
 
 // LLM request handler with failover (HF -> local Ollama)
@@ -127,12 +129,9 @@ async fn handle_llm(
     log::info!("🤖 [LLM] Routing to Local Ollama...");
     // 1. Try Local Ollama
     let ollama_base = normalize_url(&state.ollama_url);
-    if ollama_base.is_empty() {
-        log::warn!("⚠️ Ollama URL is not configured. Skipping local direct attempt.");
-    } else {
-        let ollama_endpoint = format!("{}/api/chat", ollama_base);
+    let ollama_endpoint = format!("{}api/chat", ollama_base);
     
-        match state.client.post(&ollama_endpoint)
+    match state.client.post(&ollama_endpoint)
         .json(&serde_json::json!({
             "model": state.ollama_model,
             "options": { "num_predict": 512 },
@@ -160,7 +159,6 @@ async fn handle_llm(
         Err(e) => {
             log::warn!("Local Ollama unavailable ({}): trying next node...", e);
         }
-    }
     }
 
     // 1.5 Try Local Python AI Node (Internal logic priority)
@@ -201,11 +199,11 @@ async fn handle_llm(
     }
 
     // 1.8 Try to delegate directly to connected Staff Nodes (Distributed)
+    // ローカルノードが見つからない場合、接続中のPCノード（スタッフ）を探す
     let staff_ids: Vec<String> = {
         let parts = state.participants.lock().unwrap();
         parts.values().filter(|p| p.role == "staff").map(|p| p.id.clone()).collect()
     };
-    log::info!("📡 Available Staff Nodes: {}", staff_ids.len());
 
     if !staff_ids.is_empty() {
         // タスクが重なった際、別のノードに振り分けるための分散ロジック
@@ -248,10 +246,9 @@ async fn handle_llm(
         let hf_url_task = hf_url.clone();
 
         tokio::spawn(async move {
-            log::info!("☁️ [HF TASK] Dispatching prompt to: {}", hf_url_task);
-            // パスの重複を防ぐため、ベースURLの末尾スラッシュを除去してから結合
-            let base_url = hf_url_task.trim_end_matches('/');
-            let target_url = format!("{}/v1/chat/completions", base_url);
+            log::info!("☁️ [TASK] Background HF Inference started for: {}", hf_url_task);
+            let api_path = if hf_url_task.ends_with('/') { "v1/chat/completions" } else { "/v1/chat/completions" };
+            let target_url = format!("{}{}", hf_url_task, api_path);
             
             let hf_client = reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(900))
@@ -284,20 +281,13 @@ async fn handle_llm(
 
                     if status.is_success() && is_json {
                         if let Ok(data) = resp.json::<serde_json::Value>().await {
-                            let text = if let Some(choices) = data.get("choices").and_then(|c| c.as_array()) {
-                                choices.first().and_then(|first| {
-                                    first.get("message").and_then(|m| m.get("content")).and_then(|c| c.as_str())
-                                        .or_else(|| first.get("text").and_then(|t| t.as_str()))
-                                })
-                            } else {
-                                None
-                            }
-                            .or_else(|| data.get("text").and_then(|t| t.as_str()))
-                            .or_else(|| data.get("response").and_then(|r| r.as_str()))
-                            .or_else(|| data.get("error").and_then(|e| e.as_str()))
-                            .or_else(|| data.get("message").and_then(|m| m.as_str()))
-                            .unwrap_or("解析不能")
-                            .to_string();
+                            let text = data["choices"][0]["message"]["content"]
+                                .as_str()
+                                .or_else(|| data["choices"][0]["text"].as_str())
+                                .or_else(|| data["text"].as_str())
+                                .or_else(|| data["response"].as_str())
+                                .unwrap_or("解析不能")
+                                .to_string();
                             log::info!("☁️ [HF Node] Inference successful");
                             let display_text = format!("【HF Super Node】 {}", text);
                             let _ = state_task.io.emit("bot_response", serde_json::json!({ "text": display_text }));
@@ -342,6 +332,16 @@ async fn handle_llm(
     }))).into_response()
 }
 
+// Helper to determine if target URL ends in /
+trait EndsOk {
+    fn ends_ok(&self) -> bool;
+}
+impl EndsOk for String {
+    fn ends_ok(&self) -> bool {
+        self.ends_with('/')
+    }
+}
+
 async fn handle_process(
     State(state): State<AppState>,
     Json(payload): Json<ProcessRequest>,
@@ -349,7 +349,11 @@ async fn handle_process(
     // Check if we should redirect to HF
     if !state.hf_complex_url.is_empty() {
         let client = reqwest::Client::new();
-        let target_url = format!("{}/api/process", state.hf_complex_url.trim_end_matches('/'));
+        let target_url = if state.hf_complex_url.ends_ok() {
+            format!("{}api/process", state.hf_complex_url)
+        } else {
+            format!("{}/api/process", state.hf_complex_url)
+        };
         
         match client.post(&target_url).json(&payload).send().await {
             Ok(resp) => {
@@ -392,18 +396,22 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         // g1m-nodeディレクトリからの相対パス
         exe_root.join("../../../z1m/AirWallet/g1-m_chan.jpeg"),
     ];
-
-    // パスを整理
-    paths_to_try.retain(|p| p.exists());
-    paths_to_try.sort();
+    // 正規化して重複を排除
+    paths_to_try.iter_mut().for_each(|p| {
+        if let Ok(canonical) = p.canonicalize() {
+            *p = canonical;
+        }
+    });
     paths_to_try.dedup();
     
     let mut file_data = None;
     for path in &paths_to_try {
-        if let Ok(data) = fs::read(path) {
-            log::info!("✅ Bot QR loaded from: {:?}", path);
-            file_data = Some(data);
-            break;
+        if path.exists() {
+            if let Ok(data) = fs::read(path) {
+                log::info!("✅ Bot QR loaded from: {:?}", path);
+                file_data = Some(data);
+                break;
+            }
         }
     }
     
@@ -411,16 +419,10 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         use base64::Engine;
         let base64_data = base64::engine::general_purpose::STANDARD.encode(bitmap);
         let data_url = format!("data:image/jpeg;base64,{}", base64_data);
-
-        // 管理人が連絡を受け取るためのUUIDを環境変数から取得（デフォルトは "bot"）
-        let bot_id = std::env::var("BOT_CNC_ID").unwrap_or_else(|_| "bot".to_string());
-
         Json(serde_json::json!({
-            "anonymous_id": bot_id,
+            "anonymous_id": "bot",
             "wallet_image_data": data_url,
-            "wallet_type": "AirWallet",
-            "cnc_url": format!("https://cnc-pwa.onrender.com?id={}", bot_id),
-            "nickname": "G1:Mちゃん (AI)"
+            "wallet_type": "AirWallet"
         })).into_response()
     } else {
         log::error!("❌ Bot QR file not found. Tried paths: {:?}", paths_to_try);
@@ -434,16 +436,16 @@ async fn handle_get_wallet(
 ) -> impl IntoResponse {
     let db = state.db_conn.lock().unwrap();
     match crate::db::get_nickname(&db, &anonymous_id) {
-        Ok(Some((nickname, _, wallet_image, cnc_url, email, notify))) => Json(serde_json::json!({
+        Ok(Some((nickname, _, wallet_image, cnc_url, email, notify))) => (StatusCode::OK, Json(serde_json::json!({
             "anonymous_id": anonymous_id,
             "nickname": nickname,
             "wallet_image_data": wallet_image,
             "cnc_url": cnc_url,
             "email": email,
             "notification_enabled": notify
-        })).into_response(),
+        }))).into_response(),
         Ok(None) => (StatusCode::NOT_FOUND, "Wallet not found").into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Wallet not found").into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response(),
     }
 }
 
@@ -455,11 +457,11 @@ async fn handle_register_wallet(
     let res = crate::db::update_user_profile(
         &db, 
         &payload.anonymous_id, 
-        payload.nickname.as_deref(), 
+        None, 
         payload.wallet_image.as_deref(), 
         payload.cnc_url.as_deref(),
-        payload.email.as_deref(),
-        payload.notification_enabled
+        None,
+        None
     );
     
     match res {
@@ -529,50 +531,26 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 .timeout(std::time::Duration::from_millis(1200)) // 素早いレスポンスを期待
                 .build().unwrap_or_default();
 
-            // Ollama と Python ノードの生存確認 (URLが設定されている場合のみ実行)
-            let ollama_base = normalize_url(&st_cap.ollama_url);
-            let ollama_alive = if !ollama_base.is_empty() {
-                client.get(format!("{}/api/tags", ollama_base)).send().await.is_ok()
-            } else {
-                false
-            };
-            
+            // Ollama と Python ノードの生存確認 (実際にリクエストを飛ばす)
+            let ollama_url = st_cap.ollama_url.trim_end_matches('/');
+            let ollama_alive = client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok();
             let python_alive = client.get("http://127.0.0.1:8000/health").send().await.is_ok();
-            let pc_ready = !is_render && (ollama_alive || python_alive);
             
-            // HF Super Node の生存確認 (設定がある場合のみ)
-            let hf_url_candidate = if !st_cap.hf_complex_url.is_empty() {
-                st_cap.hf_complex_url.clone()
-            } else {
-                std::env::var("LLM_API_URL").unwrap_or_default()
-            };
-            let hf_url = hf_url_candidate.trim_end_matches('/');
-            let hf_ready = if !hf_url.is_empty() {
-                // ヘルスチェックを非同期で実行。/health がなければルートへのリクエストで生存確認を行う
-                match client.get(format!("{}/health", hf_url)).send().await {
-                    Ok(resp) if resp.status().is_success() => true,
-                    _ => {
-                        // /health が失敗した場合はルートパスを試す
-                        client.get(hf_url).send().await
-                            .map(|resp| resp.status().is_success())
-                            .unwrap_or(false)
-                    }
-                }
-            } else {
-                false
-            };
-
+            // Local AI または HF 設定があれば推論可能とみなす
+            let local_inference_available = (!is_render && (ollama_alive || python_alive)) || !st_cap.hf_complex_url.is_empty();
+            
             let total_active_nodes = {
                 let parts = st_cap.participants.lock().unwrap();
+                // すべてのスタッフノード（ブリッジを含む）をカウント
                 parts.values().filter(|p| p.role == "staff").count()
             };
 
-            log::info!("📊 Capability Check: LocalAI={}, SuperNode={}, ActiveStaff={}", pc_ready, hf_ready, total_active_nodes);
+            log::info!("📊 Node Capability (Verified) - Local: {}, Staff: {}, Total: {}", 
+                local_inference_available, total_active_nodes, total_active_nodes);
 
             // 初回送信
             let _ = socket_cap.emit("server_capabilities", serde_json::json!({
-                "pc_ready": pc_ready,
-                "hf_ready": hf_ready,
+                "has_local_llm": local_inference_available,
                 "active_nodes": total_active_nodes
             }));
         });
@@ -612,20 +590,18 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         });
 
         // --- DM (Direct Message) 機能 ---
-        socket.on("private_message", {
-            move |socket: SocketRef, Data(payload): Data<Value>| {
-                let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
-                let message = payload["text"].as_str().unwrap_or_default().to_string();
-                
-                log::info!("💌 [DM] From {} to {}: {}", socket.id, target_id, message);
-                
-                // 指定した相手にのみ送信
-                let _ = socket.to(target_id).emit("private_message", serde_json::json!({
-                    "from": socket.id.to_string(),
-                    "text": message,
-                    "senderName": payload["senderName"].as_str().unwrap_or("不明")
-                }));
-            }
+        socket.on("private_message", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let target_id = payload["targetId"].as_str().unwrap_or_default().to_string();
+            let message = payload["text"].as_str().unwrap_or_default().to_string();
+            
+            log::info!("💌 [DM] From {} to {}: {}", socket.id, target_id, message);
+            
+            // 指定した相手にのみ送信
+            let _ = socket.to(target_id).emit("private_message", serde_json::json!({
+                "from": socket.id.to_string(),
+                "text": message,
+                "senderName": payload["senderName"].as_str().unwrap_or("不明")
+            }));
         });
 
         // P2Pリレー対応シグナリング

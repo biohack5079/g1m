@@ -26,11 +26,11 @@ declare global {
   }
 }
 
-const SMOOTH_FACTOR = 0.4; // 応答性を高めるため少し上げる
+const SMOOTH_FACTOR = 0.3; // 0.1(滑らか) 〜 1.0(高速)
 
 // 座標補間ヘルパー
 const lerpLandmarks = (prev: any, curr: any) => {
-  if (!curr || curr.length === 0) return prev;
+  if (!curr) return prev; // 追跡が途切れても直前の値を保持してガクつきを抑える
   if (!prev) return curr;
   return curr.map((lm: any, i: number) => {
     const p = prev[i];
@@ -61,8 +61,6 @@ const App: React.FC = () => {
   const [tappedWalletImage, setTappedWalletImage] = useState<string | null>(null);
   const [tappedCncUrl, setTappedCncUrl] = useState<string | null>(null);
   const [qrMode, setQrMode] = useState<'wallet' | 'cnc'>('wallet');
-  const [userEmail, setUserEmail] = useState("");
-  const [isNotifyEnabled, setIsNotifyEnabled] = useState(false);
   const [tappedModelId, setTappedModelId] = useState<string>("");
   const [tappedSocketId, setTappedSocketId] = useState<string>("");
   const [nickname, setNickname] = useState<string>("ゲスト");
@@ -73,8 +71,7 @@ const App: React.FC = () => {
   const [tokenGauge, setTokenGauge] = useState<number>(0);
   const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
-  const [pcReady, setPcReady] = useState(false);
-  const [hfReady, setHfReady] = useState(false);
+  const [hasServerLlm, setHasServerLlm] = useState(false);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusBeforeAiRef = useRef<string>(status);
@@ -94,18 +91,17 @@ const App: React.FC = () => {
   useEffect(() => { isModelHiddenRef.current = isModelHidden; }, [isModelHidden]);
   const holisticRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
-  const threeCameraRef = useRef<THREE.PerspectiveCamera>(new THREE.PerspectiveCamera(35.0, window.innerWidth / window.innerHeight, 0.1, 1000.0));
+  const threeCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const lastResultsRef = useRef<any>(null);
   const smoothedResultsRef = useRef<any>({
-    poseLandmarks: null, poseWorldLandmarks: null, leftHandLandmarks: null, rightHandLandmarks: null, faceLandmarks: null
+    poseLandmarks: null,
+    poseWorldLandmarks: null,
+    leftHandLandmarks: null,
+    rightHandLandmarks: null,
+    faceLandmarks: null
   });
-
-  // APIベースURLの判定をより堅牢に（Cloudflare Tunnel対応）
-  const apiBase = window.location.port === '3001'
-    ? `${window.location.protocol}//${window.location.hostname}:3000`
-    : window.location.origin;
-
+  const apiBase = window.location.port === '3001' ? `${window.location.protocol}//${window.location.hostname}:3000` : '';
   const landmarkGroupRef = useRef<THREE.Group>(new THREE.Group());
   const poseDotsRef = useRef<THREE.Mesh[]>([]);
   const poseLinesRef = useRef<THREE.Line[]>([]);
@@ -234,33 +230,21 @@ const App: React.FC = () => {
   useEffect(() => {
     getAnonymousId().then(id => {
       setAnonymousId(id);
-      const defaultNick = `User-${id.slice(0, 4)}`;
-      setNickname(defaultNick);
-
-      // DBからプロフィール情報を取得して復元
-      fetch(`${apiBase}/api/kampa/wallet/${id}`)
+      // Supabase経由でWallet情報を取得してみる
+      fetch(`/api/kampa/wallet/${id}`)
         .then(res => res.ok ? res.json() : Promise.reject())
         .then(data => {
-          if (data?.nickname) setNickname(data.nickname);
-          if (data?.wallet_image_data) setUserWalletImage(data.wallet_image_data);
-          if (data?.email) setUserEmail(data.email);
-          if (data?.notification_enabled !== undefined) setIsNotifyEnabled(data.notification_enabled);
-
-          // 名前が判明したのでソケットに通知
-          if (socketRef.current?.connected) {
-            socketRef.current.emit('register_role', {
-              role: 'viewer',
-              anonymousId: id,
-              nickname: data?.nickname || defaultNick
-            });
+          if (data && data.wallet_image_data) {
+            setUserWalletImage(data.wallet_image_data);
+          }
+          if (data && data.cnc_url) {
+            // CNC URLの初期化
+          }
+          if (data && data.nickname) {
+            setNickname(data.nickname);
           }
         })
-        .catch(_err => {
-          console.log("Profile recovery skipped or failed.");
-          if (socketRef.current?.connected) {
-            socketRef.current.emit('register_role', { role: 'viewer', anonymousId: id, nickname: defaultNick });
-          }
-        });
+        .catch(_err => console.log("Wallet fetch failed."));
     });
   }, []);
 
@@ -276,9 +260,7 @@ const App: React.FC = () => {
         body: JSON.stringify({
           anonymous_id: anonymousId,
           nickname: newNick,
-          cnc_url: `https://cnc-pwa.onrender.com?id=${anonymousId}`, // CNC招待URLを自動生成
-          email: userEmail,
-          notification_enabled: isNotifyEnabled
+          cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}` // CNC用URLを自動生成
         })
       });
     } catch (e) {
@@ -287,11 +269,6 @@ const App: React.FC = () => {
 
     if (socketRef.current) {
       socketRef.current.emit('update_nickname', { nickname: newNick, isCustom: true });
-    }
-
-    // ローカルの表示も即座に更新
-    if (vrmsRef.current['local']) {
-      // ラベル更新などは自動で行われる
     }
   };
 
@@ -360,9 +337,7 @@ const App: React.FC = () => {
           body: JSON.stringify({
             anonymous_id: anonymousId,
             wallet_image: base64,
-            cnc_url: `https://cnc-pwa.onrender.com?id=${anonymousId}`,
-            email: userEmail,
-            notification_enabled: isNotifyEnabled
+            cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}`
           })
         });
         setStatus("Wallet登録完了");
@@ -381,7 +356,6 @@ const App: React.FC = () => {
     if (isKampaModalOpen || isQrModalOpen) return;
 
     setTappedWalletImage(null); // 前の表示をクリア
-    setTappedCncUrl(null);     // 前の表示をクリア
     const rect = canvasRef.current.getBoundingClientRect();
     const mouse = new THREE.Vector2();
 
@@ -398,51 +372,75 @@ const App: React.FC = () => {
 
     raycasterRef.current.setFromCamera(mouse, threeCameraRef.current);
 
-    // 各VRMモデルに対してタップ判定
+    // 各VRMのシーンに対してRaycast
     for (const [id, vrm] of Object.entries(vrmsRef.current)) {
       const intersects = raycasterRef.current.intersectObject(vrm.scene, true);
       if (intersects.length > 0) {
-        let targetName = "";
-        let targetAnon = "";
+        console.log(`🎯 Tapped model: ${id}`);
         setTappedSocketId(id);
+        // setShowHideButton(true); // 中央のボタンは出さない
+
+        // タップされたモデルの anonymousId を特定        
+        let targetAnonymousId: string | null = null;
 
         if (id === 'local') {
-          targetName = nickname;
-          targetAnon = anonymousId;
-          // 自分自身の場合はメモリ上の値を初期値としてセット
-          setTappedWalletImage(userWalletImage);
-          setTappedCncUrl(`https://cnc-pwa.onrender.com?id=${anonymousId}`);
+          // 自分自身
+          targetAnonymousId = anonymousId;
         } else if (id === 'bot') {
-          targetName = 'G1:Mちゃん (AI)';
-          targetAnon = 'bot';
-        } else {
-          const participant = participantsRef.current.find(p => p.id === id);
-          targetName = participant?.nickname || id.slice(0, 6);
-          targetAnon = participant?.anonymousId || "";
-        }
+          // Bot (G1:Mちゃん) → サーバーから専用情報を取得
+          setTappedModelId('G1:Mちゃん (AI)');
+          setTappedSocketId(id);
 
-        setTappedModelId(targetName);
-
-        // サーバーから最新のプロフィール情報を取得
-        const fetchPath = id === 'bot' ? `/api/kampa/wallet/bot` : `/api/kampa/wallet/${targetAnon}`;
-        if (targetAnon || id === 'bot') {
-          fetch(fetchPath)
+          fetch(`/api/kampa/wallet/bot`)
             .then(res => res.ok ? res.json() : Promise.reject())
             .then(data => {
-              if (data?.wallet_image_data) setTappedWalletImage(data.wallet_image_data);
-              if (data?.cnc_url) setTappedCncUrl(data.cnc_url);
+              setTappedWalletImage(data?.wallet_image_data || null); // DBから取得した画像を表示
+              setTappedCncUrl(data?.cnc_url || null);
               setIsQrModalOpen(true);
             })
             .catch(() => {
-              setIsQrModalOpen(true); // 失敗してもモーダル自体は開く
+              setTappedWalletImage(null); // 失敗時はnullにする
+              setIsQrModalOpen(true);
+            });
+          return;
+        } else {
+          // 他の参加者 → participantsから anonymousId を取得
+          const participant = participantsRef.current.find(p => p.id === id);
+          targetAnonymousId = participant?.anonymousId || null;
+        }
+
+        if (targetAnonymousId) {
+          // 他の参加者ならニックネームを表示
+          const participant = participantsRef.current.find(p => p.id === id);
+          setTappedModelId(id === 'local' ? nickname : (participant?.nickname || id.slice(0, 6)));
+          setTappedSocketId(id);
+
+          // Supabase経由でWallet情報を取得
+          fetch(`/api/kampa/wallet/${targetAnonymousId}`)
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .then(data => {
+              if (data && data.wallet_image_data) {
+                setTappedWalletImage(data.wallet_image_data);
+                setTappedCncUrl(data.cnc_url || null);
+              } else {
+                setTappedWalletImage(null);
+                setTappedCncUrl(data.cnc_url || null);
+              }
+              setIsQrModalOpen(true);
+            })
+            .catch(() => {
+              setTappedWalletImage(null);
+              setIsQrModalOpen(true);
             });
         } else {
+          setTappedModelId(id.slice(0, 6));
+          setTappedWalletImage(null);
           setIsQrModalOpen(true);
         }
-        return;
+        return; // 最初にヒットしたモデルだけ処理
       }
     }
-  }, [anonymousId, isKampaModalOpen, isQrModalOpen, nickname, userWalletImage]);
+  }, [anonymousId, isKampaModalOpen, isQrModalOpen]);
 
   // モーション適用
   const mapMotionToVRM = (vrm: VRM, res: any) => {
@@ -458,19 +456,11 @@ const App: React.FC = () => {
 
     // ボーン取得ヘルパー: 全てのAPI差異を吸収し、確実にノードを取得する
     const getBone = (name: string) => {
-      const h = vrm.humanoid;
-      if (!h) return null;
-      // VRM 0.x / 1.x のAPI差異と、通常のScene探索をフォールバック
-      return (h as any).getNormalizedBoneNode?.(name as any)
-        || (h as any).getBoneNode?.(name as any)
-        || (h as any).getRawBoneNode?.(name as any)
-        || vrm.scene.getObjectByName(name)
-        || vrm.scene.getObjectByName(name.charAt(0).toUpperCase() + name.slice(1));
+      if (!vrm.humanoid) return null;
+      return vrm.humanoid.getNormalizedBoneNode(name as any) || (vrm.humanoid as any).getBoneNode?.(name) || vrm.scene.getObjectByName(name);
     };
 
     const kalido = (window as any).Kalidokit || (window as any).Kalido;
-    if (Math.random() < 0.01) console.log(`[Motion] Mapping to VRM. Kalido detected: ${!!kalido}`);
-
     if (kalido) {
       // --- KalidoKit 統合 ---
       // 1. Face (Head Rotation, Mouth, Eyes)      
@@ -501,33 +491,29 @@ const App: React.FC = () => {
           imageSize: { width: 480, height: 360 }
         });
         if (poseRig) {
-          // KalidoKitのPose分岐で head にも値が入る場合があるが、Face分岐を優先する
-          // → Face分岐が先に実行されているので、ここでは head を上書きしない
-          const pr = poseRig;
           const lUpper = getBone('leftUpperArm');
           const lLower = getBone('leftLowerArm');
           const rUpper = getBone('rightUpperArm');
           const rLower = getBone('rightLowerArm');
           const spine = getBone('spine');
-          const hips = getBone('hips');
 
-          // KalidoKitの座標系をVRMボーンの回転(Euler)に適用
-          const apply = (bone: any, rig: any) => {
-            if (bone && rig) {
-              bone.rotation.set(safeRotation(rig.x), safeRotation(rig.y), safeRotation(rig.z));
-            }
-          };
-
-          apply(lUpper, pr.LeftUpperArm || pr.UpperArm?.l);
-          apply(lLower, pr.LeftLowerArm || pr.LowerArm?.l);
-          apply(rUpper, pr.RightUpperArm || pr.UpperArm?.r);
-          apply(rLower, pr.RightLowerArm || pr.LowerArm?.r);
-          apply(spine, pr.Spine || pr.Hips?.world);
-
-          if (hips && pr.Hips) {
-            // Hipsの上下位置同期 (ジャンプ等)
-            hips.position.y = safeRotation(pr.Hips.world.y);
+          if (lUpper && poseRig.leftUpperArm) {
+            lUpper.rotation.set(safeRotation(poseRig.leftUpperArm.x), safeRotation(poseRig.leftUpperArm.y), safeRotation(poseRig.leftUpperArm.z));
           }
+          if (lLower && poseRig.leftLowerArm) {
+            lLower.rotation.set(safeRotation(poseRig.leftLowerArm.x), safeRotation(poseRig.leftLowerArm.y), safeRotation(poseRig.leftLowerArm.z));
+          }
+          if (rUpper && poseRig.rightUpperArm) {
+            rUpper.rotation.set(safeRotation(poseRig.rightUpperArm.x), safeRotation(poseRig.rightUpperArm.y), safeRotation(poseRig.rightUpperArm.z));
+          }
+          if (rLower && poseRig.rightLowerArm) {
+            rLower.rotation.set(safeRotation(poseRig.rightLowerArm.x), safeRotation(poseRig.rightLowerArm.y), safeRotation(poseRig.rightLowerArm.z));
+          }
+          if (spine && poseRig.spine) {
+            spine.rotation.set(safeRotation(poseRig.spine.x), safeRotation(poseRig.spine.y), safeRotation(poseRig.spine.z));
+          }
+          // KalidoKitのPose分岐で head にも値が入る場合があるが、Face分岐を優先する
+          // → Face分岐が先に実行されているので、ここでは head を上書きしない
         }
       }
 
@@ -687,20 +673,14 @@ const App: React.FC = () => {
     // スケルトンの位置と回転をVRMモデルに同期させる
     landmarkGroupRef.current.position.copy(vrm.scene.position);
     landmarkGroupRef.current.rotation.copy(vrm.scene.rotation);
-    landmarkGroupRef.current.updateMatrixWorld();
 
     // VRMボーン取得ヘルパー
     const getB = (name: string) => (vrm.humanoid as any).getNormalizedBoneNode?.(name) || (vrm.humanoid as any).getBoneNode?.(name) || (vrm.humanoid as any).getRawBoneNode?.(name);
 
     // アバターのワールドポジションに合わせる
     const hipsPos = new THREE.Vector3(); getB('hips')?.getWorldPosition(hipsPos);
-    if (hipsPos) landmarkGroupRef.current.worldToLocal(hipsPos);
-    
     const lHandPos = new THREE.Vector3(); getB('leftHand')?.getWorldPosition(lHandPos);
-    if (lHandPos) landmarkGroupRef.current.worldToLocal(lHandPos);
-    
     const rHandPos = new THREE.Vector3(); getB('rightHand')?.getWorldPosition(rHandPos);
-    if (rHandPos) landmarkGroupRef.current.worldToLocal(rHandPos);
 
     // ポーズドット (全身) の位置更新
     if (res.poseLandmarks) {
@@ -843,7 +823,7 @@ const App: React.FC = () => {
   // アバター読み込み
   const loadVRM = useCallback(async (url: string, id: string) => {
     // 既に読み込み済み、または読み込み中の場合はスキップ
-    if (vrmsRef.current[id] || loadingVrmsRef.current.has(id)) return;
+    if (vrmsRef.current[id] || loadingVrmsRef.current.has(id) || !sceneRef.current) return;
     loadingVrmsRef.current.add(id);
 
     const loader = new GLTFLoader();
@@ -865,7 +845,7 @@ const App: React.FC = () => {
       const vrm = gltf.userData.vrm as VRM;
       if (vrm) {
         vrmsRef.current[id] = vrm;
-        sceneRef.current?.add(vrm.scene);
+        sceneRef.current.add(vrm.scene);
         vrm.scene.rotation.y = 0;
         updateLayout();
 
@@ -1218,8 +1198,8 @@ const App: React.FC = () => {
           setStatus("AI思考中...");
           setAiThinking(true);
           setSubtitle("[G1:M] ...");
-          setProcessingNode("PC Node (Routing)...");
-          // HF等の低速ノードを考慮し、字幕消去タイマーを10分に設定
+          setProcessingNode("Routing...");
+          // HF等の低速ノードを考慮し、字幕消去タイマーを10分(600,000ms)に設定
           scheduleSubtitleClear(600000);
 
           const res = await fetch(`${apiBase}/api/llm`, {
@@ -1325,7 +1305,7 @@ const App: React.FC = () => {
         }
       });
       holistic.setOptions({
-        modelComplexity: 1, // 高精度トラッキングを優先
+        modelComplexity: window.innerWidth < 768 ? 0 : 1,
         smoothLandmarks: true,
         refineFaceLandmarks: true,
         minDetectionConfidence: 0.5
@@ -1491,13 +1471,14 @@ const App: React.FC = () => {
     if (rendererRef.current || !canvasRef.current) return;
 
     // --- Socket.IO 初期化 ---
-    // トンネル環境では port 3000 を指定せず origin を使う（サーバーがフロントもホストするため）
-    const socketUrl = window.location.port === '3001' ? `${window.location.protocol}//${window.location.hostname}:3000` : window.location.origin;
+    // 接続先を明示的に現在のホストにする（Renderへ勝手に繋ぎに行かないようにする）
+    const socketUrl = window.location.port === '3001'
+      ? `${window.location.protocol}//${window.location.hostname}:3000`
+      : window.location.origin;
 
     // Proxyエラーを回避するため、最初からWebSocketを優先し、ポーリングをスキップする設定
     const socket = io(socketUrl, {
-      // Cloudflare経由の場合はポーリングから開始したほうが安定する場合があるため、transportsを制限しすぎない
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
       reconnectionAttempts: 5,
       timeout: 10000
     });
@@ -1515,9 +1496,8 @@ const App: React.FC = () => {
       });
     });
 
-    socket.on('server_capabilities', (data: { pc_ready: boolean, hf_ready: boolean, active_nodes: number }) => {
-      if (data.pc_ready !== undefined) setPcReady(data.pc_ready);
-      if (data.hf_ready !== undefined) setHfReady(data.hf_ready);
+    socket.on('server_capabilities', (data: { has_local_llm: boolean, active_nodes: number }) => {
+      if (data.has_local_llm !== undefined) setHasServerLlm(data.has_local_llm);
       if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
 
@@ -1583,27 +1563,11 @@ const App: React.FC = () => {
 
     socket.on('system_log', (log: { message: string, timestamp: string }) => {
       setSystemLogs(prev => [...prev.slice(-19), log]); // 直近20件を保持
-      // 推論開始・転送のログから状態を更新
-      if (log.message.includes("HF Super Node") || log.message.includes("HF Space")) {
-        setHfReady(true);
-      }
-      if (log.message.includes("PC Node") && !log.message.includes("不在")) {
-        setPcReady(true);
-      }
     });
 
     socket.on('bot_response', (data: { text: string }) => {
       console.log('Received bot_response via socket:', data.text);
       setProcessingNode(null);
-      
-      // AIからの返答プレフィックスでオンライン状態を復元（緑ランプ）
-      if (data.text.includes("【Local PC Node】") || data.text.includes("【Local Python Node】")) {
-        setPcReady(true);
-      }
-      if (data.text.includes("【HF Super Node】") || data.text.includes("【HF Node】")) {
-        setHfReady(true);
-      }
-      
       processAiResponse(data.text);
     });
 
@@ -1865,11 +1829,8 @@ const App: React.FC = () => {
 
       <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (pcReady && (activeNodes > 0 || (aiThinking && (processingNode === 'PC Node (Brain)' || processingNode === 'Local WebGPU (Helper)')))) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (pcReady && (activeNodes > 0 || (aiThinking && (processingNode === 'PC Node (Brain)' || processingNode === 'Local WebGPU (Helper)')))) ? '0 0 12px #0f0' : 'none' }}></span>
-          <span style={{ fontWeight: 'bold' }}>LOCAL AI: {(pcReady && (activeNodes > 0 || (aiThinking && (processingNode === 'PC Node (Brain)' || processingNode === 'Local WebGPU (Helper)')))) ? 'READY' : 'OFFLINE'}</span>
-        </div>
-        <div style={{ marginTop: '4px', fontSize: '11px', opacity: 0.8 }}>
-          Cluster Nodes: {activeNodes}
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
+          <span style={{ fontWeight: 'bold' }}>PC NODE: {(activeNodes > 0) ? 'ACTIVE' : 'DISCONNECTED'}</span>
         </div>
         <div style={{ marginTop: '5px' }}>
           Token Gauge: {tokenGauge}%
@@ -1879,20 +1840,20 @@ const App: React.FC = () => {
         </div>
         {aiThinking && (
           <div style={{ marginTop: '5px', fontSize: '11px', color: '#ffd700', fontWeight: 'bold' }}>
-            ⚡ INFERENCE: {processingNode}
+            ⚡ RUNNING ON: {processingNode}
           </div>
         )}
       </div>
 
-      <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`} style={{ right: '10px', left: 'auto' }}>
+      <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`}>
         <div className="status-dot" style={{
-          backgroundColor: (hfReady || (aiThinking && processingNode?.includes('HF'))) ? '#0f0' : '#f00',
-          boxShadow: (hfReady || (aiThinking && processingNode?.includes('HF'))) ? '0 0 10px #0f0' : 'none'
+          backgroundColor: loadingProgress !== null ? '#fff' :
+            aiThinking ? '#ffd700' : (activeNodes > 0 || hasServerLlm ? '#0f0' : '#f00')
         }}></div>
         <span>
-          {loadingProgress !== null ? `LOAD ${loadingProgress}%` :
-            aiThinking ? `THINKING...` :
-              ((hfReady || processingNode?.includes('HF')) ? "SUPER NODE: ONLINE" : "SUPER NODE: OFFLINE")}
+          {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
+            aiThinking ? `推論中: ${processingNode}` :
+              (activeNodes > 0 ? `PC Node Active (${activeNodes})` : (hasServerLlm ? "Ready (Inference Available)" : "Disconnected (No AI Node)"))}
         </span>
       </div>
 
@@ -1982,10 +1943,6 @@ const App: React.FC = () => {
         >
           <span>🎤</span><span className="btn-label">マイク</span>
         </button>
-        <button className="btn-control" onClick={spawnBot} disabled={!!vrmsRef.current['bot']}>
-          <span>🤖</span>
-          <span className="btn-label">G1:M召喚</span>
-        </button>
         <button className="btn-control danger" onClick={() => window.location.reload()}>
           <span>▢</span><span className="btn-label">終了</span>
         </button>
@@ -2026,22 +1983,6 @@ const App: React.FC = () => {
                 <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
               </div>
 
-              <div className="input-group">
-                <label>CNC通知用メールアドレス (招待通知用)</label>
-                <input type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="example@gmail.com" />
-              </div>
-
-              <div className="input-group checkbox">
-                <label>
-                  <input type="checkbox" checked={isNotifyEnabled} onChange={(e) => setIsNotifyEnabled(e.target.checked)} />
-                  <span>P2P着信メール通知を有効にする</span>
-                </label>
-              </div>
-
-              <div className="modal-btns">
-                <button className="btn-action" onClick={() => handleSaveNickname(nickname)} style={{ background: 'rgba(100, 200, 255, 0.4)' }}>プロフィール保存</button>
-              </div>
-
               <div className="modal-btns">
                 <button className="btn-action kampa" onClick={handleDonate}>カンパを送る</button>
                 <button className="btn-action close" onClick={() => setIsKampaModalOpen(false)}>閉じる</button>
@@ -2059,7 +2000,7 @@ const App: React.FC = () => {
 
             <div className="qr-tabs" style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
               <button onClick={() => setQrMode('wallet')} style={{ padding: '8px 15px', borderRadius: '15px 0 0 15px', border: '1px solid #555', background: qrMode === 'wallet' ? '#444' : '#222', color: 'white' }}>カンパ</button>
-              <button onClick={() => setQrMode('cnc')} style={{ padding: '8px 15px', borderRadius: '0 15px 15px 0', border: '1px solid #555', background: qrMode === 'cnc' ? '#444' : '#222', color: 'white' }}>CNC</button>
+              <button onClick={() => setQrMode('cnc')} style={{ padding: '8px 15px', borderRadius: '0 15px 15px 0', border: '1px solid #555', background: qrMode === 'cnc' ? '#444' : '#222', color: 'white' }}>CyberNetCall</button>
             </div>
 
             <div className="qr-container">
@@ -2070,14 +2011,10 @@ const App: React.FC = () => {
                   <div className="qr-placeholder"><p>💳</p><p>QRコード未登録</p></div>
                 )
               ) : (
-                tappedCncUrl && tappedCncUrl.startsWith('http') ? (
+                tappedCncUrl ? (
                   <div className="cnc-qr-area">
-                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>CNC: アバター招待 & TV電話</p>
-                    {/* QR Code APIを使用して招待URLからQRコードを生成 */}
-                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tappedCncUrl)}`} alt="CNC QR" className="qr-image" />
-                    <p style={{ fontSize: '10px', color: '#888', marginTop: '5px' }}>スキャンしてG1:Mに友達招待</p>
-                    <br />
-                    <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline', fontSize: '12px' }}>通話を開始する</a>
+                    <p style={{ fontSize: '12px', marginBottom: '10px' }}>P2P通話を開始します</p>
+                    <a href={tappedCncUrl} target="_blank" rel="noreferrer" style={{ color: '#00f2ff', textDecoration: 'underline' }}>通話を開始する</a>
                   </div>
                 ) : (
                   <div className="qr-placeholder">

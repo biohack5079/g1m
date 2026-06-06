@@ -113,7 +113,7 @@ pub fn get_recent_messages(conn: &Connection, limit: usize) -> Result<Vec<Messag
 }
 
 /// 匿名IDに対するニックネームを取得する（DB登録済みの場合）
-pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(String, bool, Option<String>, Option<String>, Option<String>, bool)>> {
+pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(String, bool, Option<String>, Option<String>, Option<String>, Option<bool>)>> {
     let mut stmt = conn.prepare(
         "SELECT nickname, is_custom, wallet_image, cnc_url, email, notification_enabled FROM nicknames WHERE anonymous_id = ?1",
     )?;
@@ -123,7 +123,7 @@ pub fn get_nickname(conn: &Connection, anonymous_id: &str) -> Result<Option<(Str
         let wallet_image: Option<String> = row.get(2)?;
         let cnc_url: Option<String> = row.get(3)?;
         let email: Option<String> = row.get(4)?;
-        let notification_enabled: bool = row.get::<_, i32>(5)? != 0;
+        let notification_enabled: Option<bool> = Some(row.get::<_, i32>(5)? != 0);
         Ok((nickname, is_custom, wallet_image, cnc_url, email, notification_enabled))
     });
     match result {
@@ -148,7 +148,7 @@ pub fn save_nickname(conn: &Connection, anonymous_id: &str, nickname: &str, is_c
 }
 
 /// ユーザーのプロフィール情報を一括更新する
-pub fn update_user_profile(conn: &Connection, anonymous_id: &str, nickname: Option<&str>, wallet_image: Option<&str>, cnc_url: Option<&str>, email: Option<&str>, notification_enabled: Option<bool>) -> Result<()> {
+pub fn update_user_profile(conn: &Connection, anonymous_id: &str, nickname: Option<&str>, wallet_image: Option<&str>, cnc_url: Option<&str>, email: Option<&str>, notify: Option<bool>) -> Result<()> {
     conn.execute(
         "INSERT INTO nicknames (anonymous_id, nickname, wallet_image, cnc_url, email, notification_enabled, updated_at)
          VALUES (?1, COALESCE(?2, 'ゲスト'), ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)
@@ -159,7 +159,7 @@ pub fn update_user_profile(conn: &Connection, anonymous_id: &str, nickname: Opti
            email = COALESCE(?5, email),
            notification_enabled = COALESCE(?6, notification_enabled),
            updated_at = CURRENT_TIMESTAMP",
-        params![anonymous_id, nickname, wallet_image, cnc_url, email, notification_enabled.map(|b| if b { 1 } else { 0 })],
+        params![anonymous_id, nickname, wallet_image, cnc_url, email, notify.map(|b| if b { 1 } else { 0 })],
     )?;
     Ok(())
 }

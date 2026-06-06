@@ -13,6 +13,7 @@ public class WalletInfo {
     @Column(unique = true)
     private String anonymousId; // Used for IndexedDB mapping
 
+    @Column(columnDefinition = "TEXT")
     private String walletImageData; // Base64 or path to image
     
     private String nickname; // UUIDに紐付いた表示名
