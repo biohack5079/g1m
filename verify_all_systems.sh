@@ -6,7 +6,7 @@ echo "🚀 G1:M Simple Setup & Verification"
 echo "===================================================="
 
 # 0. ポートのクリーンアップと環境準備
-echo "[0/5] Cleaning up ports and preparing environment..."
+echo "[0/6] Cleaning up ports and preparing environment..."
 fuser -k 3000/tcp 3001/tcp 2>/dev/null || true
 rm -rf z1m/java-unit/db/
 
@@ -46,22 +46,29 @@ spring.main.allow-bean-definition-overriding=true
 spring.jpa.hibernate.ddl-auto=update
 EOF
 
-# Javaテスト実行
-echo "Running Java Vault Tests..."
+# 1. Javaテスト実行
+echo "[1/6] Running Java Vault Tests..."
 mvn clean test -Dtest=VaultIntegrationTest || (echo "❌ Java Tests Failed" && exit 1)
 
 echo "✅ Java physical DB isolation verified."
 cd ../../
 
 # 2. Rust コンパイルチェック
-echo -e "\n[2/5] Checking Rust Node Compilation..."
+echo -e "\n[2/6] Checking Rust Node Compilation..."
 cd g1m-node
-cargo check
+cargo check || (echo "❌ Rust Compilation Failed" && exit 1)
 echo "✅ Rust compilation OK."
 cd ..
 
+# 3. ローカル推論環境のチェック (Ollama)
+echo -e "\n[3/6] Verifying Local Inference Capability (Ollama Connectivity)..."
+cd g1m-node
+cargo test test_local_ollama_availability -- --nocapture || echo "⚠️ Ollama is not running. Local inference will be unavailable (failover to HF)."
+cd ..
+
 # 3. Rust DB 秘匿情報漏洩チェック
-echo -e "\n[3/5] Verifying Rust DB Privacy (Leak Check)..."
+echo -e "\n[4/6] Verifying Rust DB Privacy (Leak Check)..."
+cd g1m-node
 if [ -f g1m.db ]; then
     LEAKS=$(sqlite3 g1m.db "SELECT text FROM messages;" | grep -E "bank|base64|image" || true)
     if [ -z "$LEAKS" ]; then
@@ -72,9 +79,10 @@ if [ -f g1m.db ]; then
 else
     echo "⚠️ g1m.db not found. Run 'npm run dev' first."
 fi
+cd ..
 
 # 4. UI ステータス表示ロジックの整合性チェック
-echo -e "\n[4/5] Checking UI Status Indicator Logic (PC vs HF)..."
+echo -e "\n[5/6] Checking UI Status Indicator Logic (PC vs HF)..."
 FRONTEND_FILE="frontend/src/MainApp.tsx"
 if [ -f "$FRONTEND_FILE" ]; then
     # PC NODE ステータス色ロジックの確認
@@ -97,7 +105,7 @@ else
 fi
 
 # 5. Supabase 同期テスト
-echo -e "\n[5/5] Verifying Supabase Connectivity..."
+echo -e "\n[6/6] Verifying Supabase Connectivity..."
 if [ -f .env ]; then
     source .env
     curl -s -X GET "${SUPABASE_URL}/rest/v1/chat_history?limit=1" \

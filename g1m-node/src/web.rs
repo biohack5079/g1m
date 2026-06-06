@@ -126,8 +126,10 @@ async fn handle_llm(
         }
     }
 
-    log::info!("🤖 [LLM] Routing to Local Ollama...");
-    // 1. Try Local Ollama
+    // 1. まずローカルのOllamaを試みる (Local-First 優先)
+    // 自前で推論できる場合は、外部のスタッフノードやブリッジを経由せず直接処理するのが最も効率的です。
+    // ブリッジ経由のタスク分配は、ローカル推論が失敗するか、他のPCを協力させる場合に使用します。
+    log::info!("🤖 [LLM] Trying Local Ollama first...");
     let ollama_base = normalize_url(&state.ollama_url);
     let ollama_endpoint = format!("{}api/chat", ollama_base);
     
@@ -146,7 +148,6 @@ async fn handle_llm(
             if status.is_success() {
                 if let Ok(data) = resp.json::<serde_json::Value>().await {
                     if let Some(text) = data["message"]["content"].as_str() {
-                        println!("✅ [Ollama Response] {}", text);
                         log::info!("✅ [Ollama] Result: {}", text);
                         let display_text = format!("【Local PC Node】 {}", text);
                         let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
@@ -161,13 +162,34 @@ async fn handle_llm(
         }
     }
 
-    // 1.5 Try Local Python AI Node (Internal logic priority)
+    // 2. ローカルOllama失敗時 → 接続中のstaffノード（他PCのBridge）へ委譲
+    let staff_ids: Vec<String> = {
+        let parts = state.participants.lock().unwrap();
+        parts.values().filter(|p| p.role == "staff").map(|p| p.id.clone()).collect()
+    };
+
+    if !staff_ids.is_empty() {
+        let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
+        let task_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        log::info!("🚀 [LLM] Distributing task to staff node {} (Ref: {})", &sid[..4.min(sid.len())], task_id);
+        
+        let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
+            "taskId": task_id,
+            "prompt": context_augmented_prompt.clone()
+        }));
+        return Json(LlmResponse { 
+            response: format!("【Distributed】PCノード({})にタスクを送信しました...", &sid[..4.min(sid.len())]), 
+            text: "Processing...".to_string() 
+        }).into_response();
+    }
+
+    // 3. ローカルPython AIノードを試みる
     log::info!("Trying Local Python Node at http://127.0.0.1:8000...");
     let python_endpoint = "http://127.0.0.1:8000/v1/chat/completions";
     
     match state.client.post(python_endpoint)
         .json(&serde_json::json!({
-            "model": state.ollama_model, // AppStateに保持されたモデル名を使用
+            "model": state.ollama_model,
             "messages": [
                 { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
                 { "role": "user", "content": context_augmented_prompt }
@@ -198,32 +220,6 @@ async fn handle_llm(
         }
     }
 
-    // 1.8 Try to delegate directly to connected Staff Nodes (Distributed)
-    // ローカルノードが見つからない場合、接続中のPCノード（スタッフ）を探す
-    let staff_ids: Vec<String> = {
-        let parts = state.participants.lock().unwrap();
-        parts.values().filter(|p| p.role == "staff").map(|p| p.id.clone()).collect()
-    };
-
-    if !staff_ids.is_empty() {
-        // タスクが重なった際、別のノードに振り分けるための分散ロジック
-        // リクエストごとにランダム（UUIDベース）にノードを選択
-        let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
-        let task_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
-        println!("🚀 [LLM] Distributing task to all staff nodes (Ref: {})", task_id);
-        
-        // ルーム "staff" に参加しているすべてのブリッジに送信
-        // 一番早く計算が終わったノードが task_result を返せばOK
-        let _ = state.io.to("staff").emit("distribute_task", serde_json::json!({
-            "taskId": task_id,
-            "prompt": context_augmented_prompt.clone()
-        }));
-        return Json(LlmResponse { 
-            response: format!("【Distributed】PCノード({})にタスクを送信しました...", &sid[..4]), 
-            text: "Processing...".to_string() 
-        }).into_response();
-    }
-
     // 2. Failover to Hugging Face (助け舟)
     // どこにもノードが無い場合に初めてHFが助け舟を出す
     // HF_COMPLEX_URL が空なら LLM_API_URL もフォールバック候補にする
@@ -249,11 +245,7 @@ async fn handle_llm(
             log::info!("☁️ [TASK] Background HF Inference started for: {}", hf_url_task);
             let api_path = if hf_url_task.ends_with('/') { "v1/chat/completions" } else { "/v1/chat/completions" };
             let target_url = format!("{}{}", hf_url_task, api_path);
-            
-            let hf_client = reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(900))
-                .build()
-                .unwrap_or_else(|_| state_task.client.clone());
+            let hf_client = state_task.client.clone();
             
             let mut req = hf_client.post(&target_url)
                 .json(&serde_json::json!({
@@ -384,17 +376,19 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
         .unwrap_or_else(|| current_dir.clone());
     
+    let bot_id = "bot";
+    let bot_cnc = format!("https://cnc-pwa.onrender.com/call?id={}", bot_id);
+    
     let mut paths_to_try = vec![
+        current_dir.join("z1m/AirWallet/g1-m_chan.jpeg"),
         current_dir.join("z1m/AirWallet/g1-m_chan.jpeg"),
         current_dir.join("public/z1m/AirWallet/g1-m_chan.jpeg"),
         current_dir.join("G1M/Assets/g1-m_chan.jpeg"),
-        std::path::PathBuf::from("z1m/AirWallet/g1-m_chan.jpeg"),
         // Docker絶対パス (/app/z1m/AirWallet/)
         std::path::PathBuf::from("/app/z1m/AirWallet/g1-m_chan.jpeg"),
-        // start_g1m.sh からの実行: バイナリは g1m-node/target/release/ にあるため2つ上
-        exe_root.join("../../z1m/AirWallet/g1-m_chan.jpeg"),
-        // g1m-nodeディレクトリからの相対パス
-        exe_root.join("../../../z1m/AirWallet/g1-m_chan.jpeg"),
+        // 各プロジェクト構成に対応する相対パス
+        exe_root.join("../../z1m/AirWallet/g1-m_chan.jpeg"),    // target/release/ からの相対
+        exe_root.join("../../../z1m/AirWallet/g1-m_chan.jpeg"), // g1m-node/ からの相対
     ];
     // 正規化して重複を排除
     paths_to_try.iter_mut().for_each(|p| {
@@ -402,7 +396,7 @@ async fn handle_bot_wallet() -> impl IntoResponse {
             *p = canonical;
         }
     });
-    paths_to_try.dedup();
+    paths_to_try.sort(); paths_to_try.dedup();
     
     let mut file_data = None;
     for path in &paths_to_try {
@@ -420,13 +414,18 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         let base64_data = base64::engine::general_purpose::STANDARD.encode(bitmap);
         let data_url = format!("data:image/jpeg;base64,{}", base64_data);
         Json(serde_json::json!({
-            "anonymous_id": "bot",
+            "anonymous_id": bot_id,
             "wallet_image_data": data_url,
-            "wallet_type": "AirWallet"
+            "wallet_type": "AirWallet",
+            "cnc_url": bot_cnc
         })).into_response()
     } else {
         log::error!("❌ Bot QR file not found. Tried paths: {:?}", paths_to_try);
-        (StatusCode::NOT_FOUND, "Bot QR file not found").into_response()
+        (StatusCode::OK, Json(serde_json::json!({
+            "anonymous_id": bot_id,
+            "wallet_image_data": null,
+            "cnc_url": bot_cnc
+        }))).into_response()
     }
 }
 
@@ -568,10 +567,6 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             move |socket: SocketRef, Data(payload): Data<Value>| {
                 let sender = payload["senderName"].as_str().unwrap_or("?");
                 let msg = payload["text"].as_str().unwrap_or("");
-
-                // ターミナルにチャット履歴を直接表示
-                println!("\n💬 [CHAT] {}: {}", sender, msg);
-                println!("----------------------------------");
 
                 log::info!("💬 [CHAT] {}: {}", sender, msg);
                 

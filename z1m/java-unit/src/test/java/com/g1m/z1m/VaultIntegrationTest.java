@@ -124,7 +124,7 @@ public class VaultIntegrationTest {
     @DisplayName("CNC URLにUUID (?id=) が正しく付加されて保存されるか")
     public void testCncUrlUuidAppending() {
         String anonId = "test-uuid-99999";
-        String expectedUrl = "https://g1m-cnc.onrender.com/call?id=" + anonId;
+        String expectedUrl = "https://cnc-pwa.onrender.com/?id=" + anonId;
 
         WalletInfo wallet = new WalletInfo();
         wallet.setAnonymousId(anonId);

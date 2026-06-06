@@ -1,0 +1,17 @@
+
+npm run build
+npm run dev
+~/cloudflared tunnel --url http://localhost:3001 --protocol http2
+
+./start_g1m.sh https://your-tunnel-url.trycloudflare.com
+
+sqlitebrowser g1m.db
+
+./verify_all_systems.sh
+
+git add . && \
+git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')"
+
+git add . && \
+git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')" && \
+git push -u origin main || echo "Git push failed"

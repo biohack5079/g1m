@@ -15,7 +15,7 @@ elif [ -z "$REMOTE_G1M_URL" ]; then
 fi
 
 if [[ "$REMOTE_G1M_URL" == *"trycloudflare.com"* ]]; then
-    echo "⚠️ [Tunnel Note] Cloudflare Tunnel を使用する場合、ポート 3000 (Rust) を公開してください。接続が不安定な場合は --protocol http2 を付けて実行してください。"
+    echo "⚠️ [Tunnel Note] モデル読込が止まる場合は、必ず --protocol http2 を付けて cloudflared を起動してください。"
 fi
 
 # Force local-first inference configuration
@@ -51,14 +51,19 @@ DOCKER_COMPOSE_CMD=""
 if command -v docker-compose &> /dev/null; then DOCKER_COMPOSE_CMD="docker-compose";
 elif docker compose version &> /dev/null; then DOCKER_COMPOSE_CMD="docker compose"; fi
 
-if [ ! -z "$DOCKER_COMPOSE_CMD" ]; then
-    echo "[0.5/3] Starting Java backend (Docker)..."
-    cd z1m/java-unit && $DOCKER_COMPOSE_CMD up -d --build && cd ../..
-    sleep 3
-    docker ps | grep z1m-java-unit || echo "⚠️ Java backend failed to start. Check 'docker logs z1m-java-unit-1'"
-    echo "✅ Java backend is starting in background (Port 8080)"
+if [[ "$*" == *"--no-java"* ]]; then
+    echo "[0.5/3] Skipping Java backend (Wallet/DB) to save memory."
 else
-    echo "[Warning] Docker Compose not found. Java backend will not be available."
+    if [ ! -z "$DOCKER_COMPOSE_CMD" ]; then
+        echo "[0.5/3] Starting Java backend (Docker)..."
+        # JVMのメモリ使用量を抑制 (最大256MB)
+        cd z1m/java-unit && JAVA_OPTS="-Xmx256m" $DOCKER_COMPOSE_CMD up -d --build && cd ../..
+        sleep 3
+        docker ps | grep z1m-java-unit || echo "⚠️ Java backend failed to start."
+        echo "✅ Java backend is starting in background (Port 8080)"
+    else
+        echo "[Warning] Docker Compose not found. Java backend will not be available."
+    fi
 fi
 
 # 1. Compile the Rust P2P signaling node
@@ -100,7 +105,9 @@ PYTHON_PID=""
 
 # 3. Start the compiled Rust P2P Node
 echo "[2/3] Launching Rust P2P node..."
-echo "Forcefully cleaning up ports 3000 and 4001 to prevent 'Address already in use'..."
+# メモリ確保のためキャッシュをクリア (Linux) - パスワード入力を避けるため無効化
+# sync && sudo sysctl -w vm.drop_caches=3 2>/dev/null || true
+
 # ポートを占有しているプロセスを特定して確実に殺す
 fuser -k 3000/tcp 4001/tcp 2>/dev/null || true
 pkill -9 -f "g1m-node" 2>/dev/null || true
@@ -108,7 +115,7 @@ pkill -9 -f "node.*bridge" 2>/dev/null || true
 pkill -9 -f "uvicorn.*app:app" 2>/dev/null || true
 sleep 2 # OSがソケットを完全に解放するまで待機
 
-# Run the node (Output to both terminal and log file)
+# Nodeの実行優先度を正常に戻し、レスポンスを改善
 ./g1m-node/target/release/g1m-node 2>&1 | tee -a g1m_node.log &
 NODE_PID=$!
 
@@ -134,31 +141,16 @@ while ! curl -s http://localhost:3000/healthz > /dev/null; do
 done
 echo -e "\n✅ Rust P2P Node is online!"
 
-# 3.5 Check for Node.js dependencies
-if [ ! -d "node_modules" ]; then
-    echo "[*] Node.js dependencies not found in root. Installing..."
-    if command -v npm &> /dev/null; then
-        npm install
-    else
-        echo "[Error] npm is not installed. Please install Node.js to use the 'dev' command."
-        # start_g1m.sh 自体は Rust/Python で動くため続行可能ですが、警告を出します
-    fi
-fi
-
 # 4. Open Frontend
 echo "[3/3] Preparing frontend interface..."
 
-# 接続先がRenderに固定されないよう、ローカル実行時は常に再ビルドするか、
-# 少なくとも古いビルドを削除してローカルホストを向くようにします。
-if [ -d "frontend/dist" ]; then
-    echo "Refreshing frontend build for local environment..."
-    rm -rf frontend/dist
+if [ ! -d "frontend/dist" ]; then
+    echo "[Info] Building frontend with memory limits..."
+    cd frontend && NODE_OPTIONS="--max-old-space-size=512" npm run build && cd ..
+    sync
+else
+    echo "[Info] frontend/dist already exists. Skipping build to save memory."
 fi
-
-# RAM 制限がある環境（137エラー対策）ではビルドを低優先度で行う
-echo "[Info] Building frontend (this may take a moment, be patient with RAM)..."
-cd frontend && NODE_OPTIONS="--max-old-space-size=1024" npm run build && cd ..
-sync # メモリキャッシュをディスクに書き込み解放を促す
 
 echo "--- G1M is fully operational! ---"
 echo "Web interface: http://localhost:3000"
@@ -174,18 +166,10 @@ const io = require('socket.io-client');
 // Render等のプロキシ環境では、ポーリングをスキップして最初からWebSocketを使用することで
 // 接続の切断やタイムアウトを劇的に減らすことができます。
 const connectionOptions = {
-    transports: ['websocket'], // Renderのプロキシ制限を回避
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    // 推論中のCPU/GPU高負荷時でも接続が維持されるよう、タイムアウトを緩和します
-    // ただしRenderのプロキシ維持のためIntervalはある程度短く保ちます
-    pingInterval: 20000, 
-    pingTimeout: 60000,
-    upgradeTimeout: 30000
+    transports: ['websocket']
 };
 const socket = io(process.env.REMOTE_G1M_URL, connectionOptions);
-const localSocket = io('http://localhost:3000', connectionOptions);
+const localSocket = io('http://127.0.0.1:3000', connectionOptions);
 
 const register = async (s, name) => {
     s.on('connect', async () => {
@@ -227,8 +211,8 @@ const handleTask = async (s, data) => {
 
     try {
         console.log(`🤖 [BRIDGE] Ollamaにリクエスト送信中...`);
-        // タイムアウト設定を追加 (524エラー対策)
-        const timeoutSignal = AbortSignal.timeout(60000); // 60秒
+        // タイムアウトを延長 (ローカル推論が重い場合や、モデル初回ロード時間を考慮)
+        const timeoutSignal = AbortSignal.timeout(300000); // 5分
         
         const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
             method: 'POST',

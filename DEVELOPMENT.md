@@ -76,7 +76,7 @@ curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloud
 使い方:
 ```bash
 # ターミナル1
-npm run dev
+npm run dev -- --host
 
 # ターミナル2 (UDP制限がある環境では --protocol http2 を追加して安定化させます)
 ~/cloudflared tunnel --url http://localhost:3001 --protocol http2
@@ -200,6 +200,7 @@ cloudflared トンネル ✅ 起動中
 # ショートカット
 fuser -k 3000/tcp 3001/tcp
 npm run dev
+npm run dev -- --host
 ~/cloudflared tunnel --url http://localhost:3000 --protocol http2
 
 
@@ -211,8 +212,34 @@ git add . && \
 git commit -m "feat: change $(date +'%Y-%m-%d %H:%M:%S')" && \
 git push -u origin main || echo "Git push failed"
 
-./start_g1m.sh https://your-tunnel-url.trycloudflare.com
+## 5. PC NODE「有効化」の検証手順（DePINシミュレーション）
 
-sqlitebrowser g1m.db
+以下の手順で、ローカル推論と分散推論の切り替えをテストできます。
 
-./verify_all_systems.sh
+### ステップ1: サーバーの起動と公開
+1. サーバーとフロントエンドを起動:
+   ```bash
+   npm run dev
+   ```
+2. 別のターミナルで、Rustノード（Port 3000）を外部公開:
+   ```bash
+   ~/cloudflared tunnel --url http://localhost:3000 --protocol http2
+   ```
+   *発行された `https://xxx.trycloudflare.com` をコピーします。*
+
+### ステップ2: 状態の確認
+1. ブラウザで上記URLにアクセスします。
+2. **PC NODE: DISCONNECTED (赤色)** であることを確認します。
+3. AIに話しかけると、HF（クラウド）へのフォールバックが機能します。
+
+### ステップ3: PC NODEをONにする
+1. 新しいターミナルで、自身のトンネルURLをHubとしてブリッジを接続します:
+   ```bash
+   ./start_g1m.sh https://xxx.trycloudflare.com
+   ```
+2. ブラウザ上のランプが **PC NODE: ACTIVE (緑色)** に変われば成功です。
+3. 以降の推論は、自身のPC内のOllamaが優先的に使用されます。
+
+
+
+

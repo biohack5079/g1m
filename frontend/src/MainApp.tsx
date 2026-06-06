@@ -337,7 +337,7 @@ const App: React.FC = () => {
           body: JSON.stringify({
             anonymous_id: anonymousId,
             wallet_image: base64,
-            cnc_url: `https://g1m-cnc.onrender.com/call?id=${anonymousId}`
+          cnc_url: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
           })
         });
         setStatus("Wallet登録完了");
@@ -394,12 +394,13 @@ const App: React.FC = () => {
           fetch(`/api/kampa/wallet/bot`)
             .then(res => res.ok ? res.json() : Promise.reject())
             .then(data => {
-              setTappedWalletImage(data?.wallet_image_data || null); // DBから取得した画像を表示
-              setTappedCncUrl(data?.cnc_url || null);
+              setTappedWalletImage(data?.wallet_image_data || data?.wallet_image || null);
+              setTappedCncUrl(data?.cnc_url || "https://cnc-pwa.onrender.com/?id=bot");
               setIsQrModalOpen(true);
             })
             .catch(() => {
-              setTappedWalletImage(null); // 失敗時はnullにする
+              setTappedWalletImage(null);
+              setTappedCncUrl("https://g1m-cnc.onrender.com/call?id=bot");
               setIsQrModalOpen(true);
             });
           return;
@@ -835,9 +836,14 @@ const App: React.FC = () => {
           url,
           resolve,
           (progress) => {
-            const total = progress.total || 10000000;
-            const percent = Math.min(100, Math.round((progress.loaded / total) * 100));
-            if (id === 'local') setLoadingProgress(percent);
+            if (progress.lengthComputable) {
+              const percent = Math.round((progress.loaded / progress.total) * 100);
+              if (id === 'local') setLoadingProgress(percent);
+            } else {
+              // ファイルサイズが不明な場合のフォールバック表示 (MB単位)
+              const loadedMB = (progress.loaded / (1024 * 1024)).toFixed(1);
+              if (id === 'local') setStatus(`読込中: ${loadedMB}MB...`);
+            }
           },
           reject
         );

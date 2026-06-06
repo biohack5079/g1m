@@ -53,13 +53,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let db = db_shared.lock().unwrap();
         let recent = db::get_recent_messages(&db, 10).unwrap_or_default();
-        log::info!("Database ready: Found {} recent messages in local store.", recent.len());
+        log::info!("Database ready: {} messages found.", recent.len());
         
-        // ターミナルに過去のチャット履歴を表示
-        for (i, msg) in recent.iter().enumerate() {
-            log::info!("  [{}] {}: {}", i + 1, msg.sender_name, msg.text);
-        }
-
         // RAG機能のウォームアップ
         let dummy_vector = vec![0.0; 384]; 
         // 第3引数(threshold)を 0.5、第4引数(limit)を 1 として呼び出し
@@ -75,11 +70,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timeout(Duration::from_secs(3600))
         .build()?;
 
-    // 3. Set up Socket.IO with custom heartbeat configuration to prevent timeouts
-    let (socketio_layer, io) = SocketIo::builder()
-        .ping_interval(Duration::from_secs(20)) // 20秒ごとにPingを送信
-        .ping_timeout(Duration::from_secs(60))  // 推論中の高負荷による無反応を許容（60秒）
-        .build_layer();
+    // 3. Set up Socket.IO
+    let (socketio_layer, io) = SocketIo::builder().build_layer();
 
     log::info!("LLM Routes: Local={}, Fallback={}, HF_SuperNode={}", ollama_url, llm_api_url, hf_complex_url);
 
@@ -200,4 +192,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use reqwest::Client;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_local_ollama_availability() {
+        let ollama_url = std::env::var("OLLAMA_HOST")
+            .or_else(|_| std::env::var("OLLAMA_URL"))
+            .unwrap_or_else(|_| "http://localhost:11434".to_string());
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()
+            .unwrap();
+
+        // OllamaのタグAPIを叩いて接続確認
+        let endpoint = format!("{}/api/tags", ollama_url.trim_end_matches('/'));
+        let res = client.get(&endpoint).send().await;
+
+        match res {
+            Ok(resp) => {
+                assert!(resp.status().is_success(), "Ollama endpoint found but returned error status");
+                println!("✅ Local Ollama is reachable at {}", endpoint);
+            }
+            Err(e) => panic!("❌ Local Ollama is not reachable at {}: {:?}", endpoint, e),
+        }
+    }
 }

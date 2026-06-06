@@ -32,9 +32,19 @@ public class KampaController {
     @GetMapping("/wallet/bot")
     public ResponseEntity<?> getBotWallet() {
         try {
-            // プロジェクトルートからの相対パスで画像を探す
-            Path imagePath = Paths.get("../../z1m/AirWallet/g1-m_chan.jpeg");
-            if (Files.exists(imagePath)) {
+            Path[] candidates = {
+                Paths.get("/app/z1m/AirWallet/g1-m_chan.jpeg"),
+                Paths.get("../../z1m/AirWallet/g1-m_chan.jpeg"),
+                Paths.get("z1m/AirWallet/g1-m_chan.jpeg"),
+                Paths.get("public/z1m/AirWallet/g1-m_chan.jpeg")
+            };
+            
+            Path imagePath = java.util.Arrays.stream(candidates)
+                    .filter(Files::exists)
+                    .findFirst()
+                    .orElse(null);
+
+            if (imagePath != null) {
                 byte[] imageBytes = Files.readAllBytes(imagePath);
                 String base64Image = Base64.getEncoder().encodeToString(imageBytes);
                 String dataUrl = "data:image/jpeg;base64," + base64Image;
@@ -43,7 +53,7 @@ public class KampaController {
                 response.put("anonymous_id", "bot");
                 response.put("wallet_image_data", dataUrl);
                 response.put("wallet_type", "AirWallet");
-                response.put("cnc_url", "https://g1m-cnc.onrender.com/call?id=bot");
+                response.put("cnc_url", "https://cnc-pwa.onrender.com/?id=bot");
                 return ResponseEntity.ok(response);
             }
             return ResponseEntity.notFound().build();
