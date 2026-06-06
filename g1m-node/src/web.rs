@@ -12,7 +12,7 @@ use socketioxide::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tower_http::cors::CorsLayer;
 use socketioxide::layer::SocketIoLayer;
@@ -548,15 +548,18 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let hf_available = !st_cap.hf_complex_url.is_empty();
             
             let total_active_nodes = {
-                let parts = st_cap.participants.lock().unwrap();
-                // ゴーストを排除するため、実際に接続されているソケットのみをカウント
-                st_cap.io.sockets().ok().unwrap_or_default().into_iter()
-                    .filter(|s| parts.get(&s.id.to_string()).map_or(false, |p| p.role == "staff"))
-                    .count()
+                let active_sockets = st_cap.io.sockets().unwrap_or_default();
+                let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
+                let mut parts = st_cap.participants.lock().unwrap();
+                // ゾンビ（切断済みだがMapに残っている）ノードを掃除
+                parts.retain(|id, _| active_ids.contains(id));
+                parts.values().filter(|p| p.role == "staff").count()
             };
 
-            log::info!("📊 Capability Check - Local AI: {}, HF: {}, Staff: {}", 
-                local_ai_available, hf_available, total_active_nodes);
+            if total_active_nodes > 0 {
+                log::info!("📊 Capability Check - Local AI: {}, HF: {}, Active Staff Nodes: {}", 
+                    local_ai_available, hf_available, total_active_nodes);
+            }
 
             let _ = socket_cap.emit("server_capabilities", serde_json::json!({
                 "has_local_ai": local_ai_available,
@@ -567,7 +570,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
         // 手動同期リクエストへの対応
         socket.on("request_participants", { let st = st.clone(); move |socket: SocketRef| {
-            let parts = st.participants.lock().unwrap();
+            let mut parts = st.participants.lock().unwrap();
+            // ゾンビ対策: 同期リクエスト時にも実体を確認
+            let active_sockets = st.io.sockets().unwrap_or_default();
+            let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
+            parts.retain(|id, _| active_ids.contains(id));
             let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect();
             let _ = socket.emit("participants_list", others);
         }});
@@ -575,10 +582,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("request_capabilities", { let st = st.clone(); move |socket: SocketRef| {
             let is_render = std::env::var("RENDER").is_ok();
             let total_active_nodes = {
-                let parts = st.participants.lock().unwrap();
-                st.io.sockets().ok().unwrap_or_default().into_iter()
-                    .filter(|s| parts.get(&s.id.to_string()).map_or(false, |p| p.role == "staff"))
-                    .count()
+                let mut parts = st.participants.lock().unwrap();
+                let active_sockets = st.io.sockets().unwrap_or_default();
+                let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
+                parts.retain(|id, _| active_ids.contains(id));
+                parts.values().filter(|p| p.role == "staff").count()
             };
             let _ = socket.emit("server_capabilities", serde_json::json!({
                 "has_local_ai": !is_render,
@@ -675,7 +683,12 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             };
             
             { 
-                let mut parts = st.participants.lock().unwrap(); parts.insert(socket.id.to_string(), info.clone()); 
+                let mut parts = st.participants.lock().unwrap();
+                // ゾンビ対策: 新規登録時にも無効なIDを掃除
+                let active_sockets = st.io.sockets().unwrap_or_default();
+                let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
+                parts.retain(|id, _| active_ids.contains(id));
+                parts.insert(socket.id.to_string(), info.clone()); 
                 if payload.role == "staff" { let _ = socket.join("staff"); } // スタッフルームに参加
                 let others: Vec<ParticipantInfo> = parts.values().filter(|p| p.id != socket.id.to_string()).cloned().collect(); let _ = socket.emit("participants_list", others); }
             
@@ -683,7 +696,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let _ = socket.broadcast().emit("participant_joined", info);
 
             // 状態が変わったので全クライアントへ最新の能力情報を再送
-            let total_active_nodes = st.participants.lock().unwrap().values().filter(|p| p.role == "staff").count();
+            let total_active_nodes = {
+                let parts = st.participants.lock().unwrap();
+                parts.values().filter(|p| p.role == "staff").count()
+            };
+
             let _ = st.io.emit("server_capabilities", serde_json::json!({
                 "has_local_ai": !std::env::var("RENDER").is_ok(), // 簡易判定。再接続時に再評価される。
                 "has_hf": !st.hf_complex_url.is_empty(),
@@ -724,10 +741,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
             // 離脱時は常に最新の能力情報を全クライアントに通知して同期を保つ
             let total_active_nodes = {
-                let parts = st.participants.lock().unwrap();
-                st.io.sockets().ok().unwrap_or_default().into_iter()
-                    .filter(|s| parts.get(&s.id.to_string()).map_or(false, |p| p.role == "staff"))
-                    .count()
+                let mut parts = st.participants.lock().unwrap();
+                let active_sockets = st.io.sockets().unwrap_or_default();
+                let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
+                parts.retain(|id, _| active_ids.contains(id));
+                parts.values().filter(|p| p.role == "staff").count()
             };
             let _ = st.io.emit("server_capabilities", serde_json::json!({
                 "has_local_ai": !std::env::var("RENDER").is_ok(),
