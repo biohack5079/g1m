@@ -136,6 +136,7 @@ const App: React.FC = () => {
   const requestSync = useCallback(() => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('request_participants');
+      socketRef.current.emit('request_capabilities');
     }
   }, []);
 
@@ -272,9 +273,9 @@ const App: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          anonymousId: anonymousId,
+          anonymous_id: anonymousId,
           nickname: newNick,
-          cncUrl: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
+          cnc_url: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
         })
       });
     } catch (e) {
@@ -349,10 +350,10 @@ const App: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            anonymousId: anonymousId,
-            walletImageData: base64,
-            walletType: "◯◯Pay",
-            cncUrl: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
+          anonymous_id: anonymousId,
+          wallet_image: base64,
+          wallet_type: "◯◯Pay",
+          cnc_url: `https://cnc-pwa.onrender.com/?id=${anonymousId}`
           })
         });
         setStatus("Wallet登録完了");
@@ -377,7 +378,7 @@ const App: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            anonymousId: anonymousId,
+            anonymous_id: anonymousId,
             cncQrImage: base64
           })
         });
@@ -878,7 +879,10 @@ const App: React.FC = () => {
           url,
           resolve,
           (progress) => {
-            if (!progress.lengthComputable) {
+            if (progress.lengthComputable && progress.total > 0) {
+              const percent = Math.round((progress.loaded / progress.total) * 100);
+              if (id === 'local') setStatus(`モデル読込中: ${percent}%`);
+            } else {
               // ファイルサイズが不明な場合のフォールバック表示 (MB単位)
               const loadedMB = (progress.loaded / (1024 * 1024)).toFixed(1);
               if (id === 'local') setStatus(`読込中: ${loadedMB}MB...`);
@@ -1589,10 +1593,6 @@ const App: React.FC = () => {
 
       setParticipants(validList);
 
-      // リストからもPCノード（staff）の数を再計算して整合性を保つ
-      const staffCount = validList.filter(p => p.role === 'staff').length;
-      setActiveNodes(staffCount);
-
       setStatus("他ユーザーの読み込み中...");
       // role が staff 以外の参加者のみ 3D表示とP2P接続を行う
       validList.forEach(p => {
@@ -1606,9 +1606,9 @@ const App: React.FC = () => {
     socket.on('participant_joined', (p: any) => {
       if (!p || !p.id) return;
       setParticipants(prev => {
-        if (!Array.isArray(prev)) return [p];
-        if (prev.find(existing => existing.id === p.id)) return prev;
-        return [...prev, p];
+        const list = Array.isArray(prev) ? prev : [];
+        if (list.find(existing => existing.id === p.id)) return list;
+        return [...list, p];
       });
       // PCノード以外ならアバター表示
       if (p.role !== 'staff') {
@@ -1690,7 +1690,9 @@ const App: React.FC = () => {
         delete peersRef.current[data.id];
         delete dataChannelsRef.current[data.id];
       }
-      setParticipants(prev => Array.isArray(prev) ? prev.filter(p => p.id !== data.id) : []);
+      setParticipants(prev => {
+        return Array.isArray(prev) ? prev.filter(p => p.id !== data.id) : [];
+      });
     });
 
     // --- Three.js 初期化 ---
@@ -1936,6 +1938,9 @@ const App: React.FC = () => {
           </div>
           <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
             {aiThinking && processingNode?.includes('HF') ? '🚀 Processing in Cloud' : (isConnected && hasHf ? 'Cloud Super Node: Ready' : 'Cloud Config: NONE')}
+          </div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: '#0ff', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {status}
           </div>
           <div style={{ marginTop: '8px', height: '4px', fontSize: '9px', color: '#888' }}>
             {aiThinking && processingNode?.includes('HF') ? '⚡ PROCESSING...' : 'IDLE'}

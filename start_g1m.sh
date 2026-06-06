@@ -166,7 +166,13 @@ const io = require('socket.io-client');
 // Render等のプロキシ環境では、ポーリングをスキップして最初からWebSocketを使用することで
 // 接続の切断やタイムアウトを劇的に減らすことができます。
 const connectionOptions = {
-    transports: ['websocket']
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    pingInterval: 20000, 
+    pingTimeout: 60000,
+    upgradeTimeout: 30000
 };
 const socket = io(process.env.REMOTE_G1M_URL, connectionOptions);
 const localSocket = io('http://127.0.0.1:3000', connectionOptions);
@@ -212,15 +218,14 @@ const handleTask = async (s, data) => {
     try {
         console.log(`🤖 [BRIDGE] Ollamaにリクエスト送信中...`);
         // タイムアウトを延長 (ローカル推論が重い場合や、モデル初回ロード時間を考慮)
-        const timeoutSignal = AbortSignal.timeout(300000); // 5分
         
         const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                model: 'gemma3:4b-it-q4_K_M',
+                model: process.env.OLLAMA_MODEL || 'gemma3:4b-it-q4_K_M',
                 messages: [
-                    { role: 'system', content: 'あなたはG1:Mちゃんです。親しみやすい日本語で回答してください。' },
+                    { role: 'system', content: 'あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。' },
                     { role: 'user', content: data.prompt }
                 ],
                 stream: false
@@ -229,7 +234,7 @@ const handleTask = async (s, data) => {
         });
         const json = await res.json();
         // OpenAI互換形式 (choices[0].message.content) と Ollama標準形式 (message.content) の両方に対応
-        const text = (json.choices && json.choices[0] && json.choices[0].message) ? json.choices[0].message.content : (json.message ? json.message.content : (json.error || "⚠️ Ollamaからの応答が空です"));
+        const text = (json.choices && json.choices[0] && json.choices[0].message) ? json.choices[0].message.content : (json.message ? json.message.content : (json.response || json.error || "⚠️ Ollamaからの応答が空です"));
         console.log(`✅ [BRIDGE] 推論成功。結果を返送します。`);
         s.emit('task_result', { taskId: data.taskId, result: text });
     } catch (e) {

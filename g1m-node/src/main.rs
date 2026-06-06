@@ -71,7 +71,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     // 3. Set up Socket.IO
-    let (socketio_layer, io) = SocketIo::builder().build_layer();
+    let (socketio_layer, io) = SocketIo::builder()
+        .ping_interval(Duration::from_secs(5))
+        .ping_timeout(Duration::from_secs(10))
+        .build_layer();
 
     log::info!("LLM Routes: Local={}, Fallback={}, HF_SuperNode={}", ollama_url, llm_api_url, hf_complex_url);
 
