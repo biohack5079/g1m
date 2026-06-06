@@ -1,8 +1,8 @@
+fuser -k 3000/tcp 3001/tcp 4001/tcp
 
 npm run build
 npm run dev
-fuser -k 3000/tcp
-fuser -k 3001/tcp
+
 ~/cloudflared tunnel --url http://localhost:3001 --protocol http2
 
 ./start_g1m.sh https://your-tunnel-url.trycloudflare.com

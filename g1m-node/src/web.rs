@@ -129,36 +129,38 @@ async fn handle_llm(
     // 1. まずローカルのOllamaを試みる (Local-First 優先)
     // 自前で推論できる場合は、外部のスタッフノードやブリッジを経由せず直接処理するのが最も効率的です。
     // ブリッジ経由のタスク分配は、ローカル推論が失敗するか、他のPCを協力させる場合に使用します。
-    log::info!("🤖 [LLM] Trying Local Ollama first...");
-    let ollama_base = normalize_url(&state.ollama_url);
-    let ollama_endpoint = format!("{}api/chat", ollama_base);
-    
-    match state.client.post(&ollama_endpoint)
-        .json(&serde_json::json!({
-            "model": state.ollama_model,
-            "options": { "num_predict": 512 },
-            "messages": [
-                { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。" },
-                { "role": "user", "content": context_augmented_prompt }
-            ],
-            "stream": false
-        })).send().await {
-        Ok(resp) => {
-            let status = resp.status();
-            if status.is_success() {
-                if let Ok(data) = resp.json::<serde_json::Value>().await {
-                    if let Some(text) = data["message"]["content"].as_str() {
-                        log::info!("✅ [Ollama] Result: {}", text);
-                        let display_text = format!("【Local PC Node】 {}", text);
-                        let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
-                        return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+    if !state.ollama_url.is_empty() {
+        log::info!("🤖 [LLM] Trying Local Ollama first...");
+        let ollama_base = normalize_url(&state.ollama_url);
+        let ollama_endpoint = format!("{}api/chat", ollama_base);
+        
+        match state.client.post(&ollama_endpoint)
+            .json(&serde_json::json!({
+                "model": state.ollama_model,
+                "options": { "num_predict": 512 },
+                "messages": [
+                    { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。" },
+                    { "role": "user", "content": context_augmented_prompt }
+                ],
+                "stream": false
+            })).send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    if let Ok(data) = resp.json::<serde_json::Value>().await {
+                        if let Some(text) = data["message"]["content"].as_str() {
+                            log::info!("✅ [Ollama] Result: {}", text);
+                            let display_text = format!("【Local PC Node】 {}", text);
+                            let _ = state.io.emit("bot_response", serde_json::json!({ "text": display_text }));
+                            return Json(LlmResponse { response: display_text.clone(), text: display_text }).into_response();
+                        }
                     }
                 }
+                log::warn!("Local Ollama returned error status: {:?}", status);
             }
-            log::warn!("Local Ollama returned error status: {:?}", status);
-        }
-        Err(e) => {
-            log::warn!("Local Ollama unavailable ({}): trying next node...", e);
+            Err(e) => {
+                log::warn!("Local Ollama unavailable ({}): trying next node...", e);
+            }
         }
     }
 
@@ -249,7 +251,7 @@ async fn handle_llm(
             
             let mut req = hf_client.post(&target_url)
                 .json(&serde_json::json!({
-                    "model": "llama-3.1-8b",
+                    "model": state_task.ollama_model, // 環境変数で指定されたモデル名を使用
                     "messages": [
                         { "role": "system", "content": "あなたはG1:Mちゃんです。フレンドリーで親しみやすい日本語で回答してください。" },
                         { "role": "user", "content": context_augmented_prompt } // Augmented prompt
@@ -280,12 +282,13 @@ async fn handle_llm(
                                 .or_else(|| data["response"].as_str())
                                 .unwrap_or("解析不能")
                                 .to_string();
-                            log::info!("☁️ [HF Node] Inference successful");
+                            log::info!("✅ ☁️ [HF Node] Inference successful: {}...", text.chars().take(20).collect::<String>());
                             let display_text = format!("【HF Super Node】 {}", text);
                             let _ = state_task.io.emit("bot_response", serde_json::json!({ "text": display_text }));
                         }                        
                     } else if status.is_success() && !is_json {
-                        let _ = state_task.io.emit("system_log", serde_json::json!({
+                        log::warn!("☁️ [HF Node] Space is starting/warming up...");
+                        let _ = state_task.io.emit("bot_response", serde_json::json!({
                             "message": "⏳ HF Space が起動中のようです。数分後に再試行してください。",
                             "timestamp": "now"
                         }));
@@ -304,8 +307,8 @@ async fn handle_llm(
         });
 
         return Json(LlmResponse { 
-            response: "【HF Super Node】リクエストを送信しました。クラウドで推論中のため、回答が届くまで最大10分〜15分程度かかる場合があります。このままお待ちください...".to_string(), 
-            text: "Processing...".to_string() 
+            response: "【HF Super Node】リクエストを送信しました。クラウド推論完了までこのままお待ちください...".to_string(), 
+            text: "Status: Connecting to Cloud...".to_string() 
         }).into_response();
     } else {
         log::warn!("No HF endpoint configured (HF_COMPLEX_URL and LLM_API_URL both empty)");

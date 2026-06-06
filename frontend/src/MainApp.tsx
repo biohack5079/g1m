@@ -68,7 +68,6 @@ const App: React.FC = () => {
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(true);
   const [showSystemLog, setShowSystemLog] = useState(true);
   const [tokenGauge, setTokenGauge] = useState<number>(0);
-  const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
   const [hasHf, setHasHf] = useState(false);
 
@@ -110,9 +109,12 @@ const App: React.FC = () => {
 
   // 最新の参加者リストをRefで保持（Socket通信のクロージャ対策）
   const participantsRef = useRef<Participant[]>([]);
+
+  // 参加者リストからPCノード(staffロール)の数を直接算出する（ズレを防止）
+  const activeNodes = participants.filter(p => p.role === 'staff').length;
+
   useEffect(() => {
     participantsRef.current = participants;
-    // activeNodesはserver_capabilitiesイベント経由で管理されるため、ここでは何もしません
   }, [participants]);
 
   const scheduleSubtitleClear = useCallback((delay = 3000) => {
@@ -1060,7 +1062,7 @@ const App: React.FC = () => {
     let rawAnswer = rawText;
 
     // 分散推論時の中間応答を無視（Socketからの本回答を待つ）
-    if (rawAnswer === "Processing...") {
+    if (rawAnswer === "Processing..." || rawAnswer.startsWith("Status:")) {
       return;
     }
 
@@ -1211,7 +1213,9 @@ const App: React.FC = () => {
 
           if (res.ok) {
             const data = await res.json();
-            processAiResponse(data.text || data.response || data.answer || data.result || "");
+            // data.textがProcessingでも、data.responseに詳細な状態があればそれを表示する
+            if (data.response) setSubtitle(`[G1:M] ${data.response}`);
+            processAiResponse(data.text || "");
           } else if (res.status === 524 || res.status === 502 || res.status === 504) {
             // タイムアウトやプロキシエラー: AIは裏で動いているので、Socket.IOからの回答を待つ
             console.warn(`Proxy/Gateway Error (${res.status}) detected. Waiting for Socket.IO...`);
@@ -1499,7 +1503,6 @@ const App: React.FC = () => {
 
     socket.on('server_capabilities', (data: { has_local_ai: boolean, has_hf: boolean, active_nodes: number }) => {
       if (data.has_hf !== undefined) setHasHf(data.has_hf);
-      if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
 
     socket.on('participants_list', (list: Participant[]) => {
