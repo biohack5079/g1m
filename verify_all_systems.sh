@@ -92,7 +92,7 @@ if [ -f "$FRONTEND_FILE" ]; then
     grep -q "aiThinking.*#0f0" "$FRONTEND_FILE" && echo "✅ UI Logic: AI Thinking (Node Highlight) logic verified." || echo "❌ UI Logic: Thinking highlight logic mismatch."
 
     # CNC URLにIDが付加されているかの確認
-    grep -q "cnc_url:.*id=\${anonymousId}" "$FRONTEND_FILE" && echo "✅ UI Logic: Guest CNC URL with UUID verified." || echo "❌ UI Logic: Guest CNC URL UUID missing."
+    grep -q "cnc_url:.*\\?id=\${anonymousId}" "$FRONTEND_FILE" && echo "✅ UI Logic: Guest CNC URL with UUID verified." || echo "❌ UI Logic: Guest CNC URL UUID missing."
     
     # BotのCNC URLセット処理の確認
     grep -q "setTappedCncUrl(data?.cnc_url" "$FRONTEND_FILE" && echo "✅ UI Logic: Bot CNC URL handling verified." || echo "❌ UI Logic: Bot CNC URL handling missing."

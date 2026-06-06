@@ -69,6 +69,7 @@ const App: React.FC = () => {
   const [showSystemLog, setShowSystemLog] = useState(true);
   const [tokenGauge, setTokenGauge] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [hasHf, setHasHf] = useState(false);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,10 +122,8 @@ const App: React.FC = () => {
     if (subtitleTimeoutRef.current) {
       clearTimeout(subtitleTimeoutRef.current);
     }
-    subtitleTimeoutRef.current = setTimeout(() => {
-      setSubtitle("");
-    }, delay);
-  }, []);
+    // 自動消去の setTimeout を削除し、次のメッセージが来るまで維持するように変更
+  }, [setSubtitle]);
 
   useEffect(() => {
     return () => {
@@ -1485,9 +1484,13 @@ const App: React.FC = () => {
     const socket = io(socketUrl, {
       transports: ['websocket'],
       reconnectionAttempts: 5,
-      timeout: 10000
+      timeout: 10000,
+      reconnection: true
     });
     socketRef.current = socket;
+
+    // スマホ等でconnectイベントの前に接続済みになるケースを考慮
+    if (socket.connected) setIsConnected(true);
 
     socket.on('config', (data: { showSystemLog: boolean }) => {
       setShowSystemLog(data.showSystemLog);
@@ -1495,9 +1498,24 @@ const App: React.FC = () => {
 
     socket.on('connect', () => {
       console.log("Connected to Signaling Server");
+      // 再接続時も確実にisConnectedをtrueにする
+      setIsConnected(true);
       getAnonymousId().then(anonId => {
         // nickname も含めて登録
         socket.emit('register_role', { role: 'viewer', anonymousId: anonId, nickname: nickname });
+      });
+    });
+
+    socket.on('disconnect', () => {
+      console.warn("Disconnected from Server");
+      setIsConnected(false);
+      setParticipants([]);
+      // ローカルとBot以外のVRMを掃除
+      Object.keys(vrmsRef.current).forEach(id => {
+        if (id !== 'local' && id !== 'bot') {
+          disposeVRM(vrmsRef.current[id]);
+          delete vrmsRef.current[id];
+        }
       });
     });
 
@@ -1507,6 +1525,21 @@ const App: React.FC = () => {
 
     socket.on('participants_list', (list: Participant[]) => {
       const validList = Array.isArray(list) ? list : [];
+      
+      // 現在のリストにいないモデルを削除（増殖防止）
+      const newListIds = new Set(validList.map(p => p.id));
+      Object.keys(vrmsRef.current).forEach(id => {
+        if (id !== 'local' && id !== 'bot' && !newListIds.has(id)) {
+          disposeVRM(vrmsRef.current[id]);
+          delete vrmsRef.current[id];
+          if (peersRef.current[id]) {
+            peersRef.current[id].close();
+            delete peersRef.current[id];
+          }
+          delete dataChannelsRef.current[id];
+        }
+      });
+
       setParticipants(validList);
       setStatus("他ユーザーの読み込み中...");
       // role が staff 以外の参加者のみ 3D表示とP2P接続を行う
@@ -1832,11 +1865,11 @@ const App: React.FC = () => {
         {/* Left: PC NODE */}
         <div style={{ background: 'rgba(0,0,0,0.6)', padding: '10px 15px', borderRadius: '12px', color: 'white', minWidth: '140px', border: aiThinking && processingNode?.includes('PC') ? '1px solid #0f0' : '1px solid transparent' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (activeNodes > 0) ? '#0f0' : '#f00', boxShadow: (activeNodes > 0) ? '0 0 10px #0f0' : 'none' }}></span>
-            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>PC NODE: {(activeNodes > 0) ? 'ACTIVE' : 'OFFLINE'}</span>
+            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (isConnected && activeNodes > 0) ? '#0f0' : '#f00', boxShadow: (isConnected && activeNodes > 0) ? '0 0 10px #0f0' : 'none' }}></span>
+            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>PC NODE: {(isConnected && activeNodes > 0) ? 'ACTIVE' : 'OFFLINE'}</span>
           </div>
           <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
-            {activeNodes > 0 ? `Distributed: ${activeNodes} nodes` : 'Inference: Unavailable'}
+            {(isConnected && activeNodes > 0) ? `Distributed: ${activeNodes} nodes` : 'Inference: Unavailable'}
           </div>
           <div style={{ width: '100%', height: '4px', background: '#333', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
             <div style={{ width: `${tokenGauge}%`, height: '100%', background: '#0ff', transition: 'width 0.3s' }}></div>
@@ -1846,11 +1879,11 @@ const App: React.FC = () => {
         {/* Right: HF NODE */}
         <div style={{ background: 'rgba(0,0,0,0.6)', padding: '10px 15px', borderRadius: '12px', color: 'white', minWidth: '140px', textAlign: 'right', border: aiThinking && processingNode?.includes('HF') ? '1px solid #0f0' : '1px solid transparent' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>HF NODE: {(hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? 'ACTIVE' : 'OFFLINE'}</span>
-            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '#0f0' : '#f00', boxShadow: (hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '0 0 10px #0f0' : 'none' }}></span>
+            <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>HF NODE: {(isConnected && hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? 'ACTIVE' : 'OFFLINE'}</span>
+            <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: (isConnected && hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '#0f0' : '#f00', boxShadow: (isConnected && hasHf && (activeNodes === 0 || (aiThinking && processingNode?.includes('HF')))) ? '0 0 10px #0f0' : 'none' }}></span>
           </div>
           <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
-            {(aiThinking && processingNode?.includes('HF')) ? '🚀 Pinch Mode: Cloud Support' : (hasHf && activeNodes === 0) ? 'Cloud Super Node: Ready' : (hasHf ? 'Standby (PC Node Active)' : 'Cloud Config: NONE')}
+            {(isConnected && aiThinking && processingNode?.includes('HF')) ? '🚀 Pinch Mode: Cloud Support' : (isConnected && hasHf && activeNodes === 0) ? 'Cloud Super Node: Ready' : (isConnected && hasHf ? 'Standby (PC Node Active)' : 'Cloud Config: NONE')}
           </div>
           <div style={{ marginTop: '8px', height: '4px', fontSize: '9px', color: '#888' }}>
             {aiThinking && processingNode?.includes('HF') ? '⚡ PROCESSING...' : 'IDLE'}

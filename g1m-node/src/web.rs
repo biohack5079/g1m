@@ -380,7 +380,7 @@ async fn handle_bot_wallet() -> impl IntoResponse {
         .unwrap_or_else(|| current_dir.clone());
     
     let bot_id = "bot";
-    let bot_cnc = format!("https://cnc-pwa.onrender.com/call?id={}", bot_id);
+    let bot_cnc = format!("https://cnc-pwa.onrender.com/?id={}", bot_id);
     
     let mut paths_to_try = vec![
         current_dir.join("z1m/AirWallet/g1-m_chan.jpeg"),
