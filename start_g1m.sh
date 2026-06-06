@@ -230,7 +230,7 @@ const handleTask = async (s, data) => {
                 ],
                 stream: false
             }),
-            signal: timeoutSignal
+            signal: controller.signal
         });
         const json = await res.json();
         // OpenAI互換形式 (choices[0].message.content) と Ollama標準形式 (message.content) の両方に対応

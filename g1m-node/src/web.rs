@@ -180,9 +180,10 @@ async fn handle_llm(
     if !staff_ids.is_empty() {
         let sid = staff_ids[uuid::Uuid::new_v4().as_u128() as usize % staff_ids.len()].clone();
         let task_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
-        log::info!("🚀 [LLM] Distributing task to staff node {} (Ref: {})", &sid[..4.min(sid.len())], task_id);
+        log::info!("🚀 [LLM] Distributing task to PC Bridge: {} (TaskID: {})", sid, task_id);
         
-        let _ = state.io.to(sid.clone()).emit("distribute_task", serde_json::json!({
+        // 名前空間を明示して確実に配信
+        let _ = state.io.of("/").unwrap().to(sid.clone()).emit("distribute_task", serde_json::json!({
             "taskId": task_id,
             "prompt": context_augmented_prompt.clone()
         }));
