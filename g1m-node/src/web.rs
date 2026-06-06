@@ -168,8 +168,11 @@ async fn handle_llm(
     let staff_ids: Vec<String> = {
         let parts = state.participants.lock().unwrap();
         // 現在実際にSocket接続が維持されているノードのみをフィルタリング
+        // [PC-...] トークンを持つ実際のPCブリッジのみを対象にする
         state.io.sockets().unwrap_or_default().into_iter()
-            .filter(|s| parts.get(&s.id.to_string()).map_or(false, |p| p.role == "staff"))
+            .filter(|s| parts.get(&s.id.to_string()).map_or(false, |p| {
+                p.role == "staff" && p.poc_token.as_deref().map_or(false, |t| t.contains("[PC-"))
+            }))
             .map(|s| s.id.to_string())
             .collect()
     };
