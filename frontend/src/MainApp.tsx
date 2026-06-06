@@ -71,7 +71,8 @@ const App: React.FC = () => {
   const [tokenGauge, setTokenGauge] = useState<number>(0);
   const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
-  const [hasServerLlm, setHasServerLlm] = useState(false);
+  const [hasLocalAi, setHasLocalAi] = useState(false);
+  const [hasHf, setHasHf] = useState(false);
 
   const subtitleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusBeforeAiRef = useRef<string>(status);
@@ -1502,8 +1503,9 @@ const App: React.FC = () => {
       });
     });
 
-    socket.on('server_capabilities', (data: { has_local_llm: boolean, active_nodes: number }) => {
-      if (data.has_local_llm !== undefined) setHasServerLlm(data.has_local_llm);
+    socket.on('server_capabilities', (data: { has_local_ai: boolean, has_hf: boolean, active_nodes: number }) => {
+      if (data.has_local_ai !== undefined) setHasLocalAi(data.has_local_ai);
+      if (data.has_hf !== undefined) setHasHf(data.has_hf);
       if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
     });
 
@@ -1833,12 +1835,13 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none' }}>
+      {/* PC Node Status (Left) */}
+      <div style={{ position: 'absolute', top: 60, left: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none', minWidth: '120px' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
-          <span style={{ fontWeight: 'bold' }}>PC NODE: {(activeNodes > 0) ? 'ACTIVE' : 'DISCONNECTED'}</span>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: (hasLocalAi || activeNodes > 0) ? '#0f0' : '#f00', marginRight: '8px', boxShadow: (hasLocalAi || activeNodes > 0) ? '0 0 12px #0f0' : 'none' }}></span>
+          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>PC NODE: {(hasLocalAi || activeNodes > 0) ? 'ACTIVE' : 'OFFLINE'}</span>
         </div>
-        <div style={{ marginTop: '5px' }}>
+        <div style={{ marginTop: '5px', fontSize: '10px' }}>
           Token Gauge: {tokenGauge}%
           <div style={{ width: '100px', height: '10px', background: '#333', borderRadius: '5px', marginTop: '2px' }}>
             <div style={{ width: `${tokenGauge}%`, height: '100%', background: 'cyan', borderRadius: '5px', transition: 'width 0.3s' }}></div>
@@ -1851,15 +1854,26 @@ const App: React.FC = () => {
         )}
       </div>
 
+      {/* HF Node Status (Right) */}
+      <div style={{ position: 'absolute', top: 60, right: 10, zIndex: 100, background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '8px', color: 'white', pointerEvents: 'none', minWidth: '120px', textAlign: 'right' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '11px' }}>HF NODE: {hasHf ? 'ACTIVE' : 'OFFLINE'}</span>
+          <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: hasHf ? '#0f0' : '#f00', marginLeft: '8px', boxShadow: hasHf ? '0 0 12px #0f0' : 'none' }}></span>
+        </div>
+        <div style={{ marginTop: '5px', fontSize: '10px' }}>
+          {hasHf ? 'Cloud Inference: OK' : 'Cloud Config: NONE'}
+        </div>
+      </div>
+
       <div className={`status-indicator ${loadingProgress !== null ? 'loading' : (aiThinking ? 'thinking' : 'ready')}`}>
         <div className="status-dot" style={{
           backgroundColor: loadingProgress !== null ? '#fff' :
-            aiThinking ? '#ffd700' : (activeNodes > 0 || hasServerLlm ? '#0f0' : '#f00')
+            aiThinking ? '#ffd700' : (activeNodes > 0 || hasLocalAi || hasHf ? '#0f0' : '#f00')
         }}></div>
         <span>
           {loadingProgress !== null ? `読込中 ${loadingProgress}%` :
             aiThinking ? `推論中: ${processingNode}` :
-              (activeNodes > 0 ? `PC Node Active (${activeNodes})` : (hasServerLlm ? "Ready (Inference Available)" : "Disconnected (No AI Node)"))}
+              (activeNodes > 0 || hasLocalAi ? `PC Node Active (${activeNodes + (hasLocalAi ? 1 : 0)})` : (hasHf ? "HF Ready" : "Disconnected (No AI Node)"))}
         </span>
       </div>
 

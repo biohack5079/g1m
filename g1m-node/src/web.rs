@@ -535,8 +535,9 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let ollama_alive = client.get(format!("{}/api/tags", ollama_url)).send().await.is_ok();
             let python_alive = client.get("http://127.0.0.1:8000/health").send().await.is_ok();
             
-            // Local AI または HF 設定があれば推論可能とみなす
-            let local_inference_available = (!is_render && (ollama_alive || python_alive)) || !st_cap.hf_complex_url.is_empty();
+            // Local AI (Ollama/Python) と HF を分離して判定
+            let local_ai_available = !is_render && (ollama_alive || python_alive);
+            let hf_available = !st_cap.hf_complex_url.is_empty();
             
             let total_active_nodes = {
                 let parts = st_cap.participants.lock().unwrap();
@@ -544,12 +545,13 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 parts.values().filter(|p| p.role == "staff").count()
             };
 
-            log::info!("📊 Node Capability (Verified) - Local: {}, Staff: {}, Total: {}", 
-                local_inference_available, total_active_nodes, total_active_nodes);
+            log::info!("📊 Node Capability (Verified) - Local AI: {}, HF: {}, Staff Nodes: {}", 
+                local_ai_available, hf_available, total_active_nodes);
 
             // 初回送信
             let _ = socket_cap.emit("server_capabilities", serde_json::json!({
-                "has_local_llm": local_inference_available,
+                "has_local_ai": local_ai_available,
+                "has_hf": hf_available,
                 "active_nodes": total_active_nodes
             }));
         });
