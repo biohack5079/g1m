@@ -1,6 +1,6 @@
 package com.g1m.z1m.repository.personal;
 
-import com.g1m.z1m.entity.PersonalInfo;
+import com.g1m.z1m.entity.personal.PersonalInfo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

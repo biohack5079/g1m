@@ -1,6 +1,6 @@
 package com.g1m.z1m.repository.financial;
 
-import com.g1m.z1m.entity.FinancialInfo;
+import com.g1m.z1m.entity.financial.FinancialInfo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

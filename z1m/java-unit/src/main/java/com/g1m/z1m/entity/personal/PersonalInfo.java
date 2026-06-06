@@ -1,4 +1,4 @@
-package com.g1m.z1m.entity;
+package com.g1m.z1m.entity.personal;
 
 import jakarta.persistence.*;
 import lombok.*;

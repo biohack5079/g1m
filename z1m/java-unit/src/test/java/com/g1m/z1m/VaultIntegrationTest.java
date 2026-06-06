@@ -1,17 +1,14 @@
 package com.g1m.z1m;
 
 import com.g1m.z1m.Z1mApplication;
-import com.g1m.z1m.entity.FinancialInfo;
-import com.g1m.z1m.entity.PersonalInfo;
+import com.g1m.z1m.entity.financial.FinancialInfo;
+import com.g1m.z1m.entity.personal.PersonalInfo;
 import com.g1m.z1m.model.WalletInfo;
 import com.g1m.z1m.repository.financial.FinancialInfoRepository;
 import com.g1m.z1m.repository.personal.PersonalInfoRepository;
 import com.g1m.z1m.repository.personal.WalletRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.junit.jupiter.api.DisplayName;
 
@@ -23,14 +20,29 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.jupiter.api.BeforeAll;
 
+/**
+ * Integration test for multi-datasource "Vault" architecture.
+ * Ensures personal and financial data are stored in separate physical H2 files.
+ */
 @SpringBootTest(classes = Z1mApplication.class, properties = {
-    "spring.datasource.personal.url=jdbc:h2:file:./db/personal;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE",
-    "spring.datasource.financial.url=jdbc:h2:file:./db/financial;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE",
+    "spring.datasource.personal.url=jdbc:h2:file:./db/personal;DB_CLOSE_DELAY=-1",
+    "spring.datasource.financial.url=jdbc:h2:file:./db/financial;DB_CLOSE_DELAY=-1",
     "spring.datasource.personal.driver-class-name=org.h2.Driver",
-    "spring.datasource.financial.driver-class-name=org.h2.Driver"
+    "spring.datasource.financial.driver-class-name=org.h2.Driver",
+    "spring.jpa.hibernate.ddl-auto=update",
+    "spring.main.allow-bean-definition-overriding=true",
+    "spring.jpa.open-in-view=false"
 })
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 public class VaultIntegrationTest {
+
+    static {
+        // Ensure the db directory exists BEFORE the Spring ApplicationContext starts.
+        try {
+            Files.createDirectories(Paths.get("db"));
+        } catch (Exception e) {
+            System.err.println("Failed to pre-create db directory: " + e.getMessage());
+        }
+    }
 
     @Autowired
     private PersonalInfoRepository personalRepo;
@@ -40,12 +52,6 @@ public class VaultIntegrationTest {
 
     @Autowired
     private WalletRepository walletRepo;
-
-    @BeforeAll
-    public static void setup() throws Exception {
-        // テスト実行前にdbディレクトリが存在することを確認
-        Files.createDirectories(Paths.get("db"));
-    }
 
     @Test
     @DisplayName("個人情報と金融情報がそれぞれの物理DBファイルに隔離されて保存されるか")

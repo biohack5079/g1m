@@ -11,7 +11,8 @@ fuser -k 3000/tcp 3001/tcp 2>/dev/null || true
 rm -rf z1m/java-unit/db/
 
 cd z1m/java-unit
-mkdir -p src/main/java/com/g1m/z1m/entity src/main/java/com/g1m/z1m/config \
+mkdir -p src/main/java/com/g1m/z1m/entity/personal src/main/java/com/g1m/z1m/entity/financial \
+         src/main/java/com/g1m/z1m/config \
          src/main/java/com/g1m/z1m/repository/personal src/main/java/com/g1m/z1m/repository/financial \
          src/test/java/com/g1m/z1m src/test/resources db/
 
@@ -19,11 +20,17 @@ mkdir -p src/main/java/com/g1m/z1m/entity src/main/java/com/g1m/z1m/config \
 mv src/main/resources/VaultIntegrationTest.java src/test/java/com/g1m/z1m/ 2>/dev/null || true
 mv config/FinancialDbConfig.java src/main/java/com/g1m/z1m/config/ 2>/dev/null || true
 mv config/PersonalDbConfig.java src/main/java/com/g1m/z1m/config/ 2>/dev/null || true
+mv src/main/java/com/g1m/z1m/entity/PersonalInfo.java src/main/java/com/g1m/z1m/entity/personal/ 2>/dev/null || true
+mv src/main/java/com/g1m/z1m/entity/FinancialInfo.java src/main/java/com/g1m/z1m/entity/financial/ 2>/dev/null || true
 find src/main/java/com/g1m/z1mjavaunit -name "*.java" -exec mv {} src/main/java/com/g1m/z1m/ \; 2>/dev/null || true
 find src/test/java/com/g1m/z1mjavaunit -name "*.java" -exec mv {} src/test/java/com/g1m/z1m/ \; 2>/dev/null || true
 
 # 全Javaファイルのパッケージ名を強制統一
 find src -name "*.java" -exec sed -i 's/com.g1m.z1mjavaunit/com.g1m.z1m/g' {} +
+
+# エンティティのパッケージ移動に伴うインポートと参照の修正
+find src -name "*.java" -exec sed -i 's/com.g1m.z1m.entity.PersonalInfo/com.g1m.z1m.entity.personal.PersonalInfo/g' {} +
+find src -name "*.java" -exec sed -i 's/com.g1m.z1m.entity.FinancialInfo/com.g1m.z1m.entity.financial.FinancialInfo/g' {} +
 
 # 重複リポジトリの削除
 rm -f src/main/java/com/g1m/z1m/repository/WalletRepository.java || true
