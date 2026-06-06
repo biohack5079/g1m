@@ -193,7 +193,7 @@ const register = async (s, name) => {
 
         // AIが生きている場合のみ staff として登録
         s.emit('register_role', { role: 'staff', pocToken: process.env.G1M_POC_TOKEN, nickname: 'Local-PC' });
-        console.log(`✅ [BRIDGE] ${name} に接続成功 (${new Date().toLocaleTimeString()})`);
+        console.log(`✅ [BRIDGE] ${name} に接続成功 (ID: ${s.id}) [${new Date().toLocaleTimeString()}]`);
     });
     s.on('disconnect', (reason) => {
         console.warn(`⚠️ [BRIDGE] ${name} から切断されました: ${reason}`);
@@ -250,11 +250,15 @@ setInterval(() => {
     if (localSocket.connected) {
         localSocket.emit('bridge_ping', { ts: Date.now() });
     }
-    process.stdout.write("💓"); // 生存確認としてターミナルに小さなドットを出す
+    // 15秒おきにハートビートを表示。接続が切れていたら 💔 を出す
+    if (socket.connected) process.stdout.write("💓");
+    else process.stdout.write("💔");
 }, 15000);
 
-socket.on('distribute_task', (data) => { console.log(`\n📡 [Remote] distribute_task received: ${data.taskId}`); handleTask(socket, data); });
-localSocket.on('distribute_task', (data) => { console.log(`\n📡 [Local] distribute_task received: ${data.taskId}`); handleTask(localSocket, data); });
+socket.on('bridge_pong', (data) => { /* サーバーからの応答確認用。必要ならここにログ追加 */ });
+
+socket.on('distribute_task', (data) => { console.log(`\n\n📢 [Remote Task Received!] ID: ${data.taskId}`); handleTask(socket, data); });
+localSocket.on('distribute_task', (data) => { console.log(`\n\n🏠 [Local Task Received!] ID: ${data.taskId}`); handleTask(localSocket, data); });
 EOF
 BRIDGE_PID=$!
 

@@ -166,28 +166,42 @@ async fn handle_llm(
     }
 
     // 2. ローカルOllama失敗時 → 接続中のstaffノード（他PCのBridge）へ委譲
-    let staff_nodes: Vec<(String, String)> = {
+    // Render環境での確実な配信のため、IDによる部屋指定ではなく物理ソケットを直接取得
+    let (target_socket, task_token) = {
+        let ns = state.io.of("/").unwrap();
+        let active_sockets = ns.sockets().unwrap_or_default();
         let mut parts = state.participants.lock().unwrap();
-        let active_sockets = state.io.sockets().unwrap_or_default();
-        let active_ids: HashSet<String> = active_sockets.into_iter().map(|s| s.id.to_string()).collect();
         
-        // 配信直前にゾンビを掃除し、確実に生きている接続のみを抽出
+        // 1. まず現在の物理接続リストに基づいてMapを掃除
+        let active_ids: HashSet<String> = active_sockets.iter().map(|s| s.id.to_string()).collect();
         parts.retain(|id, _| active_ids.contains(id));
 
-        parts.iter()
-            .filter(|(_, p)| p.role == "staff" && p.poc_token.as_deref().map_or(false, |t| t.contains("[PC-")))
-            .map(|(id, p)| (id.clone(), p.poc_token.clone().unwrap_or_default()))
-            .collect()
+        // 2. PCノード条件に合う物理ソケットを探す
+        let eligible: Vec<(socketioxide::extract::SocketRef, String)> = active_sockets.into_iter()
+            .filter_map(|s| {
+                let sid = s.id.to_string();
+                parts.get(&sid).and_then(|p| {
+                    if p.role == "staff" && p.poc_token.as_deref().map_or(false, |t| t.contains("[PC-")) {
+                        Some((s, p.poc_token.clone().unwrap_or_default()))
+                    } else { None }
+                })
+            }).collect();
+
+        if eligible.is_empty() { (None, String::new()) }
+        else {
+            let idx = uuid::Uuid::new_v4().as_u128() as usize % eligible.len();
+            let (s, t) = eligible[idx].clone();
+            (Some(s), t)
+        }
     };
 
-    if !staff_nodes.is_empty() {
-        let (sid, token) = staff_nodes[uuid::Uuid::new_v4().as_u128() as usize % staff_nodes.len()].clone();
+    if let Some(s) = target_socket {
+        let sid = s.id.to_string();
         let task_id = format!("task-{}", &uuid::Uuid::new_v4().to_string()[..8]);
-        log::info!("🚀 [LLM] Distributing task to PC Bridge: {} (Token: {}, TaskID: {})", sid, token, task_id);
+        log::info!("🚀 [LLM] Direct-emitting task to PC Bridge: {} (Token: {}, TaskID: {})", sid, task_token, task_id);
         
-        // 特定のソケット（ルームID=SID）へ直接配信
-        // Render環境での到達性を高めるため、名前空間を明示
-        let _ = state.io.of("/").unwrap().to(sid.clone()).emit("distribute_task", serde_json::json!({
+        // ルーム経由ではなく、ソケット参照に対して直接emitを実行
+        let _ = s.emit("distribute_task", serde_json::json!({
             "taskId": task_id,
             "prompt": context_augmented_prompt.clone()
         }));
