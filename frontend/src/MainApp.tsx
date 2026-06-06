@@ -116,6 +116,12 @@ const App: React.FC = () => {
     participantsRef.current = participants;
   }, [participants]);
 
+  // 参加者リストに「PCノード(staff)」が実際に存在するかを常に監視して同期
+  useEffect(() => {
+    const staffCount = participants.filter(p => p.role === 'staff').length;
+    setActiveNodes(staffCount);
+  }, [participants]);
+
   const scheduleSubtitleClear = useCallback(() => {
     if (subtitleTimeoutRef.current) {
       clearTimeout(subtitleTimeoutRef.current);
@@ -1519,7 +1525,7 @@ const App: React.FC = () => {
 
     socket.on('server_capabilities', (data: { has_local_ai: boolean, has_hf: boolean, active_nodes: number }) => {
       if (data.has_hf !== undefined) setHasHf(data.has_hf);
-      if (data.active_nodes !== undefined) setActiveNodes(data.active_nodes);
+      // ここでの直接セットは行わず、participantsリストとの同期に任せる
     });
 
     socket.on('participants_list', (list: Participant[]) => {
@@ -1557,10 +1563,6 @@ const App: React.FC = () => {
         if (prev.find(existing => existing.id === p.id)) return prev;
         return [...prev, p];
       });
-      // staffノードの入室を検知してカウント更新
-      if (p.role === 'staff') {
-        setActiveNodes(prev => prev + 1);
-      }
       // PCノード以外ならアバター表示
       if (p.role !== 'staff') {
         loadVRM('/g1-m_chan.glb', p.id);
