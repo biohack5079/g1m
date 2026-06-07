@@ -206,54 +206,109 @@ const register = async (s, name) => {
 register(socket, 'Remote Hub');
 register(localSocket, 'Local Node');
 
+// 物理センサー情報を一時保持する変数
+let lastSimulationResult = null;
+
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 // ポート8000(Python)ではなく11434(Ollama)のOpenAI互換エンドポイントを使用
 const handleTask = async (s, data) => {
-    // 1. 司令官からの指示を可視化
-    s.emit('chat_message', { text: `📢 [指令] ${data.prompt}`, senderName: 'Commander' });
+    console.log(`\n🚀 [BRIDGE] パフォーマンス・サイクル開始: ${data.taskId}`);
+    
+    let practiceData = lastSimulationResult;
 
-    console.log(`\n📥 [BRIDGE] Task Received: ${data.taskId}`);
-    s.emit('system_log', { message: `⚡ PC Node (${process.env.G1M_POC_TOKEN}) で推論を開始...` });
+    // キャッシュがない場合のみ、シミュレーションを待機して計測する
+    if (!practiceData) {
+        s.emit('system_log', { message: `⚒️ 初回練習フェーズ: 物理センサーのシミュレーションを実行中...` });
+        const practiceAction = "tora";
+        s.emit('bot_response', { text: "本番前にちょっと練習するね！", isSimulation: true, action: practiceAction });
+
+        practiceData = await new Promise(resolve => {
+            const timer = setTimeout(() => {
+                console.warn("⚠️ [BRIDGE] Practice timeout. Proceeding without sensor data.");
+                resolve(null);
+            }, 8000);
+
+            // 特定のアクションの結果が来るまで待機するリスナー
+            const filter = (res) => {
+                if (res.action === practiceAction) {
+                    s.off('motion_verified', filter);
+                    clearTimeout(timer);
+                    resolve(res);
+                }
+            };
+            s.on('motion_verified', filter);
+        });
+    }
+
+    let sensoryFeedback = "";
+    if (practiceData) {
+        const gap = 100 - practiceData.scores.total;
+        // 「ストレス」という概念を導入し、AIの自己評価に繋げる
+        const stressLevel = gap > 30 ? "高い（体が思い通りに動かない）" : "低い（快調）";
+        sensoryFeedback = `【G1:M 固有感覚フィードバック】
+・物理スコア: ${practiceData.scores.total}/100
+・運動の乖離(GAP): ${gap}%
+・物理的ストレス: ${stressLevel}
+・センサー診断: ${practiceData.diagnostic}
+
+前回の練習ではこれだけの乖離がありました。この「もどかしさ」を表現に込め、無理のない、かつ最高のパフォーマンスを構成してください。`;
+        console.log(`📊 [PRACTICE_RESULT] ${sensoryFeedback}`);
+    }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
+    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分に短縮（ハング防止）
 
     try {
-        const res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
+        // 2. 本番用プロンプト生成（センサーフィードバックを注入）
+        const finalPrompt = `${sensoryFeedback}\n\n指令: ${data.prompt}`;
+
+        // fetchの失敗を避けるため、localhostではなく明示的なIPを使用し、エラーハンドリングを強化
+        const ollamaUrl = 'http://127.0.0.1:11434/v1/chat/completions';
+        
+        const res = await fetch(ollamaUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 model: process.env.OLLAMA_MODEL || 'gemma3:4b-it-q4_K_M',
                 messages: [
-                    { role: 'system', content: 'あなたはG1:Mちゃんです。フレンドリーな日本語で回答してください。' },
-                    { role: 'user', content: data.prompt }
+                    { role: 'system', content: 'あなたは本番ステージに立つVRアイドル「G1:M」です。物理的な体の制限（乖離）を自覚し、それを補うような情熱的なステージを展開してください。必要に応じて「体が重いよ〜」といった感情も混ぜつつ、[ACTION: dance] 等を適切に配置してください。' },
+                    { role: 'user', content: finalPrompt }
                 ],
                 stream: false
             }),
             signal: controller.signal
         });
+
+        if (!res.ok) {
+            throw new Error(`Ollama API returned ${res.status}: ${await res.text()}`);
+        }
+
         const json = await res.json();
         // OpenAI互換形式 (choices[0].message.content) と Ollama標準形式 (message.content) の両方に対応
         let text = (json.choices && json.choices[0] && json.choices[0].message) ? json.choices[0].message.content : (json.message ? json.message.content : (json.response || json.error || "⚠️ Ollamaからの応答が空です"));
         
-        console.log(`✅ [BRIDGE] 推論完了。スローパフォーマンスを開始します...`);
+        console.log(`✨ [BRIDGE] 練習完了。3分間のメインステージを開始します！`);
+        s.emit('system_log', { message: `💃 練習を終え、本番ステージを開始します（総尺180秒）` });
 
-        // 2. 1行ずつ、物理的な動きを確認しながら進める（スローペースの本番）
         const lines = text.split('\n').filter(l => l.trim().length > 0);
+        // 全体の尺を180秒(3分)に設定し、1行あたりの待機時間を算出
+        const totalShowTime = 180000; 
+        const lineDelay = Math.floor(totalShowTime / lines.length);
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            console.log(`\n💃 [PERFORMANCE ${i+1}/${lines.length}] ${line}`);
+            console.log(`[STAGE ${i+1}/${lines.length}] ${line}`);
             
             // UIへ歌詞とアクションを送信
-            s.emit('bot_response', { text: line, currentLine: i+1, totalLines: lines.length });
+            s.emit('bot_response', { text: line, currentLine: i+1, totalLines: lines.length, isStage: true });
             
-            // 動作確認のための適切なウェイト (3秒)
-            await new Promise(r => setTimeout(r, 3000));
-            // 1行あたり7秒かけて、言葉と動きをじっくり見せる
-            await new Promise(r => setTimeout(r, 7000));
+            // 3分間を使い切るためのディレイ
+            await new Promise(r => setTimeout(r, lineDelay));
         }
         s.emit('task_result', { taskId: data.taskId, result: "[完了] 全てのタスクが終了しました。" });
         
+        // 余韻のためのウェイト
+        await new Promise(r => setTimeout(r, 2000));
         console.log(`✨ [PERFORMANCE FINISHED] ステージが完了しました。`);
         s.emit('bot_response', { text: "これでおしまい！見てくれてありがとう！", isFinishing: true });
     } catch (e) {
@@ -266,10 +321,11 @@ const handleTask = async (s, data) => {
 
 // 物理センサーからのフィードバック（乖離情報）をログに記録
 const handleMotionFeedback = (data) => {
+    lastSimulationResult = data;
     const gap = 100 - data.scores.total;
     const diagnostic = data.diagnostic || "none";
-    console.log(`📊 [SENSOR_LOG] ${new Date().toISOString()}`);
-    console.log(`   └─ Intent: "${data.action}" | Reality Score: ${data.scores.total}/100 | GAP: ${gap}% | Details: ${diagnostic}`);
+    console.log(`\n📊 [PHYSICAL_DISCREPANCY_LOG] ${new Date().toISOString()}`);
+    console.log(`   └─ Command Intent: "${data.action}"\n   └─ Reality Score: ${data.scores.total}/100\n   └─ SENSOR GAP: ${gap}%\n   └─ Diagnostic: ${diagnostic}\n   └─ Status: Saved to SQLite (g1m.db) via Rust node.`);
 };
 
 // アプリケーションレベルのハートビート (Render等のプロキシ切断対策)

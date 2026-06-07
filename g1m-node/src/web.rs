@@ -640,6 +640,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         socket.on("motion_verified", { let st_v = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
             let st = st_v.clone();
             let p = payload.clone();
+                log::info!("🦾 [SENSOR] Storing performance data to DB: {}", p);
             tokio::spawn(async move {
                 let action = p["action"].as_str().unwrap_or("unknown");
                 let scores = p["scores"].to_string();

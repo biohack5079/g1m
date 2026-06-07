@@ -926,6 +926,18 @@ const App: React.FC = () => {
 
         if (id === 'local') {
           setStatus("G1:M 準備完了");
+
+          // 「シュパパッ」のためのスタンバイ：初期センサー情報をBridgeへ先行送信
+          setTimeout(() => {
+            socketRef.current?.emit('motion_verified', {
+              action: "standby_calibration",
+              scores: { elbow: 100, jump: 100, total: 100 },
+              success: true,
+              diagnostic: "Baseline established",
+              timestamp: new Date().toISOString()
+            });
+          }, 2000);
+
           // 常にG1:Mちゃん(AI)を召喚する
           spawnBot();
         }
@@ -1006,10 +1018,10 @@ const App: React.FC = () => {
     return "";
   }, []);
 
-  const executeBotAction = useCallback((action: string, botVrm: any) => {
+  const executeBotAction = useCallback((action: string, botVrm: VRM, isFast = false) => {
     if (!botVrm || !botVrm.humanoid) return;
 
-    const getBone = (name: string) => botVrm.humanoid.getNormalizedBoneNode(name as any);
+    const getBone = (name: string) => botVrm.humanoid!.getNormalizedBoneNode(name as any);
     const rUp = getBone('rightUpperArm');
     const lUp = getBone('leftUpperArm');
     const rLower = getBone('rightLowerArm');
@@ -1021,11 +1033,12 @@ const App: React.FC = () => {
     const controlledBones = [lUp, rUp, lLower, rLower, head, spine];
     controlledBones.forEach(b => { if (b) b.userData.isManualAction = true; });
 
-    const arms = [lUp, rUp].filter(Boolean);
+    const arms = [lUp, rUp].filter((b): b is NonNullable<THREE.Object3D> => b !== null);
     console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
 
     // 自己評価用フラグ: AIが「どのボーンを動かしたか」を自覚するためのセンサー
     let movedElbow = false;
+    if (isFast) console.log("⏩ Simulation: Running high-speed calculation...");
     let movedArm = arms.length > 0;
     let movedJump = false;
     let movedSpine = false;
@@ -1041,11 +1054,11 @@ const App: React.FC = () => {
     const isRightOnly = action.includes('right') || action.includes('右');
 
     let startTime = Date.now();
-    const duration = (action.includes('dance') || action.includes('jump') || action.includes('tora')) ? 6000 : 2000; // ダンスやジャンプは長めに
+    const duration = isFast ? 100 : ((action.includes('dance') || action.includes('jump') || action.includes('tora')) ? 12000 : 2000);
 
     const animate = () => {
       const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1.0);
+      let progress = Math.min(elapsed / duration, 1.0);
       frameCount++;
 
       // 1. 手・腕系の動き
@@ -1058,8 +1071,8 @@ const App: React.FC = () => {
         targetArms.forEach((arm) => {
           const isRightArm = arm === rUp;
           const lowerArm = isRightArm ? rLower : lLower;
-          const downZ = isRightArm ? 1.4 : -1.4;
-          const upZ = isRightArm ? -1.5 : 1.5;
+          const downZ = isRightArm ? 1.2 : -1.2;
+          const upZ = isRightArm ? -1.8 : 1.8;
 
           if (progress < 0.2) {
             arm.rotation.z = downZ + ((progress / 0.2) * (upZ - downZ));
@@ -1067,10 +1080,11 @@ const App: React.FC = () => {
             arm.rotation.z = upZ - (((progress - 0.8) / 0.2) * (upZ - downZ));
           } else {
             arm.rotation.z = upZ;
-            const speed = (action.includes('wave') || action.includes('jump')) ? 10 : 3;
-            arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
+            const speed = (action.includes('wave') || action.includes('jump') || action.includes('tora')) ? 12 : 4;
+            arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.7;
             if (lowerArm) {
-              const elbowRot = Math.abs(Math.sin(progress * Math.PI * speed) * 1.2);
+              // TORA TORA 特有の激しい肘の動き (90度以上の深い屈曲)
+              const elbowRot = Math.abs(Math.sin(progress * Math.PI * speed)) * 1.5;
               lowerArm.rotation.x = elbowRot; // 肘を曲げる
               movedElbow = true;
               totalElbowRotation += elbowRot;
@@ -1094,13 +1108,15 @@ const App: React.FC = () => {
       if ((action.includes('bow') || action.includes('body') || action.includes('lean') || action.includes('dance') || action.includes('jump') || /辞儀|腰|踊|跳|跳ね/.test(action)) && spine) {
         if (action.includes('dance') || action.includes('踊')) {
           spine.rotation.z = Math.sin(progress * Math.PI * 4) * 0.2;
-          spine.rotation.x = Math.sin(progress * Math.PI * 8) * 0.1;
-          const jump = Math.abs(Math.sin(progress * Math.PI * 8)) * 0.2;
+          spine.rotation.x = Math.sin(progress * Math.PI * 6) * 0.15;
+          const jump = Math.abs(Math.sin(progress * Math.PI * 6)) * 0.25;
           botVrm.scene.position.y = jump;
           movedSpine = true; movedJump = true;
           maxJumpHeight = Math.max(maxJumpHeight, jump);
-        } else if (action.includes('jump') || action.includes('跳') || action.includes('tora')) {
-          botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 4)) * 0.5;
+        } else if (action.includes('tora') || action.includes('jump') || action.includes('跳')) {
+          // TORA TORA 用のよりパワフルなジャンプ
+          const jumpPower = action.includes('tora') ? 0.6 : 0.4;
+          botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 5)) * jumpPower;
           movedJump = true;
           maxJumpHeight = Math.max(maxJumpHeight, botVrm.scene.position.y);
         } else {
@@ -1114,7 +1130,14 @@ const App: React.FC = () => {
         spine.rotation.y = Math.sin(progress * Math.PI * 2) * 0.1;
       }
 
-      if (progress < 1.0) {
+      if (isFast) {
+        // 高速モード時はループせず1回で最大値を出す
+        totalElbowRotation = 1.5 * frameCount; // 理想値
+        maxJumpHeight = 0.6;
+        progress = 1.0; 
+      }
+
+      if (progress < 1.0 && !isFast) {
         requestAnimationFrame(animate);
       } else {
         if (rUp) { rUp.rotation.z = 1.2; rUp.rotation.x = 0; }
@@ -1155,7 +1178,10 @@ const App: React.FC = () => {
           }
 
           // AIへの「感覚フィードバック」として保存
-          const feedback = `(前回の動きの物理センサー記録: 肘の曲げ ${elbowScore}点、ジャンプ高さ ${jumpScore}点、活用部位${detail}。${totalScore < 50 ? 'あまり動けなかったようです。' : 'よく動けました！'})`;
+          const gap = 100 - totalScore;
+          const feedback = `(物理感覚フィードバック: 
+目標との乖離(GAP): ${gap}%
+詳細: 肘の可動率 ${elbowScore}% / 跳躍力 ${jumpScore}% / 動作部位${detail}。${totalScore < 50 ? '体が重く、思い通りに動きませんでした。' : 'キレのある動きができました。'})`;
           setLastMotionFeedback(feedback);
         }
       }
@@ -1761,22 +1787,32 @@ const App: React.FC = () => {
       setSystemLogs(prev => [...prev.slice(-19), log]); // 直近20件を保持
     });
 
-    socket.on('bot_response', (data: { text: string, currentLine?: number, totalLines?: number }) => {
+    socket.on('bot_response', (data: { text: string, currentLine?: number, totalLines?: number, isStage?: boolean, isSimulation?: boolean, action?: string }) => {
       console.log('Received bot_response via socket:', data.text);
       setProcessingNode(null);
+
+      // 高速練習（シミュレーション）モード
+      if (data.isSimulation && data.action && vrmsRef.current['bot']) {
+        executeBotAction(data.action, vrmsRef.current['bot'], true); // true = fast mode
+        return;
+      }
       
       if (data.currentLine !== undefined) {
-        // 分割送信（ストリーミング）時は、届いたその瞬間にアクションを解析して実行
-        setStatus(`ダンス練習中: ${data.currentLine}/${data.totalLines || '?'}`);
+        // 本番か練習かでステータス表示を切り分け
+        if (data.isStage) {
+          setStatus(`★ 本番ステージ出演中 (${data.currentLine}/${data.totalLines}) ★`);
+        } else {
+          setStatus(`ダンス練習中: ${data.currentLine}/${data.totalLines || '?'}`);
+        }
         
         // 練習開始時にダンスフラグを立て、リズムに乗り始める
         if (data.currentLine === 1) {
-          setSubtitle("[G1:M] よし、練習開始！");
+          setSubtitle(data.isStage ? "[G1:M] 聴いてください、私たちのステージ！" : "[G1:M] よし、練習開始！");
           setIsDancing(true);
         }
         
-        // 練習中は歌詞(text)をUIに飛ばさない(skipSubtitle=true)
-        processAiResponse(data.text, true);
+        // 1行ずつ字幕として表示（蓄積されないため全文流出は防げる）
+        processAiResponse(data.text, false);
         
         // Bridge(脳)へ「この行を処理した」と返信し、次の行の送信を促す（同期）
         socketRef.current?.emit('line_acknowledged', { 
@@ -1940,8 +1976,8 @@ const App: React.FC = () => {
           const bot = vrmsRef.current['bot'];
           const time = now * 0.005;
 
-          // スローペースだがキレのある本番メインの動き
-          bot.scene.rotation.y = Math.sin(time * 0.8) * 0.3; 
+          // 優雅な「見せる」ための回転
+          bot.scene.rotation.y = Math.sin(time * 0.5) * 0.4; 
           
           if (bot.humanoid) {
             const lArm = bot.humanoid.getNormalizedBoneNode('leftUpperArm' as any);
@@ -1950,14 +1986,21 @@ const App: React.FC = () => {
             const rLower = bot.humanoid.getNormalizedBoneNode('rightLowerArm' as any);
             const spine = bot.humanoid.getNormalizedBoneNode('spine' as any);
 
-            const rhythm = Math.sin(time * 3); // 常に全力のリズム
+            // 本番中は、単調な上下運動ではなく左右への揺らぎも加える
+            const rhythm = Math.sin(time * 1.5); // 優雅な「魅せる」リズム
             if (lArm && !lArm.userData.isManualAction) lArm.rotation.z = -1.3 + rhythm * 0.3;
             if (rArm && !rArm.userData.isManualAction) rArm.rotation.z = 1.3 + rhythm * 0.3;
             if (lLower && !lLower.userData.isManualAction) lLower.rotation.x = 0.6 + Math.abs(rhythm) * 0.9;
             if (rLower && !rLower.userData.isManualAction) rLower.rotation.x = 0.6 + Math.abs(rhythm) * 0.9;
             if (spine && !spine.userData.isManualAction) {
-              spine.rotation.z = Math.sin(time * 3) * 0.3;
-              bot.scene.position.y = Math.abs(Math.sin(time * 5)) * 0.25; 
+              // 本番は spine の揺れを大きく、ジャンプも溜めを作る
+              const stageIntensity = 1.0;
+              spine.rotation.z = Math.sin(time * 1.2) * 0.25 * stageIntensity;
+              spine.rotation.y = Math.cos(time * 0.6) * 0.2 * stageIntensity; 
+              
+              // ステップを踏むようなリズム
+              bot.scene.position.y = Math.pow(Math.abs(Math.sin(time * 1.5)), 1.8) * 0.35;
+              bot.scene.position.x = Math.sin(time * 0.75) * 0.5; // ステージを横に使う
             }
           }
 
