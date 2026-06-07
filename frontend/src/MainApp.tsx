@@ -1109,7 +1109,7 @@ const App: React.FC = () => {
         // ダンス終了時に自己採点を表示
         if (action.includes('tora') || action.includes('dance')) {
           const score = (movedElbow ? 25 : 0) + (movedArm ? 25 : 0) + (movedJump ? 25 : 0) + (movedSpine ? 25 : 0);
-          const report = `\n\n【G1:M 自己評価レポート】\n- 肘の曲げ: ${movedElbow ? 'OK' : 'NG'}\n- ジャンプ: ${movedJump ? 'OK' : 'NG'}\n- 体幹の動き: ${movedSpine ? 'OK' : 'NG'}\n合計: ${score}点 / 100点\n${score === 100 ? '完璧に踊れたよ！💕' : '次はもっと肘を動かすね！'}`;
+          const report = `\n\n【練習成果】\n- 肘のキレ: ${movedElbow ? 25 : 0}点\n- ジャンプ: ${movedJump ? 25 : 0}点\n合計: ${score}点 / 100点`;
           setSubtitle(prev => prev + report);
         }
       }

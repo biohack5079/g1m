@@ -93,6 +93,11 @@ cd ..
 # 4. UI ステータス表示ロジックの整合性チェック
 echo -e "\n[5/7] Checking UI Status Indicator Logic (PC vs HF)..."
 FRONTEND_FILE="frontend/src/MainApp.tsx"
+if [ ! -d "frontend/node_modules" ]; then
+    echo "⚠️ frontend/node_modules not found. Bridge might fail."
+    echo "   Please run 'cd frontend && npm install' if the live test fails."
+fi
+
 if [ -f "$FRONTEND_FILE" ]; then
     # PC NODE ステータス色ロジックの確認
     grep -q "activeNodes > 0.*#0f0.*#f00" "$FRONTEND_FILE" && echo "✅ UI Logic: PC NODE Green/Red color logic verified." || echo "❌ UI Logic: PC NODE color logic mismatch."
@@ -173,11 +178,11 @@ fi
 
 if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
     echo -e "\n🚀 Launching G1:M for live testing..."
-    ./start_g1m.sh "$TEST_URL" --no-java > /dev/null 2>&1 &
+    ./start_g1m.sh "$TEST_URL" --no-java &
     LAUNCH_PID=$!
     
-    echo "⏳ Waiting for local server (3000) to be ready..."
-    until curl -s http://localhost:3000/healthz > /dev/null; do sleep 2; done
+    echo -n "⏳ Waiting for local server (3000) to be online..."
+    until curl -s http://localhost:3000/healthz > /dev/null; do echo -n "."; sleep 2; done
     
     echo "✨ Sending 'TORA TORA' command to Ollama..."
     # tora.md または定型文の取得
@@ -189,14 +194,26 @@ if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
         PROMPT_CONTENT="わーい！最高にテンション上がる TORA TORA を踊って！肘もガンガン曲げて激しく動いて！"
     fi
 
-    echo "✨ Sending instruction to Ollama..."
+    echo -e "\n----------------------------------------------------"
+    echo "🤖 [Ollama Command sent!]"
+    echo "Prompt: $PROMPT_CONTENT"
+    echo "----------------------------------------------------"
+
+    # プロンプト内の改行や特殊文字をJSONエスケープして安全に送信
+    JSON_PAYLOAD=$(printf '%s' "$PROMPT_CONTENT" | python3 -c 'import json,sys; print(json.dumps({"prompt": sys.stdin.read()}))')
     curl -s -X POST http://localhost:3000/api/llm \
          -H "Content-Type: application/json" \
-         -d "{\"prompt\": \"$PROMPT_CONTENT\"}" > /dev/null
+         -d "$JSON_PAYLOAD" > /dev/null
     
     echo "----------------------------------------------------"
-    echo "👀 [Local] http://localhost:3000"
+    echo "🌐 Opening Browser: http://localhost:3000"
     
+    # 自動でブラウザを開く
+    if command -v xdg-open &> /dev/null; then xdg-open "http://localhost:3000" 2>/dev/null;
+    elif command -v open &> /dev/null; then open "http://localhost:3000" 2>/dev/null;
+    else echo "👉 Please open http://localhost:3000 manually."; fi
+
+    echo -e "----------------------------------------------------"
     if [ ! -z "$TEST_URL" ]; then
         echo "🌍 [Public] $TEST_URL"
     else
@@ -206,11 +223,13 @@ if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
     
     echo "The bot should start dancing in 3D now."
     echo "----------------------------------------------------"
-    
-    echo "Press any key to stop the test and terminate the server."
+    echo "💡 ヒント: PC NODEが緑にならない場合は、ログ(g1m_node.log)を確認してください。"
+    echo "📢 テストを終了して全サーバーを停止するには、何かキーを押してください..."
+    echo "----------------------------------------------------"
     read -n 1 -s -r
     kill $LAUNCH_PID 2>/dev/null || true
     fuser -k 3000/tcp 2>/dev/null || true
+    pkill -f "g1m-node" 2>/dev/null || true
     echo "✅ Live test finished."
 else
     echo -e "\n⏭️ Skipping live verification."
