@@ -83,6 +83,8 @@ const App: React.FC = () => {
   const isModelHiddenRef = useRef(isModelHidden);
   const debugCanvasRef = useRef<HTMLCanvasElement>(null);
   const socketRef = useRef<Socket | null>(null);
+  const isDancingRef = useRef(isDancing);
+  useEffect(() => { isDancingRef.current = isDancing; }, [isDancing]);
   const vrmsRef = useRef<{ [key: string]: VRM }>({});
   const loadingVrmsRef = useRef<Set<string>>(new Set()); // 読み込み中IDのガード
   const recognitionRef = useRef<any>(null);
@@ -1015,6 +1017,10 @@ const App: React.FC = () => {
     const head = getBone('head');
     const spine = getBone('spine');
 
+    // 手動制御フラグをセット (基本リズムを一時停止させる)
+    const controlledBones = [lUp, rUp, lLower, rLower, head, spine];
+    controlledBones.forEach(b => { if (b) b.userData.isManualAction = true; });
+
     const arms = [lUp, rUp].filter(Boolean);
     console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
 
@@ -1117,6 +1123,8 @@ const App: React.FC = () => {
         if (spine) { spine.rotation.x = 0; spine.rotation.y = 0; spine.rotation.z = 0; }
         if (rLower) rLower.rotation.x = 0;
         if (lLower) lLower.rotation.x = 0;
+        // 手動制御フラグを解除
+        controlledBones.forEach(b => { if (b) b.userData.isManualAction = false; });
         botVrm.scene.position.y = 0;
 
         // --- センサーフィードバックの集計 ---
@@ -1181,11 +1189,12 @@ const App: React.FC = () => {
     // Extract action tag
     let actionName = "";
     const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
+    // 括弧 ( ) 形式のアクション（歌詞の中の指示）も抽出対象に追加
     const parenTokens = [...rawAnswer.matchAll(/\(([^)]+)\)/g)].map(m => m[1].trim());
     const allTokens = [...tokens, ...parenTokens];
 
     for (const token of allTokens) {
-      if (token.toLowerCase().includes('action:')) {
+      if (token.toLowerCase().startsWith('action:')) {
         const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
         actionName = parts[1].replace(/\s+/g, '_');
         break;
@@ -1238,7 +1247,7 @@ const App: React.FC = () => {
     // 日本語の回答とモーションを反映
     const displayAnswer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
     console.log('Final UI Answer:', displayAnswer);
-    // 字幕を最新の1行に更新（上書き）して、アバターが見えるようにする
+    // 字幕を最新の1行に更新（上書き）して、アバターが隠れないようにする
     setSubtitle(`[G1:M] ${displayAnswer}`);
     setAiThinking(false);
 
@@ -1246,6 +1255,19 @@ const App: React.FC = () => {
     if (rawText.includes("【Local PC Node】")) setProcessingNode("PC Node (Brain)");
     else if (rawText.includes("【HF Super Node】")) setProcessingNode("HF Super Node");
     else setProcessingNode("Staff Node (Distributed)");
+
+    if (rawText.includes("完了") || rawText.includes("終了しました")) {
+      setStatus("✨ 本番開始！ ✨");
+      setSubtitle("[G1:M] 練習おわり！本番いくよ！キレキレでいくからね！");
+      const botVrm = vrmsRef.current['bot'];
+      if (botVrm) (botVrm as any).isFullDance = true; // 全力ダンスフラグをON
+      setIsDancing(true);
+      setTimeout(() => {
+        setIsDancing(false);
+        if (botVrm) (botVrm as any).isFullDance = false; // 終わったらフラグを戻す
+      }, 13000); // 本番は少し長めの13秒間
+      return;
+    }
 
     setStatus("回答完了");
 
@@ -1746,11 +1768,18 @@ const App: React.FC = () => {
       setProcessingNode(null);
       
       if (data.currentLine !== undefined) {
-        // ストリーミング時は、届いた瞬間にアクションを解析して実行
+        // 分割送信（ストリーミング）時は、届いたその瞬間にアクションを解析して実行
         setStatus(`ダンス練習中: ${data.currentLine}/${data.totalLines || '?'}`);
+        
+        // 練習開始時にダンスフラグを立て、リズムに乗り始める
+        if (data.currentLine === 1) {
+          setSubtitle("[G1:M] よし、練習開始！");
+          setIsDancing(true);
+        }
+        
         processAiResponse(data.text);
         
-        // Bridge側へ「この行を処理した」と返信し、次の行を促す
+        // Bridge(脳)へ「この行を処理した」と返信し、次の行の送信を促す（同期）
         socketRef.current?.emit('line_acknowledged', { 
           line: data.currentLine,
           status: "processed",
@@ -1907,25 +1936,58 @@ const App: React.FC = () => {
       lastTime = now;
 
       try {
-        // ダンスアニメーション (isDancingがtrueの時)
-        if (isDancing && vrmsRef.current['bot']) {
+        // ダンスアニメーション (isDancingRef.currentがtrueの時)
+        if (isDancingRef.current && vrmsRef.current['bot']) {
           const bot = vrmsRef.current['bot'];
           const time = now * 0.005;
-          bot.scene.rotation.y = Math.sin(time) * 0.2;
+          const isFullDance = (bot as any).isFullDance;
+          
+          // 本番（isFullDance）なら、体の揺れを速くする
+          bot.scene.rotation.y = Math.sin(time * (isFullDance ? 1.2 : 0.6)) * 0.3;
+          
           if (bot.humanoid) {
             const lArm = bot.humanoid.getNormalizedBoneNode('leftUpperArm' as any);
             const rArm = bot.humanoid.getNormalizedBoneNode('rightUpperArm' as any);
             const lLower = bot.humanoid.getNormalizedBoneNode('leftLowerArm' as any);
             const rLower = bot.humanoid.getNormalizedBoneNode('rightLowerArm' as any);
-            if (lArm) lArm.rotation.z = -1.2 + Math.sin(time * 2) * 0.5;
-            if (rArm) rArm.rotation.z = 1.2 + Math.sin(time * 2 + Math.PI) * 0.5;
-            if (lLower) lLower.rotation.x = Math.sin(time * 4) * 0.8;
-            if (rLower) rLower.rotation.x = Math.sin(time * 4) * 0.8;
+            const spine = bot.humanoid.getNormalizedBoneNode('spine' as any);
+
+            // 基本のリズム刻み (練習中・本番中 共通)
+            const rhythm = Math.sin(time * (isFullDance ? 4 : 2)); // 本番はリズムを倍速に
+            if (!isFullDance) {
+              // 練習中のリラックスしたリズム
+              if (lArm && !lArm.userData.isManualAction) lArm.rotation.z = -1.2 + rhythm * 0.15;
+              if (rArm && !rArm.userData.isManualAction) rArm.rotation.z = 1.2 + rhythm * 0.15;
+              if (lLower && !lLower.userData.isManualAction) lLower.rotation.x = Math.abs(rhythm) * 0.3;
+              if (rLower && !rLower.userData.isManualAction) rLower.rotation.x = Math.abs(rhythm) * 0.3;
+            } else {
+              // 本番中のしっかりしたリズム
+              if (lArm && !lArm.userData.isManualAction) lArm.rotation.z = -1.4 + rhythm * 0.4;
+              if (rArm && !rArm.userData.isManualAction) rArm.rotation.z = 1.4 + rhythm * 0.4;
+            }
+            
+            // 【キレキレ演出】本番（isFullDance）時のみ、大きく動く
+            if (isFullDance) {
+              if (lArm) lArm.rotation.x = Math.cos(time * 5) * 1.0; // 腕の振り幅UP
+              if (rArm) rArm.rotation.x = Math.sin(time * 5) * 1.0;
+              if (lLower) lLower.rotation.x = 0.5 + Math.abs(Math.sin(time * 8)) * 1.0; // 肘のキレ
+              if (rLower) rLower.rotation.x = 0.5 + Math.abs(Math.cos(time * 8)) * 1.0;
+              if (spine) spine.rotation.z = Math.sin(time * 4) * 0.4; // 腰の振り強化
+              bot.scene.position.y = Math.abs(Math.sin(time * 6)) * 0.3; // 連続ジャンプ
+            }
           }
 
           if (bot.expressionManager) {
             bot.expressionManager.setValue('aa', (Math.sin(time * 10) + 1) * 0.5);
             bot.expressionManager.setValue('happy', 1.0);
+            bot.expressionManager.setValue('blinkLeft', 0); // ダンス中は目を開ける
+            bot.expressionManager.setValue('blinkRight', 0);
+          }
+        } else if (vrmsRef.current['bot'] && vrmsRef.current['bot'].scene.position.y !== 0) {
+          // ダンス終了後の位置リセット
+          vrmsRef.current['bot'].scene.position.y = 0;
+          if (vrmsRef.current['bot'].expressionManager) {
+            vrmsRef.current['bot'].expressionManager.setValue('happy', 0);
           }
         }
 
