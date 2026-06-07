@@ -83,7 +83,7 @@ if [ -f g1m.db ]; then
     if [ -z "$LEAKS" ]; then
         echo "✅ OK: No sensitive data in Rust messages."
     else
-        echo "❌ WARNING: Potential data leak in Rust DB!"
+        echo "⚠️ WARNING: Potential data leak in Rust DB!"
     fi
 else
     echo "⚠️ g1m.db not found. Run 'npm run dev' first."
@@ -137,21 +137,40 @@ echo -e "\n[7/7] Verifying G1:M Motion Capabilities (Rotation & TORA TORA)..."
 if [ -f "$FRONTEND_FILE" ]; then
     # 1. くるくる回れるか (Rotation logic check)
     if grep -q "rotation.y = Math.sin" "$FRONTEND_FILE"; then
-        echo "✅ Motion: Rotation logic (Spinning) verified."
+        echo "✅ Motion: Rotation logic (Spinning) found."
         
-        # 2. TORA TORA 再現度チェック (High Tension logic)
-        # 判定要素: 1. dance判定, 2. spine回転, 3. position.y(ジャンプ), 4. arm.rotation, 5. lowerArm.rotation(肘)
-        # これらが揃うことで「満点」となる
+        # 2. センサー知覚（バーチャル固有感覚）の精密検証
         SCORE=0
-        grep -q "action.includes('dance')" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
-        grep -q "spine.rotation.z" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
-        grep -q "position.y = Math.abs" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
-        grep -q "arm.rotation.z" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
-        grep -q "lowerArm.rotation.x" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
+        echo "🔍 Verifying Proprioception (Sensory Feedback) Logic..."
+
+        # 1. 変数スコープのチェック (animateの外で宣言され、累積可能か)
+        # インデントやセミコロンに依存しない正規表現で、executeBotAction開始直後の宣言を確認
+        grep -A 25 "executeBotAction" "$FRONTEND_FILE" | grep -Eq "let[[:space:]]+totalElbowRotation[[:space:]]*=[[:space:]]*0" && SCORE=$((SCORE + 1)) || echo "⚠️ Warning: totalElbowRotation declaration not found in correct scope."
+        
+        # 2. 物理的証拠の言語化 (具体部位の○×判定がフィードバック文字列に含まれているか)
+        grep -q "detail =.*腕:.*肘:.*軸:.*跳:" "$FRONTEND_FILE" && SCORE=$((SCORE + 1)) || echo "⚠️ Warning: Detailed bone feedback (O/X) missing."
+
+        # 3. ゼロ除算の防止ロジック (堅牢性の確認)
+        grep -q "frameCount > 0 ?" "$FRONTEND_FILE" && SCORE=$((SCORE + 1)) || echo "⚠️ Warning: Divide-by-zero protection missing in score calculation."
+
+        # 4. 記憶への注入 (AIが自分の動きを「知覚」するために、プロンプトの先頭にフィードバックが入っているか)
+        # ここが今回の「知覚」における最重要ポイントです
+        if grep -q "fullPrompt = \`\${lastMotionFeedback}" "$FRONTEND_FILE"; then
+            SCORE=$((SCORE + 1))
+        else
+            echo "❌ CRITICAL: LLM memory injection is not prioritized! AI will 'forget' its actual movement."
+        fi
+
+        # 5. 実際のボーン回転値の加算処理
+        grep -q "totalElbowRotation += elbowRot" "$FRONTEND_FILE" && SCORE=$((SCORE + 1)) || echo "⚠️ Warning: Elbow movement is not being accumulated."
         
         PERCENTAGE=$((SCORE * 20))
-        echo "📊 TORA TORA Reproduction Rate: ${PERCENTAGE}%"
+        echo "📊 Proprioception Integrity (知覚整合性): ${PERCENTAGE}%"
         
+        # ダンスロジック本体のチェック
+        grep -q "botVrm.scene.position.y = jump" "$FRONTEND_FILE" && echo "✅ Physical: Jump position displacement found."
+        grep -q "lowerArm.rotation.x = elbowRot" "$FRONTEND_FILE" && echo "✅ Physical: Elbow joint rotation found."
+
         if [ $PERCENTAGE -eq 100 ]; then
             echo "🎊 PERFECT! High tension dance logic is fully implemented with elbow support."
             IS_PERFECT=true
@@ -169,7 +188,7 @@ fi
 
 # 8. ライブ・モーション検証 (オプション)
 echo -e "\n[8/7] Would you like to perform a Visual Motion Verification? (y/n)"
-if [ "$IS_PERFECT" = true ]; then
+if [ "$IS_PERFECT" = true ] || [ ! -z "$TEST_URL" ]; then
     echo "✨ Perfect score detected. Visual evaluation is highly recommended."
     read -p "Press [Enter] to start G1:M Live Testing or 'n' to skip: " CONFIRM
 else
@@ -180,10 +199,37 @@ if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
     echo -e "\n🚀 Launching G1:M for live testing..."
     ./start_g1m.sh "$TEST_URL" --no-java &
     LAUNCH_PID=$!
+    BRIDGE_LOG="bridge.log"
     
-    echo -n "⏳ Waiting for local server (3000) to be online..."
-    until curl -s http://localhost:3000/healthz > /dev/null; do echo -n "."; sleep 2; done
+    echo -n "⏳ Waiting for local node and bridge..."
+    until curl -s http://localhost:3000/healthz > /dev/null; do echo -n "."; sleep 1; done
     
+    echo -e "\n📱 [Wait for UI] http://localhost:3000 または トンネルURL を開いてください..."
+    echo "   ブラウザの接続を検知すると自動で開始します。"
+    echo "   (または [Enter] を押して強制的にプロンプトを投下します)"
+
+    # 参加者が増えるまでポーリング (Local Bridge + ブラウザ = 2名以上)
+    while true; do
+        # 1秒間入力を待機し、Enterが押されたらループを抜ける
+        read -t 1 -n 1 && break || true
+
+        COUNT=$(curl -s http://localhost:3000/api/participants | python3 -c "import sys, json; print(json.load(sys.stdin).get('count', 0))" 2>/dev/null || echo 0)
+        if [ "$COUNT" -ge 2 ]; then
+            echo -e "\n✅ UI接続を検知しました! (Participants: $COUNT)"
+            break
+        fi
+        echo -n -e "\r⏳ 待機中... (現在の接続数: $COUNT) "
+        sleep 1
+    done
+
+    echo -e "\n🚀 テストを開始します。プロンプトを投下します。"
+
+    # 以前の待機時間を短縮
+    echo "✅ Local node is up. Sending prompt..."
+    sleep 5
+    
+    TARGET_HUB_URL=${TEST_URL:-"https://dj-g1m.onrender.com"}
+
     echo "✨ Sending 'TORA TORA' command to Ollama..."
     # tora.md または定型文の取得
     if [ -f "tora.md" ]; then
@@ -196,34 +242,45 @@ if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
 
     echo -e "\n----------------------------------------------------"
     echo "🤖 [Ollama Command sent!]"
+    echo "Target Hub: $TARGET_HUB_URL"
     echo "Prompt: $PROMPT_CONTENT"
     echo "----------------------------------------------------"
 
     # プロンプト内の改行や特殊文字をJSONエスケープして安全に送信
+    # 検証のため、まずはローカルノード(3000)に投げて分散推論のフローを回す
     JSON_PAYLOAD=$(printf '%s' "$PROMPT_CONTENT" | python3 -c 'import json,sys; print(json.dumps({"prompt": sys.stdin.read()}))')
-    curl -s -X POST http://localhost:3000/api/llm \
+    
+    echo "📡 Sending command to Local Node: http://localhost:3000"
+    curl -s -X POST "http://localhost:3000/api/llm" \
          -H "Content-Type: application/json" \
          -d "$JSON_PAYLOAD" > /dev/null
+    echo "✅ Command sent. The Rust node will now distribute this to the bridge."
     
     echo "----------------------------------------------------"
-    echo "🌐 Opening Browser: http://localhost:3000"
-    
-    # 自動でブラウザを開く
-    if command -v xdg-open &> /dev/null; then xdg-open "http://localhost:3000" 2>/dev/null;
-    elif command -v open &> /dev/null; then open "http://localhost:3000" 2>/dev/null;
-    else echo "👉 Please open http://localhost:3000 manually."; fi
-
-    echo -e "----------------------------------------------------"
     if [ ! -z "$TEST_URL" ]; then
-        echo "🌍 [Public] $TEST_URL"
+        echo "🌍 [External Access] Tunnel is expected at: $TEST_URL"
+        echo "   (Make sure cloudflared is running with --protocol http2)"
     else
-        echo "🌐 [Remote Hub] https://dj-g1m.onrender.com"
-        echo "   (Check if your local node appears on the remote map)"
+        echo "📱 [Default Hub] Open: https://dj-g1m.onrender.com"
+        echo "   (Your local PC will act as a 'Staff' node for the world)"
     fi
-    
-    echo "The bot should start dancing in 3D now."
+
+    echo -e "\n💡 重要: ダンスを見るにはブラウザを開く必要があります。"
+    echo -e "   スマホで上記URLを開き、'PC NODE: ACTIVE' と表示されるのを待ってください。\n"
+
+    read -p "このローカルPCでブラウザを開きますか？ (y/N): " OPEN_LOCAL
+    if [[ $OPEN_LOCAL =~ ^[Yy]$ ]]; then
+        echo "Opening localhost:3000..."
+        if command -v xdg-open &> /dev/null; then xdg-open "http://localhost:3000" 2>/dev/null; fi
+    fi
+
+    echo -e "\n----------------------------------------------------"
+    echo "💃 The bot should start dancing on BOTH your smartphone and PC now!"
     echo "----------------------------------------------------"
-    echo "💡 ヒント: PC NODEが緑にならない場合は、ログ(g1m_node.log)を確認してください。"
+    echo "� [Live Logs] AIとのやり取り（プロンプトと返信）が以下に表示されます:"
+    echo "   (もし表示されない場合は、Ollamaの起動状態を確認してください)"
+    echo "----------------------------------------------------"
+    echo "�💡 ヒント: PC NODEが緑にならない場合は、ログ(g1m_node.log)を確認してください。"
     echo "📢 テストを終了して全サーバーを停止するには、何かキーを押してください..."
     echo "----------------------------------------------------"
     read -n 1 -s -r

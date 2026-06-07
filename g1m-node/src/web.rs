@@ -94,6 +94,17 @@ async fn health_check() -> impl IntoResponse {
     }))
 }
 
+/// 参加者リストの数と詳細を返す（検証スクリプト用）
+async fn get_participants_count(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let parts = state.participants.lock().unwrap();
+    Json(serde_json::json!({
+        "count": parts.len(),
+        "nodes": parts.values().cloned().collect::<Vec<ParticipantInfo>>()
+    }))
+}
+
 fn normalize_url(url: &str) -> String {
     if url.ends_with('/') { url.to_string() }
     else { format!("{}/", url) }
@@ -787,6 +798,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
     let router = Router::new()
         .route("/healthz", get(health_check))
+        .route("/api/participants", get(get_participants_count))
         .route("/api/llm", post(handle_llm))
         .route("/api/history", get(handle_get_history))
         .route("/api/help", post(handle_help_action))

@@ -71,6 +71,7 @@ const App: React.FC = () => {
   const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [lastMotionFeedback, setLastMotionFeedback] = useState<string>("");
   const [hasHf, setHasHf] = useState(false);
   const [botCncId, setBotCncId] = useState("g1m"); // 動的ボットID保持用
 
@@ -1014,14 +1015,19 @@ const App: React.FC = () => {
     const head = getBone('head');
     const spine = getBone('spine');
 
-    const arms = [lUp, rUp].filter(Boolean)
+    const arms = [lUp, rUp].filter(Boolean);
     console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
 
-    // 自己評価用フラグ
+    // 自己評価用フラグ: AIが「どのボーンを動かしたか」を自覚するためのセンサー
     let movedElbow = false;
     let movedArm = arms.length > 0;
     let movedJump = false;
     let movedSpine = false;
+
+    // センサー：実際の物理的な動きを記録する累計変数
+    let totalElbowRotation = 0;
+    let maxJumpHeight = 0;
+    let frameCount = 0;
 
     // アクションのキーワード判定 (日本語・英語両方)
     const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || action.includes('tora') || /手|腕|振|上げ/.test(action);
@@ -1034,6 +1040,7 @@ const App: React.FC = () => {
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1.0);
+      frameCount++;
 
       // 1. 手・腕系の動き
       if (isHandAction && arms.length > 0) {
@@ -1057,8 +1064,10 @@ const App: React.FC = () => {
             const speed = (action.includes('wave') || action.includes('jump')) ? 10 : 3;
             arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
             if (lowerArm) {
-              lowerArm.rotation.x = Math.sin(progress * Math.PI * speed) * 1.2; // 肘を曲げる
+              const elbowRot = Math.abs(Math.sin(progress * Math.PI * speed) * 1.2);
+              lowerArm.rotation.x = elbowRot; // 肘を曲げる
               movedElbow = true;
+              totalElbowRotation += elbowRot;
             }
           }
         });
@@ -1080,13 +1089,17 @@ const App: React.FC = () => {
         if (action.includes('dance') || action.includes('踊')) {
           spine.rotation.z = Math.sin(progress * Math.PI * 4) * 0.2;
           spine.rotation.x = Math.sin(progress * Math.PI * 8) * 0.1;
-          botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 8)) * 0.2;
+          const jump = Math.abs(Math.sin(progress * Math.PI * 8)) * 0.2;
+          botVrm.scene.position.y = jump;
           movedSpine = true; movedJump = true;
+          maxJumpHeight = Math.max(maxJumpHeight, jump);
         } else if (action.includes('jump') || action.includes('跳') || action.includes('tora')) {
           botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 4)) * 0.5;
           movedJump = true;
+          maxJumpHeight = Math.max(maxJumpHeight, botVrm.scene.position.y);
         } else {
           spine.rotation.x = Math.sin(progress * Math.PI) * (action.includes('bow') ? 0.4 : 0.1);
+          if (action.includes('bow')) movedSpine = true;
         }
       }
 
@@ -1106,11 +1119,37 @@ const App: React.FC = () => {
         if (lLower) lLower.rotation.x = 0;
         botVrm.scene.position.y = 0;
 
-        // ダンス終了時に自己採点を表示
-        if (action.includes('tora') || action.includes('dance')) {
-          const score = (movedElbow ? 25 : 0) + (movedArm ? 25 : 0) + (movedJump ? 25 : 0) + (movedSpine ? 25 : 0);
-          const report = `\n\n【練習成果】\n- 肘のキレ: ${movedElbow ? 25 : 0}点\n- ジャンプ: ${movedJump ? 25 : 0}点\n合計: ${score}点 / 100点`;
+        // --- センサーフィードバックの集計 ---
+        const elbowScore = frameCount > 0 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 150)) : 0;
+        const jumpScore = Math.min(100, Math.floor(maxJumpHeight * 200));
+        const totalScore = Math.floor((elbowScore + jumpScore) / 2);
+
+        if (action.includes('tora') || action.includes('dance') || action.includes('踊')) {
+          const statusMsg = totalScore > 80 ? "完璧なダンスでした！" : totalScore > 50 ? "一生懸命踊りました！" : "少し動きが硬かったかもしれません。";
+          const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 軸:${movedSpine ? '○':'×'} 跳:${movedJump ? '○':'×'})`;
+          const report = `\n\n【練習成果(センサー計測)】\n- 肘のキレ: ${elbowScore}点\n- ジャンプ: ${jumpScore}点\n合計: ${totalScore}点 / 100点\n${statusMsg}${detail}`;
           setSubtitle(prev => prev + report);
+          
+          // 乖離の原因診断
+          const diagnostics = [];
+          if (!movedArm) diagnostics.push("Bone 'UpperArm' not found or not mapped");
+          if (!movedElbow && isHandAction) diagnostics.push("Elbow rotation too subtle");
+          if (frameCount < 10) diagnostics.push("Animation duration too short for measurement");
+
+          // 物理センサーの結果をハブ（Bridge/Rust）へ精密に報告する
+          if (socketRef.current) {
+            socketRef.current.emit('motion_verified', {
+              action: action,
+              scores: { elbow: elbowScore, jump: jumpScore, total: totalScore },
+              success: totalScore > 50,
+              diagnostic: diagnostics.join("; ") || "Physical execution successful",
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // AIへの「感覚フィードバック」として保存
+          const feedback = `(前回の動きの物理センサー記録: 肘の曲げ ${elbowScore}点、ジャンプ高さ ${jumpScore}点、活用部位${detail}。${totalScore < 50 ? 'あまり動けなかったようです。' : 'よく動けました！'})`;
+          setLastMotionFeedback(feedback);
         }
       }
     };
@@ -1130,11 +1169,15 @@ const App: React.FC = () => {
    */
   const processAiResponse = useCallback((rawText: string) => {
     let rawAnswer = rawText;
+    console.log('AI Response Received:', rawAnswer);
 
     // 分散推論時の中間応答を無視（Socketからの本回答を待つ）
     if (rawAnswer === "Processing..." || rawAnswer.startsWith("Status:")) {
       return;
     }
+
+    // [BRIDGE] プレフィックスや不要な囲み文字のクリーンアップ
+    rawAnswer = rawAnswer.replace(/^.*?\(Reply\):\s*"?/i, "").replace(/"$/, "");
 
     // Extract action tag
     let actionName = "";
@@ -1164,10 +1207,10 @@ const App: React.FC = () => {
     // Fallback logic
     if (!actionName) {
       const fallbackMatch = rawAnswer.match(/\b(raise_hand|raise hand|wave|bow|nod|look|think|dance|jump|hand_raise|hand raised)\b/i);
-      if (fallbackMatch) {
-        actionName = fallbackMatch[1].toLowerCase().replace(/\s+/g, '_');
+      if (fallbackMatch || rawAnswer.includes("TORA TORA TORA") || rawAnswer.includes("ダンス")) {
+        actionName = fallbackMatch ? fallbackMatch[1].toLowerCase().replace(/\s+/g, '_') : 'dance';
       } else {
-        const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ジャンプ|跳ね|首をかしげ|かしげる|考える)/);
+        const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ダンス|ジャンプ|跳ね|首をかしげ|かしげる|考える)/);
         if (jpMatch) {
           const jp = jpMatch[1];
           if (/左手|left/.test(jp)) actionName = 'left_raise';
@@ -1176,7 +1219,7 @@ const App: React.FC = () => {
           else if (/振って/.test(jp)) actionName = 'wave';
           else if (/お辞儀/.test(jp)) actionName = 'bow';
           else if (/うなず/.test(jp)) actionName = 'nod';
-          else if (/踊|ジャンプ|跳ね/.test(jp)) actionName = 'dance';
+          else if (/踊|ダンス|ジャンプ|跳ね/.test(jp)) actionName = 'dance';
           else if (/首をかしげ|かしげる/.test(jp)) actionName = 'tilt_head';
           else if (/考える/.test(jp)) actionName = 'thinking';
         }
@@ -1188,7 +1231,7 @@ const App: React.FC = () => {
     // 日本語の回答とモーションを反映
     const displayAnswer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
     console.log('Final UI Answer:', displayAnswer);
-    setSubtitle(`[G1:M] ${displayAnswer}`);
+    setSubtitle(prev => prev.includes("[G1:M]") ? `[G1:M] ${displayAnswer}` : `[G1:M] ${displayAnswer}`);
     setAiThinking(false);
 
     // 実際の回答元タグに基づいてノード名を表示
@@ -1262,7 +1305,7 @@ const App: React.FC = () => {
     // Brain (Rustサーバー) に判断を委ねる
     if (vrmsRef.current['bot']) {
       const poseContext = getUserPoseDescription();
-      const fullPrompt = `${poseContext} ${text}`;
+      const fullPrompt = `${lastMotionFeedback} ${poseContext} ${text}`;
 
       (async () => {
         try {
@@ -1561,6 +1604,15 @@ const App: React.FC = () => {
       timeout: 10000,
       reconnection: true
     });
+
+    socket.on('connect_error', (err) => {
+      console.error("Socket Connection Error:", err.message);
+      setSystemLogs(prev => [...prev.slice(-19), { 
+        message: `接続エラー: ${err.message} (トンネル設定を確認してください)`, 
+        timestamp: new Date().toLocaleTimeString() 
+      }]);
+    });
+
     socketRef.current = socket;
 
     // スマホ等でconnectイベントの前に接続済みになるケースを考慮し即時フラグセット
@@ -1618,14 +1670,16 @@ const App: React.FC = () => {
 
       setParticipants(validList);
 
-      setStatus("他ユーザーの読み込み中...");
       // role が staff 以外の参加者のみ 3D表示とP2P接続を行う
       validList.forEach(p => {
         if (p && p.id && p.role !== 'staff') {
+          setStatus(`読込中: ${p.nickname || p.id.slice(0,4)}`);
           loadVRM('/g1-m_chan.glb', p.id);
           createPeer(p.id, true);
         }
       });
+      // 少し遅延させてステータスを戻す
+      setTimeout(() => setStatus("G1:M 準備完了"), 3000);
     });
 
     socket.on('participant_joined', (p: any) => {
@@ -1679,10 +1733,34 @@ const App: React.FC = () => {
       setSystemLogs(prev => [...prev.slice(-19), log]); // 直近20件を保持
     });
 
-    socket.on('bot_response', (data: { text: string }) => {
+    socket.on('bot_response', (data: { text: string, currentLine?: number, totalLines?: number }) => {
       console.log('Received bot_response via socket:', data.text);
       setProcessingNode(null);
-      processAiResponse(data.text);
+      
+      if (data.currentLine !== undefined && data.totalLines !== undefined) {
+        // 分割送信（中間報告）の場合は字幕を追記モードにする
+        setStatus(`タスク実行中 (${data.currentLine}/${data.totalLines})`);
+        setSubtitle(prev => {
+          const cleanPrev = prev.replace(/\[G1:M\]\s*\.\.\./, "");
+          return cleanPrev.endsWith(data.text) ? prev : `${cleanPrev}\n${data.text}`;
+        });
+      } else {
+        processAiResponse(data.text);
+      }
+    });
+
+    // ステップバイステップの指揮タスクを受信
+    socket.on('choreography_step', (data: { instruction: string, action?: string }) => {
+      console.log('Choreography instruction:', data.instruction);
+      setSubtitle(`[指揮] ${data.instruction}`);
+      setStatus("タスク実行中...");
+      if (data.action && vrmsRef.current['bot']) {
+        executeBotAction(data.action, vrmsRef.current['bot']);
+      } else if (vrmsRef.current['bot']) {
+        // 指示内容からアクションを推測（回す、広げる等）
+        const inferredAction = data.instruction.includes('回す') || data.instruction.includes('広げる') ? 'dance' : 'nod';
+        executeBotAction(inferredAction, vrmsRef.current['bot']);
+      }
     });
 
     socket.on('chat_message', (data: { text: string, senderName: string, id: string }) => {
