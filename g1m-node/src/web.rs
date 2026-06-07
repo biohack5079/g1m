@@ -788,36 +788,39 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             emit_cap(st.clone(), None);
         }});
 
-        socket.on("task_result", { let st = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
-            let task_id = payload["taskId"].as_str().unwrap_or("unknown");
-            let result = payload["result"].as_str().unwrap_or("");
-            if result.is_empty() {
-                log::warn!("⚠️ [LLM] Received empty task result from {} (TaskID: {})", socket.id, task_id);
-                return;
+        socket.on("task_result", {
+            let st = st.clone();
+            move |socket: SocketRef, Data(payload): Data<Value>| {
+                let task_id = payload["taskId"].as_str().unwrap_or("unknown");
+                let result = payload["result"].as_str().unwrap_or("");
+                if result.is_empty() {
+                    log::warn!("⚠️ [LLM] Received empty task result from {} (TaskID: {})", socket.id, task_id);
+                    return;
+                }
+                log::info!("📥 [LLM] Task finished: {} (TaskID: {})", socket.id, task_id);
+                let result = result.to_string();
+                
+                // タスクを返してきたクライアントの poc_token を取得
+                let poc_token = {
+                    let parts = st.participants.lock().unwrap();
+                    parts.get(&socket.id.to_string()).and_then(|p| p.poc_token.clone())
+                };
+
+                // トークンがあれば結果の先頭に付与
+                let final_result = if let Some(token) = poc_token {
+                    format!("{} {}", token, result)
+                } else {
+                    result
+                };
+
+                // タスク完了をP2P全体に通知（チャット形式でリザルトを共有）
+                let _ = st.p2p_tx.try_send(P2PCommand::PublishChat {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    text: format!("[P2P Success] {}", final_result),
+                    sender_name: "G1:M Distributed Node".to_string(),
+                });
             }
-            log::info!("📥 [LLM] Task finished: {} (TaskID: {})", socket.id, task_id);
-            let result = result.to_string();
-            
-            // タスクを返してきたクライアントの poc_token を取得
-            let poc_token = {
-                let parts = st.participants.lock().unwrap();
-                parts.get(&socket.id.to_string()).and_then(|p| p.poc_token.clone())
-            };
-
-            // トークンがあれば結果の先頭に付与
-            let final_result = if let Some(token) = poc_token {
-                format!("{} {}", token, result)
-            } else {
-                result
-            };
-
-            // タスク完了をP2P全体に通知（チャット形式でリザルトを共有）
-            let _ = st.p2p_tx.try_send(P2PCommand::PublishChat {
-                id: uuid::Uuid::new_v4().to_string(),
-                text: format!("[P2P Success] {}", final_result),
-                sender_name: "G1:M Distributed Node".to_string(),
-            });
-        }
+        });
     });
 
     let static_dir = ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist"));

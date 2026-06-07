@@ -212,7 +212,7 @@ const handleTask = async (s, data) => {
     // 1. 司令官からの指示を可視化
     s.emit('chat_message', { text: `📢 [指令] ${data.prompt}`, senderName: 'Commander' });
 
-    console.log(`\n📥 [BRIDGE] Task Received: ${data.taskId}\n   Prompt: "${data.prompt}"`);
+    console.log(`\n📥 [BRIDGE] Task Received: ${data.taskId}`);
     s.emit('system_log', { message: `⚡ PC Node (${process.env.G1M_POC_TOKEN}) で推論を開始...` });
 
     const controller = new AbortController();
@@ -242,7 +242,6 @@ const handleTask = async (s, data) => {
         const lines = text.split('\n').filter(l => l.trim().length > 0);
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            console.log(`[PROGRESS ${i+1}/${lines.length}] ${line}`);
             console.log(`\n💃 [PERFORMANCE ${i+1}/${lines.length}] ${line}`);
             
             // UIへ歌詞とアクションを送信
@@ -257,7 +256,6 @@ const handleTask = async (s, data) => {
         
         console.log(`✨ [PERFORMANCE FINISHED] ステージが完了しました。`);
         s.emit('bot_response', { text: "これでおしまい！見てくれてありがとう！", isFinishing: true });
-        s.emit('task_result', { taskId: data.taskId, result: "本日のパフォーマンスは終了しました。" });
     } catch (e) {
         console.error(`❌ [BRIDGE] 推論エラー: ${e.message}`);
         s.emit('task_result', { taskId: data.taskId, result: "⚠️ ローカルAIノードとの通信に失敗しました。Ollamaが起動しているか確認してください。" });
