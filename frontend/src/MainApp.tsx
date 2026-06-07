@@ -1021,7 +1021,11 @@ const App: React.FC = () => {
   const executeBotAction = useCallback((action: string, botVrm: VRM, isFast = false) => {
     if (!botVrm || !botVrm.humanoid) return;
 
-    const getBone = (name: string) => botVrm.humanoid!.getNormalizedBoneNode(name as any);
+    const getBone = (name: string) => {
+      if (!botVrm.humanoid) return null;
+      return botVrm.humanoid.getNormalizedBoneNode(name as any) || (botVrm.humanoid as any).getBoneNode?.(name) || botVrm.scene.getObjectByName(name);
+    };
+
     const rUp = getBone('rightUpperArm');
     const lUp = getBone('leftUpperArm');
     const rLower = getBone('rightLowerArm');
@@ -1132,8 +1136,8 @@ const App: React.FC = () => {
 
       if (isFast) {
         // 高速モード時はループせず1回で最大値を出す
-        totalElbowRotation = 1.5 * frameCount; // 理想値
-        maxJumpHeight = 0.6;
+        totalElbowRotation = movedElbow ? 1.5 * frameCount : 0; // ボーンが見つかった場合のみ理想値を算入
+        maxJumpHeight = movedJump ? 0.6 : 0;
         progress = 1.0; 
       }
 
@@ -1150,21 +1154,22 @@ const App: React.FC = () => {
         controlledBones.forEach(b => { if (b) b.userData.isManualAction = false; });
         botVrm.scene.position.y = 0;
 
-        // --- センサーフィードバックの集計 ---
-        const elbowScore = frameCount > 0 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 150)) : 0;
-        const jumpScore = Math.min(100, Math.floor(maxJumpHeight * 200));
+        // 乖離の原因診断
+        const diagnostics = [];
+        if (!movedArm) diagnostics.push("Bone 'UpperArm' not found or not mapped");
+        if (!movedElbow && isHandAction) diagnostics.push("Elbow rotation too subtle");
+        if (!isFast && frameCount < 10) diagnostics.push("Animation duration too short for measurement");
+
+        // スコア計算（シミュレーションでもボーン不在なら減点されるようにし、AIに自覚させる）
+        const penalty = (diagnostics.length > 0 && isFast) ? 20 : 0;
+        const elbowScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 150)) : 0) - penalty);
+        const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 200)) - penalty);
         const totalScore = Math.floor((elbowScore + jumpScore) / 2);
 
         if (action.includes('tora') || action.includes('dance') || action.includes('踊')) {
           const statusMsg = totalScore > 80 ? "完璧なダンスでした！" : totalScore > 50 ? "一生懸命踊りました！" : "少し動きが硬かったかもしれません。";
           const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 軸:${movedSpine ? '○':'×'} 跳:${movedJump ? '○':'×'})`;
           console.log(`📊 Practice Result: ${totalScore}pts - ${statusMsg}${detail}`);
-          
-          // 乖離の原因診断
-          const diagnostics = [];
-          if (!movedArm) diagnostics.push("Bone 'UpperArm' not found or not mapped");
-          if (!movedElbow && isHandAction) diagnostics.push("Elbow rotation too subtle");
-          if (frameCount < 10) diagnostics.push("Animation duration too short for measurement");
 
           // 物理センサーの結果をハブ（Bridge/Rust）へ精密に報告する
           if (socketRef.current) {
@@ -1179,9 +1184,12 @@ const App: React.FC = () => {
 
           // AIへの「感覚フィードバック」として保存
           const gap = 100 - totalScore;
+          const stressLevel = gap > 30 ? "高い（同期ズレ発生）" : "低い（良好）";
           const feedback = `(物理感覚フィードバック: 
 目標との乖離(GAP): ${gap}%
-詳細: 肘の可動率 ${elbowScore}% / 跳躍力 ${jumpScore}% / 動作部位${detail}。${totalScore < 50 ? '体が重く、思い通りに動きませんでした。' : 'キレのある動きができました。'})`;
+物理的ストレス: ${stressLevel}
+詳細: 肘の可動率 ${elbowScore}% / 跳躍力 ${jumpScore}% / 動作部位${detail}。
+${totalScore < 50 ? '体が非常に重く、VR空間での動きが追いついていません。' : '非常にスムーズに同期しています。'})`;
           setLastMotionFeedback(feedback);
         }
       }

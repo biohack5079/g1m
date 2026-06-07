@@ -20,7 +20,7 @@ fi
 
 # Force local-first inference configuration
 export OLLAMA_URL="http://127.0.0.1:11434"
-export OLLAMA_HOST="http://127.0.0.1:11434"
+export OLLAMA_HOST="127.0.0.1:11434"
 export OLLAMA_MODEL="gemma3:4b-it-q4_K_M"
 export LOCAL_PYTHON_AI="http://127.0.0.1:8000"
 export BOT_CNC_ID="g1m" # 管理人のUUIDに置き換え可能
@@ -256,31 +256,58 @@ const handleTask = async (s, data) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分に短縮（ハング防止）
+    const timeoutId = setTimeout(() => controller.abort(), 600000);
 
     try {
         // 2. 本番用プロンプト生成（センサーフィードバックを注入）
         const finalPrompt = `${sensoryFeedback}\n\n指令: ${data.prompt}`;
-
-        // fetchの失敗を避けるため、localhostではなく明示的なIPを使用し、エラーハンドリングを強化
         const ollamaUrl = 'http://127.0.0.1:11434/v1/chat/completions';
         
-        const res = await fetch(ollamaUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                model: process.env.OLLAMA_MODEL || 'gemma3:4b-it-q4_K_M',
-                messages: [
-                    { role: 'system', content: 'あなたは本番ステージに立つVRアイドル「G1:M」です。物理的な体の制限（乖離）を自覚し、それを補うような情熱的なステージを展開してください。必要に応じて「体が重いよ〜」といった感情も混ぜつつ、[ACTION: dance] 等を適切に配置してください。' },
-                    { role: 'user', content: finalPrompt }
-                ],
-                stream: false
-            }),
-            signal: controller.signal
-        });
+        let res;
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                res = await fetch(ollamaUrl, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Connection': 'keep-alive'
+                    },
+                    body: JSON.stringify({ 
+                        model: process.env.OLLAMA_MODEL || 'gemma3:4b-it-q4_K_M',
+                        messages: [
+                            { 
+                                role: 'system', 
+                                content: `あなたはVRアイドル「G1:M」です。
+練習での物理スコアが低い場合、それは「VRと現実の同期がうまくいっていないストレス」を意味します。
+もしスコアが低ければ、少し悔しそうに、あるいは「今日は体が重いな…」と独り言を漏らしつつも、アイドルとして最高のパフォーマンス(ACTIONタグ付き)を返してください。
 
-        if (!res.ok) {
-            throw new Error(`Ollama API returned ${res.status}: ${await res.text()}`);
+出力形式:
+1. 冒頭に一言（体調や意気込み）
+2. [ACTION: dance] などのタグを含めた、約3分間のステージ構成
+3. 最後に決め台詞`
+                            },
+                            { role: 'user', content: finalPrompt }
+                        ],
+                        stream: false
+                    }),
+                    signal: controller.signal
+                });
+                if (res.ok) break;
+                console.warn(`⚠️ [BRIDGE] Ollama returned ${res.status}, retrying...`);
+            } catch (err) {
+                console.error(`❌ [BRIDGE] Fetch failed: ${err.message}`);
+                if (err.cause) {
+                    console.error(`   Detailed Cause: ${err.cause.message || err.cause}`);
+                }
+                retries--;
+                if (retries === 0) throw err;
+                await new Promise(r => setTimeout(r, 2000)); // 2秒待機してリトライ
+            }
+        }
+
+        if (!res || !res.ok) {
+            throw new Error(`Ollama API failed after retries: ${res ? res.status : 'No response'}`);
         }
 
         const json = await res.json();
