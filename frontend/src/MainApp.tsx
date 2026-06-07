@@ -1023,8 +1023,22 @@ const App: React.FC = () => {
 
     const getBone = (name: string) => {
       if (!botVrm.humanoid) return null;
-      // 引数の botVrm を使用するように修正
-      return botVrm.humanoid.getNormalizedBoneNode(name as any) || (botVrm.humanoid as any).getBoneNode?.(name) || botVrm.scene.getObjectByName(name);
+      // 1. 正規化されたボーンを試行
+      let node = botVrm.humanoid.getNormalizedBoneNode(name as any);
+      if (node) return node;
+
+      // 2. 正規化されていないボーン（VR0形式など）を試行
+      node = (botVrm.humanoid as any).getBoneNode?.(name);
+      if (node) return node;
+
+      // 3. 部分一致検索（J_Bip_L_LowerArm 等の特殊な命名に対応）
+      const lowerName = name.toLowerCase();
+      botVrm.scene.traverse((obj) => {
+        if (!node && obj.type === 'Bone' && obj.name.toLowerCase().includes(lowerName)) {
+          node = obj as THREE.Object3D;
+        }
+      });
+      return node;
     };
 
     const rUp = getBone('rightUpperArm');
@@ -1033,9 +1047,17 @@ const App: React.FC = () => {
     const lLower = getBone('leftLowerArm');
     const head = getBone('head');
     const spine = getBone('spine');
+    const hips = getBone('hips');
+    // 下半身のボーンを追加
+    const lUpperLeg = getBone('leftUpperLeg');
+    const rUpperLeg = getBone('rightUpperLeg');
+    const lLowerLeg = getBone('leftLowerLeg');
+    const rLowerLeg = getBone('rightLowerLeg');
+    const lFoot = getBone('leftFoot');
+    const rFoot = getBone('rightFoot');
 
     // 手動制御フラグをセット (基本リズムを一時停止させる)
-    const controlledBones = [lUp, rUp, lLower, rLower, head, spine];
+    const controlledBones = [lUp, rUp, lLower, rLower, head, spine, hips, lUpperLeg, rUpperLeg, lLowerLeg, rLowerLeg, lFoot, rFoot];
     controlledBones.forEach(b => { if (b) b.userData.isManualAction = true; });
 
     const arms = [lUp, rUp].filter((b): b is NonNullable<THREE.Object3D> => b !== null);
@@ -1044,12 +1066,14 @@ const App: React.FC = () => {
     // 自己評価用フラグ: AIが「どのボーンを動かしたか」を自覚するためのセンサー
     let movedElbow = false;
     if (isFast) console.log("⏩ Simulation: Running high-speed calculation...");
-    let movedArm = arms.length > 0;
+    let movedArm = arms.length > 0; 
     let movedJump = false;
     let movedSpine = false;
+    let movedLegs = false; // 足の動きセンサー
 
     // センサー：実際の物理的な動きを記録する累計変数
     let totalElbowRotation = 0;
+    let totalLegRotation = 0; // 足の運動量
     let maxJumpHeight = 0;
     let frameCount = 0;
 
@@ -1112,12 +1136,29 @@ const App: React.FC = () => {
       // 3. 体・腰系の動き
       if ((action.includes('bow') || action.includes('body') || action.includes('lean') || action.includes('dance') || action.includes('jump') || /辞儀|腰|踊|跳|跳ね/.test(action)) && spine) {
         if (action.includes('dance') || action.includes('踊')) {
+          const speed = 6;
           spine.rotation.z = Math.sin(progress * Math.PI * 4) * 0.2;
           spine.rotation.x = Math.sin(progress * Math.PI * 6) * 0.15;
-          const jump = Math.abs(Math.sin(progress * Math.PI * 6)) * 0.25;
+          const jump = Math.abs(Math.sin(progress * Math.PI * speed)) * 0.25;
           botVrm.scene.position.y = jump;
           movedSpine = true; movedJump = true;
           maxJumpHeight = Math.max(maxJumpHeight, jump);
+
+          // 下半身のダンスステップを追加
+          if (lUpperLeg && rUpperLeg) {
+            const step = Math.sin(progress * Math.PI * speed);
+            lUpperLeg.rotation.x = step * 0.3; // 前後ステップ
+            rUpperLeg.rotation.x = -step * 0.3;
+            if (lLowerLeg && rLowerLeg) {
+              lLowerLeg.rotation.x = Math.abs(step) * 0.5; // 膝の屈曲
+              rLowerLeg.rotation.x = Math.abs(step) * 0.5;
+              movedLegs = true;
+              totalLegRotation += Math.abs(step);
+            }
+          }
+          if (hips) {
+            hips.rotation.y = Math.sin(progress * Math.PI * speed * 0.5) * 0.2; // 腰の振り
+          }
         } else if (action.includes('tora') || action.includes('jump') || action.includes('跳')) {
           // TORA TORA 用のよりパワフルなジャンプ
           const jumpPower = action.includes('tora') ? 0.6 : 0.4;
@@ -1130,9 +1171,12 @@ const App: React.FC = () => {
         }
       }
 
-      // 4. 汎用フォールバック
+      // 4. 汎用フォールバック（意味のない揺れから、アイドルらしいポーズへ）
       if (!isHandAction && !/head|look|think|nod|tilt|頭|首|顔|うなず|かしげ/.test(action) && !/bow|body|lean|dance|jump|辞儀|腰|踊|跳|跳ね/.test(action) && spine) {
-        spine.rotation.y = Math.sin(progress * Math.PI * 2) * 0.1;
+        // 軽くリズムを取りながら手を前で合わせるようなポーズ
+        spine.rotation.z = Math.sin(progress * Math.PI * 2) * 0.05;
+        if (lUp) lUp.rotation.z = -1.1;
+        if (rUp) rUp.rotation.z = 1.1;
       }
 
       if (isFast) {
@@ -1151,23 +1195,27 @@ const App: React.FC = () => {
         if (spine) { spine.rotation.x = 0; spine.rotation.y = 0; spine.rotation.z = 0; }
         if (rLower) rLower.rotation.x = 0;
         if (lLower) lLower.rotation.x = 0;
+        if (lUpperLeg) lUpperLeg.rotation.x = 0;
+        if (rUpperLeg) rUpperLeg.rotation.x = 0;
+        if (hips) hips.rotation.y = 0;
         // 手動制御フラグを解除
         controlledBones.forEach(b => { if (b) b.userData.isManualAction = false; });
         botVrm.scene.position.y = 0;
 
-        // 乖離の原因診断
+        // --- センサー集計と診断を先に実行 ---
         const diagnostics = [];
         if (!movedArm) diagnostics.push("Bone 'UpperArm' not found or not mapped");
         if (!movedElbow && isHandAction) diagnostics.push("Elbow rotation too subtle");
+        if (!movedLegs && (action.includes('dance') || action.includes('jump'))) diagnostics.push("Leg movement restricted");
         if (!isFast && frameCount < 10) diagnostics.push("Animation duration too short for measurement");
 
-        // スコア計算（シミュレーションでもボーン不在なら減点されるようにし、AIに自覚させる）
         const penalty = (diagnostics.length > 0) ? 15 : 0;
         const elbowScore = Math.max(0, (frameCount > 5 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 180)) : 0) - (movedElbow ? 0 : 50));
         const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 250)) - penalty);
-        const totalScore = Math.floor((elbowScore * 0.7 + jumpScore * 0.3));
+        const legScore = Math.max(0, (frameCount > 5 ? Math.min(100, Math.floor((totalLegRotation / frameCount) * 200)) : 0));
+        const totalScore = Math.floor((elbowScore * 0.4 + jumpScore * 0.3 + legScore * 0.3));
 
-        // 低スコア時の視覚フィードバック（同期不全エフェクト）
+        // 低スコア時の視覚フィードバック
         if (totalScore < 40 && botVrm.expressionManager) {
           botVrm.expressionManager.setValue('sorrow', 0.8);
           // 一時的に赤くなるエフェクト（簡易版）
@@ -1181,7 +1229,7 @@ const App: React.FC = () => {
 
         if (action.includes('tora') || action.includes('dance') || action.includes('踊')) {
           const statusMsg = totalScore > 80 ? "完璧なダンスでした！" : totalScore > 50 ? "一生懸命踊りました！" : "少し動きが硬かったかもしれません。";
-          const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 軸:${movedSpine ? '○':'×'} 跳:${movedJump ? '○':'×'})`;
+          const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 軸:${movedSpine ? '○':'×'} 足:${movedLegs ? '○':'×'} 跳:${movedJump ? '○':'×'})`;
           console.log(`📊 Practice Result: ${totalScore}pts - ${statusMsg}${detail}`);
 
           // 物理センサーの結果をハブ（Bridge/Rust）へ精密に報告する
@@ -1233,27 +1281,21 @@ ${totalScore < 50 ? '体が非常に重く、VR空間での動きが追いつい
     // [BRIDGE] プレフィックスや不要な囲み文字のクリーンアップ
     rawAnswer = rawAnswer.replace(/^.*?\(Reply\):\s*"?/i, "").replace(/"$/, "");
 
-    // Extract action tag
+    // --- 強化されたアクション抽出ロジック (隅付き括弧や日本語括弧に対応) ---
     let actionName = "";
-    const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
-    // 括弧 ( ) 形式のアクション（歌詞の中の指示）も抽出対象に追加
-    const parenTokens = [...rawAnswer.matchAll(/\(([^)]+)\)/g)].map(m => m[1].trim());
-    const allTokens = [...tokens, ...parenTokens];
-
-    for (const token of allTokens) {
-      if (token.toLowerCase().startsWith('action:')) {
-        const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
-        actionName = parts[1].replace(/\s+/g, '_');
-        break;
-      } else if (token.includes(':')) {
-        const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
-        if (parts.length > 1) {
-          actionName = parts[1].replace(/\s+/g, '_');
-          break;
-        }
+    const actionMatch = rawAnswer.match(/[\[【]ACTION:\s*([^\]】]+)[\]】]/i) || 
+                        rawAnswer.match(/\(([^)]+)\)/) || 
+                        rawAnswer.match(/（([^）]+)）/);
+    
+    if (actionMatch) {
+      const candidate = actionMatch[1].toLowerCase();
+      if (candidate.includes('dance') || candidate.includes('踊')) actionName = 'dance';
+      else if (candidate.includes('jump') || candidate.includes('跳')) actionName = 'jump';
+      else if (candidate.includes('wave') || candidate.includes('振')) actionName = 'wave';
+      else {
+        // ハイフンやスペースで区切られている場合は先頭の単語を抽出
+        actionName = candidate.split(/[\s\-_ー]/)[0].substring(0, 20);
       }
-      actionName = token.replace(/\s+/g, '_').toLowerCase();
-      break;
     }
 
     // テキストから修飾語（左右）を補足
