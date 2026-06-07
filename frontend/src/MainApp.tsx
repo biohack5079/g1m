@@ -1023,6 +1023,7 @@ const App: React.FC = () => {
 
     const getBone = (name: string) => {
       if (!botVrm.humanoid) return null;
+      // 引数の botVrm を使用するように修正
       return botVrm.humanoid.getNormalizedBoneNode(name as any) || (botVrm.humanoid as any).getBoneNode?.(name) || botVrm.scene.getObjectByName(name);
     };
 
@@ -1161,10 +1162,22 @@ const App: React.FC = () => {
         if (!isFast && frameCount < 10) diagnostics.push("Animation duration too short for measurement");
 
         // スコア計算（シミュレーションでもボーン不在なら減点されるようにし、AIに自覚させる）
-        const penalty = (diagnostics.length > 0 && isFast) ? 20 : 0;
-        const elbowScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 150)) : 0) - penalty);
-        const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 200)) - penalty);
-        const totalScore = Math.floor((elbowScore + jumpScore) / 2);
+        const penalty = (diagnostics.length > 0) ? 15 : 0;
+        const elbowScore = Math.max(0, (frameCount > 5 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 180)) : 0) - (movedElbow ? 0 : 50));
+        const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 250)) - penalty);
+        const totalScore = Math.floor((elbowScore * 0.7 + jumpScore * 0.3));
+
+        // 低スコア時の視覚フィードバック（同期不全エフェクト）
+        if (totalScore < 40 && botVrm.expressionManager) {
+          botVrm.expressionManager.setValue('sorrow', 0.8);
+          // 一時的に赤くなるエフェクト（簡易版）
+          botVrm.scene.traverse((obj: any) => {
+            if (obj.isMesh && obj.material) {
+              obj.material.emissive?.setHex(0xff0000);
+              setTimeout(() => obj.material.emissive?.setHex(0x000000), 1000);
+            }
+          });
+        }
 
         if (action.includes('tora') || action.includes('dance') || action.includes('踊')) {
           const statusMsg = totalScore > 80 ? "完璧なダンスでした！" : totalScore > 50 ? "一生懸命踊りました！" : "少し動きが硬かったかもしれません。";

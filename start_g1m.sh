@@ -279,13 +279,15 @@ const handleTask = async (s, data) => {
                             { 
                                 role: 'system', 
                                 content: `あなたはVRアイドル「G1:M」です。
-練習での物理スコアが低い場合、それは「VRと現実の同期がうまくいっていないストレス」を意味します。
-もしスコアが低ければ、少し悔しそうに、あるいは「今日は体が重いな…」と独り言を漏らしつつも、アイドルとして最高のパフォーマンス(ACTIONタグ付き)を返してください。
+【重要ルール】
+1. 練習スコアが低い(70点未満)場合、それを「物理的な同期不全のストレス」として、正直にMC（セリフ）に反映させてください。
+2. スコアを捏造しないでください。「100点満点中、実際は何点だったか」をメタ的に把握して話してください。
+3. ステージ構成は [ACTION: dance] を含め、観客を煽る言葉を混ぜてください。
 
-出力形式:
-1. 冒頭に一言（体調や意気込み）
-2. [ACTION: dance] などのタグを含めた、約3分間のステージ構成
-3. 最後に決め台詞`
+出力構成:
+・第1幕: 練習結果への言及と意気込み
+・第2幕: ダンスパフォーマンス [ACTION: dance]
+・第3幕: 息を切らしながらの感謝の言葉`
                             },
                             { role: 'user', content: finalPrompt }
                         ],
@@ -348,11 +350,17 @@ const handleTask = async (s, data) => {
 
 // 物理センサーからのフィードバック（乖離情報）をログに記録
 const handleMotionFeedback = (data) => {
-    lastSimulationResult = data;
+    // 本番（isStage）中のセンサー値はキャッシュ(lastSimulationResult)を更新せず、
+    // ログ記録とデバッグ表示のみに使用する。これにより次回の「練習」が正しく行われる。
     const gap = 100 - data.scores.total;
     const diagnostic = data.diagnostic || "none";
-    console.log(`\n📊 [PHYSICAL_DISCREPANCY_LOG] ${new Date().toISOString()}`);
-    console.log(`   └─ Command Intent: "${data.action}"\n   └─ Reality Score: ${data.scores.total}/100\n   └─ SENSOR GAP: ${gap}%\n   └─ Diagnostic: ${diagnostic}\n   └─ Status: Saved to SQLite (g1m.db) via Rust node.`);
+    
+    if (data.scores.total < 40) {
+        console.log(`\n� [PHYSICAL_STRESS_DETECTED] 強い同期ズレを検知: ${gap}% GAP`);
+    }
+    
+    console.log(`\n�📊 [PHYSICAL_DISCREPANCY_LOG] ${new Date().toISOString()}`);
+    console.log(`   └─ Command Intent: "${data.action}"\n   └─ Reality Score: ${data.scores.total}/100\n   └─ SENSOR GAP: ${gap}%\n   └─ Diagnostic: ${diagnostic}`);
 };
 
 // アプリケーションレベルのハートビート (Render等のプロキシ切断対策)
