@@ -241,5 +241,23 @@ git push -u origin main || echo "Git push failed"
 3. 以降の推論は、自身のPC内のOllamaが優先的に使用されます。
 
 
+# テスト
+
+# ポートの掃除
+fuser -k 3000/tcp 3001/tcp 4001/tcp
+
+# フロントエンドのビルド（1回だけでOK）
+cd frontend && npm run build && cd ..
+
+# 軽量モードで起動（Javaなし、ビルド済みフロント使用）
+./start_g1m.sh --no-java
+http://localhost:3000 または
+~/cloudflared tunnel --url http://localhost:3000 --protocol http2
+
+
+
+
+
+
 
 

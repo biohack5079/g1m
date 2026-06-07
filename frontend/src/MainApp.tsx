@@ -1016,13 +1016,20 @@ const App: React.FC = () => {
 
     const arms = [lUp, rUp].filter(Boolean)
     console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
+
+    // 自己評価用フラグ
+    let movedElbow = false;
+    let movedArm = arms.length > 0;
+    let movedJump = false;
+    let movedSpine = false;
+
     // アクションのキーワード判定 (日本語・英語両方)
-    const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || /手|腕|振|上げ/.test(action);
+    const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || action.includes('tora') || /手|腕|振|上げ/.test(action);
     const isLeftOnly = action.includes('left') || action.includes('左');
     const isRightOnly = action.includes('right') || action.includes('右');
 
     let startTime = Date.now();
-    const duration = (action.includes('dance') || action.includes('jump')) ? 4000 : 2000; // ダンスやジャンプは長めに
+    const duration = (action.includes('dance') || action.includes('jump') || action.includes('tora')) ? 6000 : 2000; // ダンスやジャンプは長めに
 
     const animate = () => {
       const elapsed = Date.now() - startTime;
@@ -1051,6 +1058,7 @@ const App: React.FC = () => {
             arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
             if (lowerArm) {
               lowerArm.rotation.x = Math.sin(progress * Math.PI * speed) * 1.2; // 肘を曲げる
+              movedElbow = true;
             }
           }
         });
@@ -1073,8 +1081,10 @@ const App: React.FC = () => {
           spine.rotation.z = Math.sin(progress * Math.PI * 4) * 0.2;
           spine.rotation.x = Math.sin(progress * Math.PI * 8) * 0.1;
           botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 8)) * 0.2;
-        } else if (action.includes('jump') || action.includes('跳')) {
+          movedSpine = true; movedJump = true;
+        } else if (action.includes('jump') || action.includes('跳') || action.includes('tora')) {
           botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 4)) * 0.5;
+          movedJump = true;
         } else {
           spine.rotation.x = Math.sin(progress * Math.PI) * (action.includes('bow') ? 0.4 : 0.1);
         }
@@ -1092,7 +1102,16 @@ const App: React.FC = () => {
         if (lUp) { lUp.rotation.z = -1.2; lUp.rotation.x = 0; }
         if (head) { head.rotation.x = 0; head.rotation.y = 0; head.rotation.z = 0; }
         if (spine) { spine.rotation.x = 0; spine.rotation.y = 0; spine.rotation.z = 0; }
+        if (rLower) rLower.rotation.x = 0;
+        if (lLower) lLower.rotation.x = 0;
         botVrm.scene.position.y = 0;
+
+        // ダンス終了時に自己採点を表示
+        if (action.includes('tora') || action.includes('dance')) {
+          const score = (movedElbow ? 25 : 0) + (movedArm ? 25 : 0) + (movedJump ? 25 : 0) + (movedSpine ? 25 : 0);
+          const report = `\n\n【G1:M 自己評価レポート】\n- 肘の曲げ: ${movedElbow ? 'OK' : 'NG'}\n- ジャンプ: ${movedJump ? 'OK' : 'NG'}\n- 体幹の動き: ${movedSpine ? 'OK' : 'NG'}\n合計: ${score}点 / 100点\n${score === 100 ? '完璧に踊れたよ！💕' : '次はもっと肘を動かすね！'}`;
+          setSubtitle(prev => prev + report);
+        }
       }
     };
 

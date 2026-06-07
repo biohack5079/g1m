@@ -5,9 +5,18 @@ echo "===================================================="
 echo "🚀 G1:M Simple Setup & Verification"
 echo "===================================================="
 
+# 引数からトンネルURLを取得（任意）
+TEST_URL=$1
+
 # 0. ポートのクリーンアップと環境準備
 echo "[0/7] Cleaning up ports and preparing environment..."
-fuser -k 3000/tcp 3001/tcp 2>/dev/null || true
+# 既に起動中のプロセスを殺したくない場合は、この行をスキップする
+if [ "$2" != "--no-kill" ]; then
+    fuser -k 3000/tcp 3001/tcp 2>/dev/null || true
+    echo "🧹 Existing processes terminated."
+else
+    echo "⏭️ Skipping port cleanup as requested."
+fi
 rm -rf z1m/java-unit/db/
 
 cd z1m/java-unit
@@ -164,7 +173,7 @@ fi
 
 if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
     echo -e "\n🚀 Launching G1:M for live testing..."
-    ./start_g1m.sh --no-java > /dev/null 2>&1 &
+    ./start_g1m.sh "$TEST_URL" --no-java > /dev/null 2>&1 &
     LAUNCH_PID=$!
     
     echo "⏳ Waiting for local server (3000) to be ready..."
@@ -186,12 +195,20 @@ if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
          -d "{\"prompt\": \"$PROMPT_CONTENT\"}" > /dev/null
     
     echo "----------------------------------------------------"
-    echo "👀 Please check the UI at: http://localhost:3000"
+    echo "👀 [Local] http://localhost:3000"
+    
+    if [ ! -z "$TEST_URL" ]; then
+        echo "🌍 [Public] $TEST_URL"
+    else
+        echo "🌐 [Remote Hub] https://dj-g1m.onrender.com"
+        echo "   (Check if your local node appears on the remote map)"
+    fi
+    
     echo "The bot should start dancing in 3D now."
     echo "----------------------------------------------------"
     
     echo "Press any key to stop the test and terminate the server."
-    read -n 1 -r
+    read -n 1 -s -r
     kill $LAUNCH_PID 2>/dev/null || true
     fuser -k 3000/tcp 2>/dev/null || true
     echo "✅ Live test finished."
