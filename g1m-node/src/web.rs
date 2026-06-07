@@ -558,8 +558,9 @@ pub struct RegisterPayload {
 pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router { // socketio_layerを引数で受け取る
     let io = state.io.clone();
 
+    let st_for_io = state.clone();
     io.ns("/", move |socket: SocketRef| {
-        let st = state.clone();
+        let st = st_for_io.clone();
         log::info!("Socket.IO Connected: {}", socket.id);
 
         // 能力チェックと通知を行う共通ロジック
