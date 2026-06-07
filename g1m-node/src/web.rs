@@ -673,7 +673,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                     });
                 }
             }
-        }});
+        });
 
         // --- DM (Direct Message) 機能 ---
         socket.on("private_message", move |socket: SocketRef, Data(payload): Data<Value>| {
@@ -815,6 +815,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 id: uuid::Uuid::new_v4().to_string(),
                 text: format!("[P2P Success] {}", final_result),
                 sender_name: "G1:M Distributed Node".to_string(),
+            });
         }});
     });
 
