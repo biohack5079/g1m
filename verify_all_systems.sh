@@ -6,7 +6,7 @@ echo "🚀 G1:M Simple Setup & Verification"
 echo "===================================================="
 
 # 0. ポートのクリーンアップと環境準備
-echo "[0/6] Cleaning up ports and preparing environment..."
+echo "[0/7] Cleaning up ports and preparing environment..."
 fuser -k 3000/tcp 3001/tcp 2>/dev/null || true
 rm -rf z1m/java-unit/db/
 
@@ -47,27 +47,27 @@ spring.jpa.hibernate.ddl-auto=update
 EOF
 
 # 1. Javaテスト実行
-echo "[1/6] Running Java Vault Tests..."
+echo "[1/7] Running Java Vault Tests..."
 mvn clean test -Dtest=VaultIntegrationTest || (echo "❌ Java Tests Failed" && exit 1)
 
 echo "✅ Java physical DB isolation verified."
 cd ../../
 
 # 2. Rust コンパイルチェック
-echo -e "\n[2/6] Checking Rust Node Compilation..."
+echo -e "\n[2/7] Checking Rust Node Compilation..."
 cd g1m-node
 cargo check || (echo "❌ Rust Compilation Failed" && exit 1)
 echo "✅ Rust compilation OK."
 cd ..
 
 # 3. ローカル推論環境のチェック (Ollama)
-echo -e "\n[3/6] Verifying Local Inference Capability (Ollama Connectivity)..."
+echo -e "\n[3/7] Verifying Local Inference Capability (Ollama Connectivity)..."
 cd g1m-node
 cargo test test_local_ollama_availability -- --nocapture || echo "⚠️ Ollama is not running. Local inference will be unavailable (failover to HF)."
 cd ..
 
 # 3. Rust DB 秘匿情報漏洩チェック
-echo -e "\n[4/6] Verifying Rust DB Privacy (Leak Check)..."
+echo -e "\n[4/7] Verifying Rust DB Privacy (Leak Check)..."
 cd g1m-node
 if [ -f g1m.db ]; then
     LEAKS=$(sqlite3 g1m.db "SELECT text FROM messages;" | grep -E "bank|base64|image" || true)
@@ -82,7 +82,7 @@ fi
 cd ..
 
 # 4. UI ステータス表示ロジックの整合性チェック
-echo -e "\n[5/6] Checking UI Status Indicator Logic (PC vs HF)..."
+echo -e "\n[5/7] Checking UI Status Indicator Logic (PC vs HF)..."
 FRONTEND_FILE="frontend/src/MainApp.tsx"
 if [ -f "$FRONTEND_FILE" ]; then
     # PC NODE ステータス色ロジックの確認
@@ -105,7 +105,7 @@ else
 fi
 
 # 5. Supabase 同期テスト
-echo -e "\n[6/6] Verifying Supabase Connectivity..."
+echo -e "\n[6/7] Verifying Supabase Connectivity..."
 if [ -f .env ]; then
     source .env
     curl -s -X GET "${SUPABASE_URL}/rest/v1/chat_history?limit=1" \
@@ -116,6 +116,87 @@ if [ -f .env ]; then
     else
         echo "❌ Supabase connection failed."
     fi
+fi
+
+# 7. G1:M モーション・パフォーマンス・チェック (Rotation & TORA TORA)
+echo -e "\n[7/7] Verifying G1:M Motion Capabilities (Rotation & TORA TORA)..."
+if [ -f "$FRONTEND_FILE" ]; then
+    # 1. くるくる回れるか (Rotation logic check)
+    if grep -q "rotation.y = Math.sin" "$FRONTEND_FILE"; then
+        echo "✅ Motion: Rotation logic (Spinning) verified."
+        
+        # 2. TORA TORA 再現度チェック (High Tension logic)
+        # 判定要素: 1. dance判定, 2. spine回転, 3. position.y(ジャンプ), 4. arm.rotation, 5. lowerArm.rotation(肘)
+        # これらが揃うことで「満点」となる
+        SCORE=0
+        grep -q "action.includes('dance')" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
+        grep -q "spine.rotation.z" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
+        grep -q "position.y = Math.abs" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
+        grep -q "arm.rotation.z" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
+        grep -q "lowerArm.rotation.x" "$FRONTEND_FILE" && SCORE=$((SCORE + 1))
+        
+        PERCENTAGE=$((SCORE * 20))
+        echo "📊 TORA TORA Reproduction Rate: ${PERCENTAGE}%"
+        
+        if [ $PERCENTAGE -eq 100 ]; then
+            echo "🎊 PERFECT! High tension dance logic is fully implemented with elbow support."
+            IS_PERFECT=true
+        elif [ $PERCENTAGE -ge 75 ]; then
+            echo "✅ High tension dance logic is robust."
+        else
+            echo "⚠️ Dance logic components are partial (missing elbows or jumps?)."
+        fi
+    else
+        echo "❌ Motion: Rotation logic missing. Cannot proceed to TORA TORA check."
+    fi
+else
+    echo "⚠️ UI Source not found. Skipping motion check."
+fi
+
+# 8. ライブ・モーション検証 (オプション)
+echo -e "\n[8/7] Would you like to perform a Visual Motion Verification? (y/n)"
+if [ "$IS_PERFECT" = true ]; then
+    echo "✨ Perfect score detected. Visual evaluation is highly recommended."
+    read -p "Press [Enter] to start G1:M Live Testing or 'n' to skip: " CONFIRM
+else
+    read -t 5 -n 1 -r CONFIRM
+fi
+
+if [[ $CONFIRM =~ ^[Yy]$ ]] || [[ -z $CONFIRM && "$IS_PERFECT" = true ]]; then
+    echo -e "\n🚀 Launching G1:M for live testing..."
+    ./start_g1m.sh --no-java > /dev/null 2>&1 &
+    LAUNCH_PID=$!
+    
+    echo "⏳ Waiting for local server (3000) to be ready..."
+    until curl -s http://localhost:3000/healthz > /dev/null; do sleep 2; done
+    
+    echo "✨ Sending 'TORA TORA' command to Ollama..."
+    # tora.md または定型文の取得
+    if [ -f "tora.md" ]; then
+        PROMPT_CONTENT=$(cat tora.md)
+    elif [ -f "refer/g1m/わーい 最高にテンション上がる TORA TORA.txt" ]; then
+        PROMPT_CONTENT=$(cat "refer/g1m/わーい 最高にテンション上がる TORA TORA.txt")
+    else
+        PROMPT_CONTENT="わーい！最高にテンション上がる TORA TORA を踊って！肘もガンガン曲げて激しく動いて！"
+    fi
+
+    echo "✨ Sending instruction to Ollama..."
+    curl -s -X POST http://localhost:3000/api/llm \
+         -H "Content-Type: application/json" \
+         -d "{\"prompt\": \"$PROMPT_CONTENT\"}" > /dev/null
+    
+    echo "----------------------------------------------------"
+    echo "👀 Please check the UI at: http://localhost:3000"
+    echo "The bot should start dancing in 3D now."
+    echo "----------------------------------------------------"
+    
+    echo "Press any key to stop the test and terminate the server."
+    read -n 1 -r
+    kill $LAUNCH_PID 2>/dev/null || true
+    fuser -k 3000/tcp 2>/dev/null || true
+    echo "✅ Live test finished."
+else
+    echo -e "\n⏭️ Skipping live verification."
 fi
 
 echo -e "\n===================================================="

@@ -1009,6 +1009,8 @@ const App: React.FC = () => {
     const getBone = (name: string) => botVrm.humanoid.getNormalizedBoneNode(name as any);
     const rUp = getBone('rightUpperArm');
     const lUp = getBone('leftUpperArm');
+    const rLower = getBone('rightLowerArm');
+    const lLower = getBone('leftLowerArm');
     const head = getBone('head');
     const spine = getBone('spine');
 
@@ -1035,6 +1037,7 @@ const App: React.FC = () => {
 
         targetArms.forEach((arm) => {
           const isRightArm = arm === rUp;
+          const lowerArm = isRightArm ? rLower : lLower;
           const downZ = isRightArm ? 1.4 : -1.4;
           const upZ = isRightArm ? -1.5 : 1.5;
 
@@ -1046,6 +1049,9 @@ const App: React.FC = () => {
             arm.rotation.z = upZ;
             const speed = (action.includes('wave') || action.includes('jump')) ? 10 : 3;
             arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.5;
+            if (lowerArm) {
+              lowerArm.rotation.x = Math.sin(progress * Math.PI * speed) * 1.2; // 肘を曲げる
+            }
           }
         });
       }
@@ -1800,8 +1806,12 @@ const App: React.FC = () => {
           if (bot.humanoid) {
             const lArm = bot.humanoid.getNormalizedBoneNode('leftUpperArm' as any);
             const rArm = bot.humanoid.getNormalizedBoneNode('rightUpperArm' as any);
+            const lLower = bot.humanoid.getNormalizedBoneNode('leftLowerArm' as any);
+            const rLower = bot.humanoid.getNormalizedBoneNode('rightLowerArm' as any);
             if (lArm) lArm.rotation.z = -1.2 + Math.sin(time * 2) * 0.5;
             if (rArm) rArm.rotation.z = 1.2 + Math.sin(time * 2 + Math.PI) * 0.5;
+            if (lLower) lLower.rotation.x = Math.sin(time * 4) * 0.8;
+            if (rLower) rLower.rotation.x = Math.sin(time * 4) * 0.8;
           }
 
           if (bot.expressionManager) {
