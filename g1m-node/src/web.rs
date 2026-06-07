@@ -629,6 +629,13 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             // 必要に応じてここで次の行の送信トリガーを引く処理を追加可能
         });
 
+        // ブリッジからの1行ずつのレスポンスを視聴者へ即時リレー
+        socket.on("bot_response", move |socket: SocketRef, Data(payload): Data<Value>| {
+            log::info!("📢 [Relay] Bot response line received from bridge: {}", socket.id);
+            // 視聴者全員にブロードキャスト
+            let _ = socket.broadcast().emit("bot_response", payload);
+        });
+
         // ブラウザ上の物理センサーからの自己フィードバック（固有感覚）
         socket.on("motion_verified", { let st_v = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
             let st = st_v.clone();
@@ -788,7 +795,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 log::warn!("⚠️ [LLM] Received empty task result from {} (TaskID: {})", socket.id, task_id);
                 return;
             }
-            log::info!("📥 [LLM] Task result arrived at server: {} (TaskID: {})", socket.id, task_id);
+            log::info!("📥 [LLM] Task finished: {} (TaskID: {})", socket.id, task_id);
             let result = result.to_string();
             
             // タスクを返してきたクライアントの poc_token を取得
@@ -804,20 +811,13 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 result
             };
 
-            let msg = serde_json::json!({ "text": final_result, "actionName": "" });
-            
-            // Render環境での配信を確実にするため、名前空間を明示して全クライアントに送信
-            let _ = st.io.of("/").unwrap().emit("bot_response", msg);
-            
-            log::info!("🚀 [LLM] Final result relayed to all viewers (Len: {}, TaskID: {})", final_result.chars().count(), task_id);
-            
             // タスク完了をP2P全体に通知（チャット形式でリザルトを共有）
             let _ = st.p2p_tx.try_send(P2PCommand::PublishChat {
                 id: uuid::Uuid::new_v4().to_string(),
                 text: format!("[P2P Success] {}", final_result),
                 sender_name: "G1:M Distributed Node".to_string(),
             });
-        }});
+        }
     });
 
     let static_dir = ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist"));

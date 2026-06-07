@@ -209,6 +209,9 @@ register(localSocket, 'Local Node');
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 // ポート8000(Python)ではなく11434(Ollama)のOpenAI互換エンドポイントを使用
 const handleTask = async (s, data) => {
+    // 1. 司令官からの指示を可視化
+    s.emit('chat_message', { text: `📢 [指令] ${data.prompt}`, senderName: 'Commander' });
+
     console.log(`\n📥 [BRIDGE] Task Received: ${data.taskId}\n   Prompt: "${data.prompt}"`);
     s.emit('system_log', { message: `⚡ PC Node (${process.env.G1M_POC_TOKEN}) で推論を開始...` });
 
@@ -233,21 +236,28 @@ const handleTask = async (s, data) => {
         // OpenAI互換形式 (choices[0].message.content) と Ollama標準形式 (message.content) の両方に対応
         let text = (json.choices && json.choices[0] && json.choices[0].message) ? json.choices[0].message.content : (json.message ? json.message.content : (json.response || json.error || "⚠️ Ollamaからの応答が空です"));
         
-        console.log(`✅ [BRIDGE] 推論完了。分割送信を開始します...`);
+        console.log(`✅ [BRIDGE] 推論完了。スローパフォーマンスを開始します...`);
 
-        // 2. 思考プロセスを段階的に UI へ流す
+        // 2. 1行ずつ、物理的な動きを確認しながら進める（スローペースの本番）
         const lines = text.split('\n').filter(l => l.trim().length > 0);
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             console.log(`[PROGRESS ${i+1}/${lines.length}] ${line}`);
+            console.log(`\n💃 [PERFORMANCE ${i+1}/${lines.length}] ${line}`);
             
-            // ハブとローカル両方に通知
+            // UIへ歌詞とアクションを送信
             s.emit('bot_response', { text: line, currentLine: i+1, totalLines: lines.length });
             
             // 動作確認のための適切なウェイト (3秒)
             await new Promise(r => setTimeout(r, 3000));
+            // 1行あたり7秒かけて、言葉と動きをじっくり見せる
+            await new Promise(r => setTimeout(r, 7000));
         }
         s.emit('task_result', { taskId: data.taskId, result: "[完了] 全てのタスクが終了しました。" });
+        
+        console.log(`✨ [PERFORMANCE FINISHED] ステージが完了しました。`);
+        s.emit('bot_response', { text: "これでおしまい！見てくれてありがとう！", isFinishing: true });
+        s.emit('task_result', { taskId: data.taskId, result: "本日のパフォーマンスは終了しました。" });
     } catch (e) {
         console.error(`❌ [BRIDGE] 推論エラー: ${e.message}`);
         s.emit('task_result', { taskId: data.taskId, result: "⚠️ ローカルAIノードとの通信に失敗しました。Ollamaが起動しているか確認してください。" });

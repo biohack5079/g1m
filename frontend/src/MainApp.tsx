@@ -1248,16 +1248,11 @@ const App: React.FC = () => {
     const displayAnswer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
     console.log('Final UI Answer:', displayAnswer);
 
-    if (rawText.includes("完了") || rawText.includes("終了しました")) {
-      setStatus("✨ 本番開始！ ✨");
-      setSubtitle("[G1:M] 練習おわり！本番いくよ！キレキレでいくからね！");
-      const botVrm = vrmsRef.current['bot'];
-      if (botVrm) (botVrm as any).isFullDance = true; // 全力ダンスフラグをON
-      setIsDancing(true);
-      setTimeout(() => {
-        setIsDancing(false);
-        if (botVrm) (botVrm as any).isFullDance = false; // 終わったらフラグを戻す
-      }, 13000); // 本番は少し長めの13秒間
+    // 「完了」タグによる急激な加速・終了を廃止
+    if (rawText.includes("おしまい") || (rawText as any).isFinishing) {
+      setStatus("パフォーマンス終了");
+      setSubtitle("[G1:M] またね！");
+      setIsDancing(false);
       return;
     }
 
@@ -1944,10 +1939,9 @@ const App: React.FC = () => {
         if (isDancingRef.current && vrmsRef.current['bot']) {
           const bot = vrmsRef.current['bot'];
           const time = now * 0.005;
-          const isFullDance = (bot as any).isFullDance;
-          
-          // 本番（isFullDance）なら、体の揺れを速くする
-          bot.scene.rotation.y = Math.sin(time * (isFullDance ? 1.2 : 0.6)) * 0.3;
+
+          // スローペースだがキレのある本番メインの動き
+          bot.scene.rotation.y = Math.sin(time * 0.8) * 0.3; 
           
           if (bot.humanoid) {
             const lArm = bot.humanoid.getNormalizedBoneNode('leftUpperArm' as any);
@@ -1956,28 +1950,14 @@ const App: React.FC = () => {
             const rLower = bot.humanoid.getNormalizedBoneNode('rightLowerArm' as any);
             const spine = bot.humanoid.getNormalizedBoneNode('spine' as any);
 
-            // 基本のリズム刻み (練習中・本番中 共通)
-            const rhythm = Math.sin(time * (isFullDance ? 4 : 2)); // 本番はリズムを倍速に
-            if (!isFullDance) {
-              // 練習中のリラックスしたリズム
-              if (lArm && !lArm.userData.isManualAction) lArm.rotation.z = -1.2 + rhythm * 0.15;
-              if (rArm && !rArm.userData.isManualAction) rArm.rotation.z = 1.2 + rhythm * 0.15;
-              if (lLower && !lLower.userData.isManualAction) lLower.rotation.x = Math.abs(rhythm) * 0.3;
-              if (rLower && !rLower.userData.isManualAction) rLower.rotation.x = Math.abs(rhythm) * 0.3;
-            } else {
-              // 本番中のしっかりしたリズム
-              if (lArm && !lArm.userData.isManualAction) lArm.rotation.z = -1.4 + rhythm * 0.4;
-              if (rArm && !rArm.userData.isManualAction) rArm.rotation.z = 1.4 + rhythm * 0.4;
-            }
-            
-            // 【キレキレ演出】本番（isFullDance）時のみ、大きく動く
-            if (isFullDance) {
-              if (lArm) lArm.rotation.x = Math.cos(time * 5) * 1.0; // 腕の振り幅UP
-              if (rArm) rArm.rotation.x = Math.sin(time * 5) * 1.0;
-              if (lLower) lLower.rotation.x = 0.5 + Math.abs(Math.sin(time * 8)) * 1.0; // 肘のキレ
-              if (rLower) rLower.rotation.x = 0.5 + Math.abs(Math.cos(time * 8)) * 1.0;
-              if (spine) spine.rotation.z = Math.sin(time * 4) * 0.4; // 腰の振り強化
-              bot.scene.position.y = Math.abs(Math.sin(time * 6)) * 0.3; // 連続ジャンプ
+            const rhythm = Math.sin(time * 3); // 常に全力のリズム
+            if (lArm && !lArm.userData.isManualAction) lArm.rotation.z = -1.3 + rhythm * 0.3;
+            if (rArm && !rArm.userData.isManualAction) rArm.rotation.z = 1.3 + rhythm * 0.3;
+            if (lLower && !lLower.userData.isManualAction) lLower.rotation.x = 0.6 + Math.abs(rhythm) * 0.9;
+            if (rLower && !rLower.userData.isManualAction) rLower.rotation.x = 0.6 + Math.abs(rhythm) * 0.9;
+            if (spine && !spine.userData.isManualAction) {
+              spine.rotation.z = Math.sin(time * 3) * 0.3;
+              bot.scene.position.y = Math.abs(Math.sin(time * 5)) * 0.25; 
             }
           }
 
