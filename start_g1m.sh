@@ -209,9 +209,6 @@ register(localSocket, 'Local Node');
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 // ポート8000(Python)ではなく11434(Ollama)のOpenAI互換エンドポイントを使用
 const handleTask = async (s, data) => {
-    // 1. 司令官からの指示を可視化
-    s.emit('chat_message', { text: `📢 [指令] ${data.prompt}`, senderName: 'Commander' });
-
     console.log(`\n📥 [BRIDGE] Task Received: ${data.taskId}\n   Prompt: "${data.prompt}"`);
     s.emit('system_log', { message: `⚡ PC Node (${process.env.G1M_POC_TOKEN}) で推論を開始...` });
 

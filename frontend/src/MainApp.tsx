@@ -1174,7 +1174,7 @@ const App: React.FC = () => {
   /**
    * AIの回答をパースして字幕表示とモーション実行を行う
    */
-  const processAiResponse = useCallback((rawText: string) => {
+  const processAiResponse = useCallback((rawText: string, skipSubtitle = false) => {
     let rawAnswer = rawText;
     console.log('AI Response Received:', rawAnswer);
 
@@ -1247,14 +1247,6 @@ const App: React.FC = () => {
     // 日本語の回答とモーションを反映
     const displayAnswer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
     console.log('Final UI Answer:', displayAnswer);
-    // 字幕を最新の1行に更新（上書き）して、アバターが隠れないようにする
-    setSubtitle(`[G1:M] ${displayAnswer}`);
-    setAiThinking(false);
-
-    // 実際の回答元タグに基づいてノード名を表示
-    if (rawText.includes("【Local PC Node】")) setProcessingNode("PC Node (Brain)");
-    else if (rawText.includes("【HF Super Node】")) setProcessingNode("HF Super Node");
-    else setProcessingNode("Staff Node (Distributed)");
 
     if (rawText.includes("完了") || rawText.includes("終了しました")) {
       setStatus("✨ 本番開始！ ✨");
@@ -1268,6 +1260,17 @@ const App: React.FC = () => {
       }, 13000); // 本番は少し長めの13秒間
       return;
     }
+
+    // 練習中の歌詞は表示しないが、それ以外の通常の会話は表示する
+    if (!skipSubtitle) {
+      setSubtitle(`[G1:M] ${displayAnswer}`);
+    }
+    setAiThinking(false);
+
+    // 実際の回答元タグに基づいてノード名を表示
+    if (rawText.includes("【Local PC Node】")) setProcessingNode("PC Node (Brain)");
+    else if (rawText.includes("【HF Super Node】")) setProcessingNode("HF Super Node");
+    else setProcessingNode("Staff Node (Distributed)");
 
     setStatus("回答完了");
 
@@ -1777,7 +1780,8 @@ const App: React.FC = () => {
           setIsDancing(true);
         }
         
-        processAiResponse(data.text);
+        // 練習中は歌詞(text)をUIに飛ばさない(skipSubtitle=true)
+        processAiResponse(data.text, true);
         
         // Bridge(脳)へ「この行を処理した」と返信し、次の行の送信を促す（同期）
         socketRef.current?.emit('line_acknowledged', { 

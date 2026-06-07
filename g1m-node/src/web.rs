@@ -558,9 +558,8 @@ pub struct RegisterPayload {
 pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router { // socketio_layerを引数で受け取る
     let io = state.io.clone();
 
-    io.ns("/", {
+    io.ns("/", move |socket: SocketRef| {
         let st = state.clone();
-        move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
         // 能力チェックと通知を行う共通ロジック
@@ -674,7 +673,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                     });
                 }
             }
-        });
+        }});
 
         // --- DM (Direct Message) 機能 ---
         socket.on("private_message", move |socket: SocketRef, Data(payload): Data<Value>| {
@@ -816,9 +815,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 id: uuid::Uuid::new_v4().to_string(),
                 text: format!("[P2P Success] {}", final_result),
                 sender_name: "G1:M Distributed Node".to_string(),
-            });
         }});
-    });
     });
 
     let static_dir = ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist"));
