@@ -1182,6 +1182,13 @@ const App: React.FC = () => {
     // Extract action tag
     let actionName = "";
     const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
+    
+    // 括弧 ( ) 形式のアクションも抽出対象に追加
+    const parenTokens = [...rawAnswer.matchAll(/\(([^)]+)\)/g)].map(m => m[1].trim());
+    if (parenTokens.length > 0 && !actionName) {
+      tokens.push(...parenTokens);
+    }
+
     for (const token of tokens) {
       if (token.includes(':')) {
         const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
@@ -1210,7 +1217,7 @@ const App: React.FC = () => {
       if (fallbackMatch || rawAnswer.includes("TORA TORA TORA") || rawAnswer.includes("ダンス")) {
         actionName = fallbackMatch ? fallbackMatch[1].toLowerCase().replace(/\s+/g, '_') : 'dance';
       } else {
-        const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ダンス|ジャンプ|跳ね|首をかしげ|かしげる|考える)/);
+        const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ダンス|ジャンプ|跳ね|首をかしげ|かしげる|考える|腕を回す|腕回し|回して|狙いうち|勝負)/);
         if (jpMatch) {
           const jp = jpMatch[1];
           if (/左手|left/.test(jp)) actionName = 'left_raise';
@@ -1220,6 +1227,7 @@ const App: React.FC = () => {
           else if (/お辞儀/.test(jp)) actionName = 'bow';
           else if (/うなず/.test(jp)) actionName = 'nod';
           else if (/踊|ダンス|ジャンプ|跳ね/.test(jp)) actionName = 'dance';
+          else if (/腕を回す|腕回し|回して/.test(jp)) actionName = 'dance'; // 回す動作をダンスにマッピング
           else if (/首をかしげ|かしげる/.test(jp)) actionName = 'tilt_head';
           else if (/考える/.test(jp)) actionName = 'thinking';
         }
@@ -1231,7 +1239,8 @@ const App: React.FC = () => {
     // 日本語の回答とモーションを反映
     const displayAnswer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
     console.log('Final UI Answer:', displayAnswer);
-    setSubtitle(prev => prev.includes("[G1:M]") ? `[G1:M] ${displayAnswer}` : `[G1:M] ${displayAnswer}`);
+    // 字幕を更新 (追記ではなく最新を表示)
+    setSubtitle(`[G1:M] ${displayAnswer}`);
     setAiThinking(false);
 
     // 実際の回答元タグに基づいてノード名を表示
@@ -1737,12 +1746,18 @@ const App: React.FC = () => {
       console.log('Received bot_response via socket:', data.text);
       setProcessingNode(null);
       
-      if (data.currentLine !== undefined && data.totalLines !== undefined) {
-        // 分割送信（中間報告）の場合は字幕を追記モードにする
-        setStatus(`タスク実行中 (${data.currentLine}/${data.totalLines})`);
-        setSubtitle(prev => {
-          const cleanPrev = prev.replace(/\[G1:M\]\s*\.\.\./, "");
-          return cleanPrev.endsWith(data.text) ? prev : `${cleanPrev}\n${data.text}`;
+      if (data.currentLine !== undefined) {
+        // 分割送信時は字幕を最新のものに差し替え、即座にアクションを実行する
+        setStatus(`タスク進行中: ${data.currentLine}/${data.totalLines || '?'}`);
+        
+        // 1行ごとにアクション判定と実行を行う (これで歌詞に合わせて踊るようになる)
+        processAiResponse(data.text);
+        
+        // 物理センサー情報の受け取り準備と同期信号を返す
+        socketRef.current?.emit('line_acknowledged', { 
+          line: data.currentLine,
+          status: "processing",
+          timestamp: new Date().toISOString()
         });
       } else {
         processAiResponse(data.text);

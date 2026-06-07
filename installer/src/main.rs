@@ -253,6 +253,8 @@ const connectionOptions = {
 const REMOTE_URL = process.env.REMOTE_G1M_URL || 'https://dj-g1m.onrender.com';
 const socket = io(REMOTE_URL, connectionOptions);
 const localSocket = io('http://localhost:3000', connectionOptions);
+let lastFeedback = "";
+let lastTask = null;
 
 const register = (s, name) => {
     s.on('connect', () => {
@@ -270,9 +272,23 @@ const register = (s, name) => {
 register(socket, 'Remote Hub');
 register(localSocket, 'Local Node');
 
+// ブラウザからの物理センサー情報（固有感覚）を受信
+localSocket.on('motion_verified', (data) => {
+    const feedbackStr = `【前回のダンス自己評価: ${data.detail || '計測中'}】`;
+    lastFeedback = feedbackStr;
+    
+    if (lastTask) {
+        console.log('\n--- 🔁 反省と改善のループ (Reflection) ---');
+        console.log(`🎯 意図(Intent): "${lastTask.prompt.substring(0, 60)}..."`);
+        console.log(`💪 実際(Reality): ${data.detail}`);
+        console.log('------------------------------------------\n');
+    }
+});
+
 const handleTask = async (s, data) => {
     console.log(`\n📥 [BRIDGE] タスク受信: ${data.taskId.substring(0,8)} - "${data.prompt.substring(0,30)}..."`);
     s.emit('system_log', { message: `⚡ ローカルPC (${new Date().toLocaleTimeString()}) で推論を開始しました...` });
+    lastTask = data;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3600000); // 1時間タイムアウト
@@ -284,8 +300,8 @@ const handleTask = async (s, data) => {
             body: JSON.stringify({ 
                 model: process.env.OLLAMA_MODEL,
                 messages: [
-                    { role: 'system', content: 'あなたはG1:Mちゃんです。親しみやすい日本語で回答してください。' },
-                    { role: 'user', content: data.prompt }
+                    { role: 'system', content: 'あなたはG1:Mちゃんです。前回の動きへの反省を活かし、親しみやすい日本語で回答してください。' },
+                    { role: 'user', content: lastFeedback + data.prompt }
                 ],
                 options: { num_predict: 512 }
             }),

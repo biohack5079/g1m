@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 1. Initialize SQLite Database
     log::info!("Initializing SQLite database...");
-    let db_conn = db::init_db("../g1m.db")?; // プロジェクトルートのDBを使用
+    let db_conn = db::init_db("g1m.db")?; // 起動ディレクトリ（通常はプロジェクトルート）のDBを使用
     let db_shared = Arc::new(Mutex::new(db_conn));
 
     // 1.5 起動時のデータベース検証

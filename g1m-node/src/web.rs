@@ -620,6 +620,31 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             let _ = socket.emit("bridge_pong", payload);
         });
 
+        // フロントエンドからの処理完了報告 (同期ダンス用)
+        socket.on("line_acknowledged", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let line = payload["line"].as_i64().unwrap_or(0);
+            let status = payload["status"].as_str().unwrap_or("unknown");
+            log::info!("📢 [Sync] Client {} acknowledged line {}: {}", socket.id, line, status);
+            // 必要に応じてここで次の行の送信トリガーを引く処理を追加可能
+        });
+
+        // ブラウザ上の物理センサーからの自己フィードバック（固有感覚）
+        socket.on("motion_verified", move |socket: SocketRef, Data(payload): Data<Value>| {
+            let st = state.clone();
+            let p = payload.clone();
+            tokio::spawn(async move {
+                let action = p["action"].as_str().unwrap_or("unknown");
+                let scores = p["scores"].to_string();
+                let diagnostic = p["diagnostic"].as_str().unwrap_or("");
+                let db = st.db_conn.lock().unwrap();
+                let _ = crate::db::save_performance(&db, action, &scores, diagnostic);
+            });
+
+            log::info!("🦾 [Proprioception] Node {} reports movement stats: {}", socket.id, payload);
+            // Bridge(JS)が受信できるように全員にブロードキャスト
+            let _ = socket.broadcast().emit("motion_verified", payload);
+        });
+
         // 接続時に現在のチャット履歴をコンソールに出力
         log::info!("📡 [SYSTEM] New participant connected: {}", socket.id);
         let _ = socket.emit("system_log", serde_json::json!({

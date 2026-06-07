@@ -37,6 +37,18 @@ pub fn init_db(path: &str) -> Result<Connection> {
         [],
     )?;
 
+    // 物理パフォーマンスログテーブル (エンジニア分析用)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS performance_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action_name TEXT NOT NULL,
+            scores TEXT NOT NULL, -- JSON string of scores
+            diagnostic TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+
     // Create knowledge_base table for RAG vector search
     conn.execute(
         "CREATE TABLE IF NOT EXISTS knowledge_base (
@@ -80,6 +92,19 @@ pub fn save_message(
         "INSERT OR REPLACE INTO messages (id, text, image, is_user, sender_name)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         params![id, text, image, if is_user { 1 } else { 0 }, sender_name],
+    )?;
+    Ok(())
+}
+
+pub fn save_performance(
+    conn: &Connection,
+    action_name: &str,
+    scores: &str,
+    diagnostic: &str,
+) -> Result<()> {
+    conn.execute(
+        "INSERT INTO performance_logs (action_name, scores, diagnostic) VALUES (?1, ?2, ?3)",
+        params![action_name, scores, diagnostic],
     )?;
     Ok(())
 }

@@ -78,15 +78,15 @@ cd ..
 # 3. Rust DB 秘匿情報漏洩チェック
 echo -e "\n[4/7] Verifying Rust DB Privacy (Leak Check)..."
 cd g1m-node
-if [ -f g1m.db ]; then
-    LEAKS=$(sqlite3 g1m.db "SELECT text FROM messages;" | grep -E "bank|base64|image" || true)
+if [ -f ../g1m.db ]; then
+    LEAKS=$(sqlite3 ../g1m.db "SELECT text FROM messages;" | grep -E "bank|base64|image" || true)
     if [ -z "$LEAKS" ]; then
         echo "✅ OK: No sensitive data in Rust messages."
     else
         echo "⚠️ WARNING: Potential data leak in Rust DB!"
     fi
 else
-    echo "⚠️ g1m.db not found. Run 'npm run dev' first."
+    echo "⚠️ ../g1m.db not found in project root. Run 'npm run dev' first."
 fi
 cd ..
 
