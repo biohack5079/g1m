@@ -557,9 +557,10 @@ pub struct RegisterPayload {
 
 pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router { // socketio_layerを引数で受け取る
     let io = state.io.clone();
-    let st = state.clone();
 
-    io.ns("/", move |socket: SocketRef| {
+    io.ns("/", {
+        let st = state.clone();
+        move |socket: SocketRef| {
         log::info!("Socket.IO Connected: {}", socket.id);
 
         // 能力チェックと通知を行う共通ロジック
@@ -629,8 +630,8 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         });
 
         // ブラウザ上の物理センサーからの自己フィードバック（固有感覚）
-        socket.on("motion_verified", move |socket: SocketRef, Data(payload): Data<Value>| {
-            let st = state.clone();
+        socket.on("motion_verified", { let st_v = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
+            let st = st_v.clone();
             let p = payload.clone();
             tokio::spawn(async move {
                 let action = p["action"].as_str().unwrap_or("unknown");
@@ -643,7 +644,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
             log::info!("🦾 [Proprioception] Node {} reports movement stats: {}", socket.id, payload);
             // Bridge(JS)が受信できるように全員にブロードキャスト
             let _ = socket.broadcast().emit("motion_verified", payload);
-        });
+        }});
 
         // 接続時に現在のチャット履歴をコンソールに出力
         log::info!("📡 [SYSTEM] New participant connected: {}", socket.id);
@@ -817,6 +818,7 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 sender_name: "G1:M Distributed Node".to_string(),
             });
         }});
+    });
     });
 
     let static_dir = ServeDir::new("frontend/dist").fallback(ServeDir::new("../frontend/dist"));

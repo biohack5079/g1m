@@ -274,14 +274,15 @@ register(localSocket, 'Local Node');
 
 // ブラウザからの物理センサー情報（固有感覚）を受信
 localSocket.on('motion_verified', (data) => {
-    const feedbackStr = `【前回のダンス自己評価: ${data.detail || '計測中'}】`;
+    const totalScore = data.scores?.total || 0;
+    const feedbackStr = `【前回の動き: ${data.action} スコア:${totalScore}点 - ${data.diagnostic}】`;
     lastFeedback = feedbackStr;
     
     if (lastTask) {
-        console.log('\n--- 🔁 反省と改善のループ (Reflection) ---');
-        console.log(`🎯 意図(Intent): "${lastTask.prompt.substring(0, 60)}..."`);
-        console.log(`💪 実際(Reality): ${data.detail}`);
-        console.log('------------------------------------------\n');
+        console.log('\n--- 🔁 反省と改善のループ (Physical Feedback) ---');
+        console.log(`🎯 意図(Intent): "${lastTask.prompt.substring(0, 80)}..."`);
+        console.log(`💪 実際(Reality): ${totalScore}点 / Diagnostic: ${data.diagnostic}`);
+        console.log('--------------------------------------------------\n');
     }
 });
 
@@ -300,8 +301,8 @@ const handleTask = async (s, data) => {
             body: JSON.stringify({ 
                 model: process.env.OLLAMA_MODEL,
                 messages: [
-                    { role: 'system', content: 'あなたはG1:Mちゃんです。前回の動きへの反省を活かし、親しみやすい日本語で回答してください。' },
-                    { role: 'user', content: lastFeedback + data.prompt }
+                    { role: 'system', content: 'あなたはG1:Mちゃんです。前回の動きの物理記録（固有感覚）を参考に、自分の体の動きを改善しながら回答してください。' },
+                    { role: 'user', content: (lastFeedback ? lastFeedback + "\n" : "") + "指示: " + data.prompt }
                 ],
                 options: { num_predict: 512 }
             }),

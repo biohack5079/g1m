@@ -1127,8 +1127,7 @@ const App: React.FC = () => {
         if (action.includes('tora') || action.includes('dance') || action.includes('踊')) {
           const statusMsg = totalScore > 80 ? "完璧なダンスでした！" : totalScore > 50 ? "一生懸命踊りました！" : "少し動きが硬かったかもしれません。";
           const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 軸:${movedSpine ? '○':'×'} 跳:${movedJump ? '○':'×'})`;
-          const report = `\n\n【練習成果(センサー計測)】\n- 肘のキレ: ${elbowScore}点\n- ジャンプ: ${jumpScore}点\n合計: ${totalScore}点 / 100点\n${statusMsg}${detail}`;
-          setSubtitle(prev => prev + report);
+          console.log(`📊 Practice Result: ${totalScore}pts - ${statusMsg}${detail}`);
           
           // 乖離の原因診断
           const diagnostics = [];
@@ -1182,15 +1181,15 @@ const App: React.FC = () => {
     // Extract action tag
     let actionName = "";
     const tokens = [...rawAnswer.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim());
-    
-    // 括弧 ( ) 形式のアクションも抽出対象に追加
     const parenTokens = [...rawAnswer.matchAll(/\(([^)]+)\)/g)].map(m => m[1].trim());
-    if (parenTokens.length > 0 && !actionName) {
-      tokens.push(...parenTokens);
-    }
+    const allTokens = [...tokens, ...parenTokens];
 
-    for (const token of tokens) {
-      if (token.includes(':')) {
+    for (const token of allTokens) {
+      if (token.toLowerCase().includes('action:')) {
+        const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
+        actionName = parts[1].replace(/\s+/g, '_');
+        break;
+      } else if (token.includes(':')) {
         const parts = token.split(':').map((p: string) => p.trim().toLowerCase());
         if (parts.length > 1) {
           actionName = parts[1].replace(/\s+/g, '_');
@@ -1217,7 +1216,7 @@ const App: React.FC = () => {
       if (fallbackMatch || rawAnswer.includes("TORA TORA TORA") || rawAnswer.includes("ダンス")) {
         actionName = fallbackMatch ? fallbackMatch[1].toLowerCase().replace(/\s+/g, '_') : 'dance';
       } else {
-        const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ダンス|ジャンプ|跳ね|首をかしげ|かしげる|考える|腕を回す|腕回し|回して|狙いうち|勝負)/);
+        const jpMatch = rawAnswer.match(/(左手|右手|手を上げ|手上げ|上げて|振って|お辞儀|頭を振る|うなず|踊|ダンス|ジャンプ|跳ね|首をかしげ|かしげる|考える|腕を回す|腕回し|回して|狙いうち|勝負|腰)/);
         if (jpMatch) {
           const jp = jpMatch[1];
           if (/左手|left/.test(jp)) actionName = 'left_raise';
@@ -1226,8 +1225,8 @@ const App: React.FC = () => {
           else if (/振って/.test(jp)) actionName = 'wave';
           else if (/お辞儀/.test(jp)) actionName = 'bow';
           else if (/うなず/.test(jp)) actionName = 'nod';
-          else if (/踊|ダンス|ジャンプ|跳ね/.test(jp)) actionName = 'dance';
-          else if (/腕を回す|腕回し|回して/.test(jp)) actionName = 'dance'; // 回す動作をダンスにマッピング
+          else if (/踊|ダンス|ジャンプ|跳ね|腕を回す|腕回し|回して|狙いうち|勝負/.test(jp)) actionName = 'dance';
+          else if (/腰/.test(jp)) actionName = 'body_lean';
           else if (/首をかしげ|かしげる/.test(jp)) actionName = 'tilt_head';
           else if (/考える/.test(jp)) actionName = 'thinking';
         }
@@ -1239,7 +1238,7 @@ const App: React.FC = () => {
     // 日本語の回答とモーションを反映
     const displayAnswer = rawAnswer.trim() || (actionName ? `アクション: ${actionName}` : "うまく答えられません。");
     console.log('Final UI Answer:', displayAnswer);
-    // 字幕を更新 (追記ではなく最新を表示)
+    // 字幕を最新の1行に更新（上書き）して、アバターが見えるようにする
     setSubtitle(`[G1:M] ${displayAnswer}`);
     setAiThinking(false);
 
@@ -1747,16 +1746,14 @@ const App: React.FC = () => {
       setProcessingNode(null);
       
       if (data.currentLine !== undefined) {
-        // 分割送信時は字幕を最新のものに差し替え、即座にアクションを実行する
-        setStatus(`タスク進行中: ${data.currentLine}/${data.totalLines || '?'}`);
-        
-        // 1行ごとにアクション判定と実行を行う (これで歌詞に合わせて踊るようになる)
+        // ストリーミング時は、届いた瞬間にアクションを解析して実行
+        setStatus(`ダンス練習中: ${data.currentLine}/${data.totalLines || '?'}`);
         processAiResponse(data.text);
         
-        // 物理センサー情報の受け取り準備と同期信号を返す
+        // Bridge側へ「この行を処理した」と返信し、次の行を促す
         socketRef.current?.emit('line_acknowledged', { 
           line: data.currentLine,
-          status: "processing",
+          status: "processed",
           timestamp: new Date().toISOString()
         });
       } else {
