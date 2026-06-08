@@ -1,6 +1,15 @@
 # Stage 1: Build the React + TypeScript frontend
 FROM node:20-slim AS frontend-builder
 WORKDIR /app
+
+# Install build dependencies for Rust and wasm-pack
+RUN apt-get update && apt-get install -y curl build-essential pkg-config libssl-dev
+
+# Install Rust and wasm-pack
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
 COPY package*.json ./
 COPY frontend/package*.json ./frontend/
 RUN cd frontend && npm install
