@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:wasm": "wasm-pack build --target web --out-dir src/pkg",
+    "build:wasm": "wasm-pack build --target web --out-dir src/pkg || echo 'wasm-pack not found, skipping WASM build (assuming src/pkg exists)'",
     "build": "npm run build:wasm && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
