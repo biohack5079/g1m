@@ -1212,7 +1212,7 @@ const App: React.FC = () => {
         const elbowScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 180)) : 0) - (movedElbow ? 0 : 50));
         const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 250)) - (frameCount > 0 ? penalty : 50));
         const legScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalLegRotation / frameCount) * 200)) : 0));
-        const totalScore = Math.floor((elbowScore * 0.4 + jumpScore * 0.3 + legScore * 0.3));
+        const totalScore = Math.min(100, Math.floor((elbowScore * 0.4 + jumpScore * 0.3 + legScore * 0.3)));
 
         // 低スコア時の視覚フィードバック
         if (totalScore < 40 && botVrm.expressionManager) {
@@ -1246,7 +1246,7 @@ const App: React.FC = () => {
           const gap = 100 - totalScore;
           const stressLevel = gap > 30 ? "高い（同期ズレ発生）" : "低い（良好）";
           const feedback = `(物理感覚フィードバック: 
-目標との乖離(GAP): ${gap}%
+物理スコア: ${totalScore}/100, 乖離(GAP): ${gap}%
 物理的ストレス: ${stressLevel}
 詳細: 肘の可動率 ${elbowScore}% / 跳躍力 ${jumpScore}% / 動作部位${detail}。
 ${totalScore < 50 ? '体が非常に重く、VR空間での動きが追いついていません。' : '非常にスムーズに同期しています。'})`;

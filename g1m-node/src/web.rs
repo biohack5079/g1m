@@ -111,7 +111,8 @@ async fn handle_llm(
     // io: SocketIo, // SocketIoはAppStateから取得するため削除
     Json(payload): Json<LlmRequest>,
 ) -> impl IntoResponse {
-    log::info!("🤖 [Brain] Processing request: {}", payload.prompt);
+    let summary = payload.prompt.lines().next().unwrap_or("").chars().take(50).collect::<String>();
+    log::info!("🤖 [Brain] Processing request: {}...", summary);
 
     // --- RAG: 知識ベースからの検索 (Brain機能) ---
     let mut context_augmented_prompt = payload.prompt.clone();
