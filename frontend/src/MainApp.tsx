@@ -1862,7 +1862,7 @@ ${totalScore < 50 ? '体が非常に重く、VR空間での動きが追いつい
       if (data.currentLine !== undefined) {
         // 本番か練習かでステータス表示を切り分け
         if (data.isStage) {
-          setStatus(`★ 本番ステージ出演中 (${data.currentLine}/${data.totalLines}) ★`);
+          setStatus(`LIVE: G1:M パフォーマンス中 (${data.currentLine}/${data.totalLines})`);
         } else {
           setStatus(`ダンス練習中: ${data.currentLine}/${data.totalLines || '?'}`);
         }
@@ -2193,7 +2193,7 @@ ${totalScore < 50 ? '体が非常に重く、VR空間での動きが追いつい
             <span style={{ fontWeight: 'bold', fontSize: '11px', letterSpacing: '1px' }}>PC NODE: {(isConnected && activeNodes > 0) ? 'ACTIVE' : 'OFFLINE'}</span>
           </div>
           <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
-            {(isConnected && activeNodes > 0) ? `Distributed: ${activeNodes} nodes` : 'Inference: Unavailable'}
+            {(isConnected && activeNodes > 0) ? `Live from Local PC (${activeNodes} nodes)` : 'Wait for PC Node...'}
           </div>
           <div style={{ width: '100%', height: '4px', background: '#333', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
             <div style={{ width: `${tokenGauge}%`, height: '100%', background: '#0ff', transition: 'width 0.3s' }}></div>

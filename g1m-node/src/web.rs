@@ -631,7 +631,11 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
         // ブリッジからの1行ずつのレスポンスを視聴者へ即時リレー
         socket.on("bot_response", move |socket: SocketRef, Data(payload): Data<Value>| {
-            log::info!("📢 [Relay] Bot response line received from bridge: {}", socket.id);
+            if let Some(text) = payload["text"].as_str() {
+                log::info!("📢 [G1:M] {}", text);
+            } else {
+                log::info!("📢 [Relay] Bot non-text event received from bridge: {}", socket.id);
+            }
             // 視聴者全員にブロードキャスト
             let _ = socket.broadcast().emit("bot_response", payload);
         });
