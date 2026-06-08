@@ -191,6 +191,14 @@ export NODE_PATH="$(pwd)/frontend/node_modules"
 # cloudflared を 3000 番 (Rust) に向け、Node.js ブリッジも 3000 番を監視する
 node <<'EOF' 2>&1 | tee -a bridge.log &
 const io = require('socket.io-client');
+// Ollama等の推論待ちで発生する "Headers Timeout Error" を防ぐため、
+// undici Agentを使用して内部タイムアウトを延長します。
+const { Agent } = require('undici');
+const customDispatcher = new Agent({
+    headersTimeout: 600000, // 10分 (デフォルト30秒から延長)
+    bodyTimeout: 600000,    // 10分
+});
+
 // Render等のプロキシ環境では、ポーリングをスキップして最初からWebSocketを使用することで
 // 接続の切断やタイムアウトを劇的に減らすことができます。
 const connectionOptions = {
@@ -284,7 +292,8 @@ const handleTask = async (s, data) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 600000);
+    // AbortControllerのタイムアウトも10分から30分に延長
+    const timeoutId = setTimeout(() => controller.abort(), 1800000);
 
     try {
         // 2. 本番用プロンプト生成（センサーフィードバックを注入）
@@ -301,6 +310,7 @@ const handleTask = async (s, data) => {
                         'Content-Type': 'application/json',
                         'Connection': 'keep-alive'
                     },
+                        dispatcher: customDispatcher,
                     body: JSON.stringify({ 
                         model: process.env.OLLAMA_MODEL || 'gemma3:4b-it-q4_K_M',
                         messages: [

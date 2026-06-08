@@ -241,6 +241,12 @@ fn run_services(root: &Path) -> io::Result<()> {
 
     let bridge_script = r#"
 const io = require('socket.io-client');
+const { Agent } = require('undici');
+const customDispatcher = new Agent({
+    headersTimeout: 600000, // 10分
+    bodyTimeout: 600000,    // 10分
+});
+
 const connectionOptions = {
     transports: ['websocket'],
     reconnection: true,
@@ -306,7 +312,8 @@ const handleTask = async (s, data) => {
                 ],
                 options: { num_predict: 512 }
             }),
-            signal: controller.signal
+            signal: controller.signal,
+            dispatcher: customDispatcher
         });
         const json = await res.json();
         // OpenAI互換形式とOllama標準形式の両方をチェック

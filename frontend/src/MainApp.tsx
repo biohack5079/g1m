@@ -1117,7 +1117,8 @@ const App: React.FC = () => {
           if (isHandAction && lLower && rLower) {
             lLower.rotation.x = frame.elbow_rot_x;
             rLower.rotation.x = frame.elbow_rot_x;
-            totalElbowRotation += frame.elbow_rot_x;
+            const elbowRot = frame.elbow_rot_x; // センサー値の抽出
+            totalElbowRotation += elbowRot;
             movedElbow = true;
           }
           maxJumpHeight = Math.max(maxJumpHeight, frame.jump_y);
@@ -1162,7 +1163,7 @@ const App: React.FC = () => {
           perf = wasmModule.evaluate_performance(totalElbowRotation, totalLegRotation, maxJumpHeight, frameCount, movedElbow, movedJump);
         }
         
-        const totalScore = perf.total_score;
+        const totalScore = frameCount > 0 ? perf.total_score : 0; // ゼロ除算保護とスコア確定
         const { elbow_score: elbowScore, jump_score: jumpScore } = perf;
         const diagnostics = totalScore < 50 ? ["WASM: Physical constraints limited"] : [];
 
@@ -1180,7 +1181,7 @@ const App: React.FC = () => {
 
         if (action.includes('tora') || action.includes('dance') || action.includes('踊') || action.includes('jump')) {
           const statusMsg = totalScore > 80 ? "完璧なダンスでした！" : totalScore > 50 ? "一生懸命踊りました！" : "少し動きが硬かったかもしれません。";
-          const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 足:${movedLegs ? '○':'×'} 跳:${movedJump ? '○':'×'}) WASM-Core`;
+          const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 軸:${movedLegs ? '○':'×'} 跳:${movedJump ? '○':'×'}) WASM-Core`;
           console.log(`📊 Practice Result: ${totalScore}pts - ${statusMsg}${detail}`);
 
           // 物理センサーの結果をハブ（Bridge/Rust）へ精密に報告する
