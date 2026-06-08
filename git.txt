@@ -1,0 +1,18 @@
+# 2. 指定したパスを全履歴から削除
+git filter-branch --force --index-filter \
+  "git rm -rf --cached --ignore-unmatch \
+  .env \など
+  --prune-empty --tag-name-filter cat -- --all
+
+
+# 3. 不要なバックアップ参照の掃除
+git for-each-ref --format="%(refname)" refs/original/ | xargs -n 1 git update-ref -d
+git reflog expire --expire=now --all
+git gc --prune=now --aggressive
+
+# 4. 退避した作業を戻す
+git stash pop
+
+# 5. リモートへ強制プッシュ（履歴を書き換えたため）
+git push origin main --force
+

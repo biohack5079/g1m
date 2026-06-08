@@ -71,6 +71,7 @@ const App: React.FC = () => {
   const [activeNodes, setActiveNodes] = useState<number>(0);
   const [processingNode, setProcessingNode] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [wasmModule, setWasmModule] = useState<any>(null);
   const [lastMotionFeedback, setLastMotionFeedback] = useState<string>("");
   const [hasHf, setHasHf] = useState(false);
   const [botCncId, setBotCncId] = useState("g1m"); // 動的ボットID保持用
@@ -119,6 +120,19 @@ const App: React.FC = () => {
   useEffect(() => {
     participantsRef.current = participants;
   }, [participants]);
+
+  // WASMの初期化
+  useEffect(() => {
+    const initWasm = async () => {
+      try {
+        const wasm = await import('./pkg');
+        await wasm.default();
+        setWasmModule(wasm);
+        console.log("🚀 WASM Robotics Engine Initialized");
+      } catch (e) { console.error("WASM Load failed:", e); }
+    };
+    initWasm();
+  }, []);
 
   const scheduleSubtitleClear = useCallback(() => {
     if (subtitleTimeoutRef.current) {
@@ -1070,16 +1084,13 @@ const App: React.FC = () => {
     const arms = [lUp, rUp].filter((b): b is NonNullable<THREE.Object3D> => b !== null);
     console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
 
-    if (isFast) console.log("⏩ Simulation: Running high-speed calculation...");
+    if (isFast) console.log("⏩ [SENSOR] Simulation: Running high-speed calculation...");
     let movedArm = arms.length > 0; 
     let movedJump = false;
-    let movedSpine = false;
     let movedLegs = false; // 足の動きセンサー
 
     // アクションのキーワード判定 (日本語・英語両方)
-    const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || action.includes('tora') || /手|腕|振|上げ/.test(action);
-    const isLeftOnly = action.includes('left') || action.includes('左');
-    const isRightOnly = action.includes('right') || action.includes('右');
+    const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || action.includes('tora') || action.includes('dance') || /手|腕|振|上げ|踊/.test(action);
 
     let startTime = Date.now();
     const duration = isFast ? 100 : ((action.includes('dance') || action.includes('jump') || action.includes('tora')) ? 12000 : 2000);
@@ -1089,84 +1100,28 @@ const App: React.FC = () => {
       let progress = Math.min(elapsed / duration, 1.0);
       frameCount++;
 
-      // 1. 手・腕系の動き
-      if (isHandAction && arms.length > 0) {
-        const targetArms = [];
-        if (isLeftOnly && lUp) targetArms.push(lUp);
-        else if (isRightOnly && rUp) targetArms.push(rUp);
-        else targetArms.push(...arms);
-
-        targetArms.forEach((arm) => {
-          const isRightArm = arm === rUp;
-          const lowerArm = isRightArm ? rLower : lLower;
-          const downZ = isRightArm ? 1.2 : -1.2;
-          const upZ = isRightArm ? -1.8 : 1.8;
-
-          if (progress < 0.2) {
-            arm.rotation.z = downZ + ((progress / 0.2) * (upZ - downZ));
-          } else if (progress > 0.8) {
-            arm.rotation.z = upZ - (((progress - 0.8) / 0.2) * (upZ - downZ));
-          } else {
-            arm.rotation.z = upZ;
-            const speed = (action.includes('wave') || action.includes('jump') || action.includes('tora')) ? 12 : 4;
-            arm.rotation.x = Math.sin(progress * Math.PI * speed) * 0.7;
-            if (lowerArm) {
-              // TORA TORA 特有の激しい肘の動き (90度以上の深い屈曲)
-              const elbowRot = Math.abs(Math.sin(progress * Math.PI * speed)) * 1.5;
-              lowerArm.rotation.x = elbowRot; // 肘を曲げる
-              movedElbow = true;
-              totalElbowRotation += elbowRot;
-            }
+      // WASM による高速ロボット制御
+      if (wasmModule) {
+        const frame = wasmModule.calculate_procedural_motion(action, progress);
+        if (frame) {
+          if (spine && !spine.userData.isManualAction) {
+            spine.rotation.x = frame.spine_rot_x;
+            spine.rotation.z = frame.spine_rot_z;
           }
-        });
-      }
-
-      // 2. 頭・視線系の動き
-      if ((action.includes('head') || action.includes('look') || action.includes('think') || action.includes('nod') || action.includes('tilt') || /頭|首|顔|うなず|かしげ/.test(action)) && head) {
-        if (action.includes('tilt') || action.includes('かしげ')) {
-          head.rotation.z = Math.sin(progress * Math.PI * 2) * 0.3;
-        } else if (action.includes('nod') || action.includes('うなず') || action.includes('think')) {
-          head.rotation.x = Math.sin(progress * Math.PI * 4) * 0.15;
-        } else {
-          head.rotation.y = Math.sin(progress * Math.PI * 2) * 0.4;
-        }
-      }
-
-      // 3. 体・腰系の動き
-      if ((action.includes('bow') || action.includes('body') || action.includes('lean') || action.includes('dance') || action.includes('jump') || /辞儀|腰|踊|跳|跳ね/.test(action)) && spine) {
-        if (action.includes('dance') || action.includes('踊')) {
-          const speed = 6;
-          spine.rotation.z = Math.sin(progress * Math.PI * 4) * 0.2;
-          spine.rotation.x = Math.sin(progress * Math.PI * 6) * 0.15;
-          const jump = Math.abs(Math.sin(progress * Math.PI * speed)) * 0.25;
-          botVrm.scene.position.y = jump;
-          movedSpine = true; movedJump = true;
-          maxJumpHeight = Math.max(maxJumpHeight, jump);
-
-          // 下半身のダンスステップを追加
-          if (lUpperLeg && rUpperLeg) {
-            const step = Math.sin(progress * Math.PI * speed);
-            lUpperLeg.rotation.x = step * 0.3; // 前後ステップ
-            rUpperLeg.rotation.x = -step * 0.3;
-            if (lLowerLeg && rLowerLeg) {
-              lLowerLeg.rotation.x = Math.abs(step) * 0.5; // 膝の屈曲
-              rLowerLeg.rotation.x = Math.abs(step) * 0.5;
-              movedLegs = true;
-              totalLegRotation += Math.abs(step);
-            }
+          if (hips && !hips.userData.isManualAction) hips.rotation.y = frame.hips_rot_y;
+          if (!isFast) botVrm.scene.position.y = frame.jump_y;
+          
+          if (lUp && !lUp.userData.isManualAction) lUp.rotation.z = frame.l_arm_z;
+          if (rUp && !rUp.userData.isManualAction) rUp.rotation.z = frame.r_arm_z;
+          
+          if (isHandAction && lLower && rLower) {
+            lLower.rotation.x = frame.elbow_rot_x;
+            rLower.rotation.x = frame.elbow_rot_x;
+            totalElbowRotation += frame.elbow_rot_x;
+            movedElbow = true;
           }
-          if (hips) {
-            hips.rotation.y = Math.sin(progress * Math.PI * speed * 0.5) * 0.2; // 腰の振り
-          }
-        } else if (action.includes('tora') || action.includes('jump') || action.includes('跳')) {
-          // TORA TORA 用のよりパワフルなジャンプ
-          const jumpPower = action.includes('tora') ? 0.6 : 0.4;
-          botVrm.scene.position.y = Math.abs(Math.sin(progress * Math.PI * 5)) * jumpPower;
-          movedJump = true;
-          maxJumpHeight = Math.max(maxJumpHeight, botVrm.scene.position.y);
-        } else {
-          spine.rotation.x = Math.sin(progress * Math.PI) * (action.includes('bow') ? 0.4 : 0.1);
-          if (action.includes('bow')) movedSpine = true;
+          maxJumpHeight = Math.max(maxJumpHeight, frame.jump_y);
+          movedJump = frame.jump_y > 0.1;
         }
       }
 
@@ -1201,18 +1156,15 @@ const App: React.FC = () => {
         controlledBones.forEach(b => { if (b) b.userData.isManualAction = false; });
         botVrm.scene.position.y = 0;
 
-        // --- センサー集計と診断を先に実行 ---
-        const diagnostics = [];
-        if (!movedArm) diagnostics.push("Bone 'UpperArm' not found or not mapped");
-        if (!movedElbow && isHandAction) diagnostics.push("Elbow rotation too subtle");
-        if (!movedLegs && (action.includes('dance') || action.includes('jump'))) diagnostics.push("Leg movement restricted");
-        if (!isFast && frameCount < 10) diagnostics.push("Animation duration too short for measurement");
-
-        const penalty = (diagnostics.length > 0) ? 15 : 0;
-        const elbowScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 180)) : 0) - (movedElbow ? 0 : 50));
-        const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 250)) - (frameCount > 0 ? penalty : 50));
-        const legScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalLegRotation / frameCount) * 200)) : 0));
-        const totalScore = Math.min(100, Math.floor((elbowScore * 0.4 + jumpScore * 0.3 + legScore * 0.3)));
+        // WASM による評価エンジンの実行
+        let perf = { total_score: 0, elbow_score: 0, jump_score: 0, leg_score: 0 };
+        if (wasmModule) {
+          perf = wasmModule.evaluate_performance(totalElbowRotation, totalLegRotation, maxJumpHeight, frameCount, movedElbow, movedJump);
+        }
+        
+        const totalScore = perf.total_score;
+        const { elbow_score: elbowScore, jump_score: jumpScore } = perf;
+        const diagnostics = totalScore < 50 ? ["WASM: Physical constraints limited"] : [];
 
         // 低スコア時の視覚フィードバック
         if (totalScore < 40 && botVrm.expressionManager) {
@@ -1226,9 +1178,9 @@ const App: React.FC = () => {
           });
         }
 
-        if (action.includes('tora') || action.includes('dance') || action.includes('踊')) {
+        if (action.includes('tora') || action.includes('dance') || action.includes('踊') || action.includes('jump')) {
           const statusMsg = totalScore > 80 ? "完璧なダンスでした！" : totalScore > 50 ? "一生懸命踊りました！" : "少し動きが硬かったかもしれません。";
-          const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 軸:${movedSpine ? '○':'×'} 足:${movedLegs ? '○':'×'} 跳:${movedJump ? '○':'×'})`;
+          const detail = ` (腕:${movedArm ? '○':'×'} 肘:${movedElbow ? '○':'×'} 足:${movedLegs ? '○':'×'} 跳:${movedJump ? '○':'×'}) WASM-Core`;
           console.log(`📊 Practice Result: ${totalScore}pts - ${statusMsg}${detail}`);
 
           // 物理センサーの結果をハブ（Bridge/Rust）へ精密に報告する
@@ -1288,7 +1240,12 @@ ${totalScore < 50 ? '体が非常に重く、VR空間での動きが追いつい
     
     if (actionMatch) {
       const candidate = actionMatch[1].toLowerCase();
-      if (candidate.includes('dance') || candidate.includes('踊')) actionName = 'dance';
+      if (candidate.includes('tora')) actionName = 'tora';
+      else if (candidate.includes('dance') || candidate.includes('踊')) actionName = 'dance';
+      else if (candidate.includes('jump') || candidate.includes('跳')) actionName = 'jump';
+      else if (candidate.includes('wave') || candidate.includes('振')) actionName = 'wave';
+      else if (candidate.includes('jump') || candidate.includes('跳')) actionName = 'jump';
+      else if (candidate.includes('wave') || candidate.includes('振')) actionName = 'wave';
       else if (candidate.includes('jump') || candidate.includes('跳')) actionName = 'jump';
       else if (candidate.includes('wave') || candidate.includes('振')) actionName = 'wave';
       else {

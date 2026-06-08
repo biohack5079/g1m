@@ -23,5 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Rust/WASM build artifacts
+target/
+src/pkg/
+
+
 # frontend/dist をGit管理に含める（RenderのRust環境にはNode.jsがないため）
 !dist/

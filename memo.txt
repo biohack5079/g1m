@@ -1,7 +1,18 @@
 fuser -k 3000/tcp 3001/tcp 4001/tcp
 
+
+cd frontend && wasm-pack build --target web --out-dir src/pkg && npm run build && cd ..
+
 cd frontend && npm run build && cd ..
 npm run dev
+
+
+cd frontend
+rustup target add wasm32-unknown-unknown
+wasm-pack build --target web --out-dir src/pkg
+npm run build
+cd ..
+
 
 ~/cloudflared tunnel --url http://localhost:3000 --protocol http2
 

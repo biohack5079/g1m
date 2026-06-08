@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "./start_g1m.sh",
+    "setup": "npm install && cd frontend && npm install",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd g1m-node && cargo run",
     "client": "cd frontend && npm run dev",

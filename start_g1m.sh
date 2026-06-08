@@ -33,17 +33,17 @@ export G1M_POC_TOKEN="[PC-$(cat .g1m_node_id)]"
 
 echo "[Local-First] Inference priority: 1. Ollama -> 2. Local Python Node -> 3. Staff PC Nodes -> 4. HF (Last Resort)"
 
-# 0. Check for Rust/Cargo compiler
-if ! command -v cargo &> /dev/null; then
-    echo "[Info] Rust/Cargo not found. Attempting auto-installation..."
-    if command -v apt-get &> /dev/null; then
-        echo "Updating package list and installing Rust..."
-        sudo apt-get update && sudo apt-get install -y cargo rustc
-    else
-        echo "[Error] Cargo is not installed. Please install Rust via:"
-        echo "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-        exit 1
-    fi
+# 0. Check for rustup (preferred over system cargo)
+if ! command -v rustup &> /dev/null; then
+    echo "[Info] rustup not found. Attempting auto-installation..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "$HOME/.cargo/env"
+fi
+
+# Ensure WASM target is installed
+if command -v rustup &> /dev/null; then
+    echo "[Info] Ensuring wasm32-unknown-unknown target..."
+    rustup target add wasm32-unknown-unknown
 fi
 
 # 0.5 Start Java Backend (Docker) for Wallet & DB features
@@ -141,8 +141,36 @@ while ! curl -s http://localhost:3000/healthz > /dev/null; do
 done
 echo -e "\n✅ Rust P2P Node is online!"
 
+# 2.8 Build WASM Core for Robotics Control
+echo "[2.5/3] Building WASM Robotics Engine..."
+if [ -d "frontend" ]; then
+    cd frontend
+    # 一般ユーザーの cargo bin へのパスを確実に追加
+    export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
+    if command -v wasm-pack &> /dev/null && [ -f "Cargo.toml" ]; then
+        echo "🚀 Building WASM module in frontend..."
+        wasm-pack build --target web --out-dir src/pkg
+    elif [ ! -f "Cargo.toml" ]; then
+        echo "⚠️ frontend/Cargo.toml が見つかりません。WASMのビルドをスキップします。"
+        echo "   (Rust製の制御ロジックをビルドするには、frontend 直下に Cargo.toml が必要です)"
+    else
+        echo "⚠️ wasm-pack not found. Skipping WASM build."
+    fi
+    cd ..
+fi
+
 # 4. Open Frontend
 echo "[3/3] Preparing frontend interface..."
+
+if [ ! -d "node_modules" ]; then
+    echo "[Info] Installing root dependencies..."
+    npm install
+fi
+
+if [ ! -d "frontend/node_modules" ]; then
+    echo "[Info] Installing frontend dependencies..."
+    cd frontend && npm install && cd ..
+fi
 
 if [ ! -d "frontend/dist" ]; then
     echo "[Info] Building frontend with memory limits..."

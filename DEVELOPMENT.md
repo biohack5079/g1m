@@ -8,8 +8,12 @@
 ルートディレクトリとフロントエンドディレクトリの両方で依存関係をインストールします。
 
 ```bash
-npm run build  # ルートの package.json に定義されたビルドスクリプト
+npm install           # ルートの依存関係をインストール
+cd frontend && npm install && cd ..  # フロントエンドの依存関係をインストール
 ```
+
+# ルートとフロントエンドの依存関係をまとめてインストール
+npm run setup
 
 ### 開発モード (推奨)
 バックエンド (3000) と フロントエンド (3001) を同時に起動します。
@@ -25,9 +29,31 @@ npm run dev
 
 ```bash
 # フロントエンドのビルド
-cd frontend && npm run build && cd ..
+# 注意: wasm-pack は Cargo.toml が存在するディレクトリで実行する必要があります。
+# もし 'crate directory is missing a Cargo.toml' と出る場合は、
+# 制御ロジックの Rust ソースがどこにあるか確認してください。
+
+
+
+cd frontend
+rustup target add wasm32-unknown-unknown
+wasm-pack build --target web --out-dir src/pkg
+npm run build
+cd ..
 ./start_g1m.sh
 ```
+
+## 環境変数の設定
+# rustup のインストール (プロンプトには 'y' またはデフォルトの '1' で進めてください)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# 現在のシェルにパスを反映
+source "$HOME/.cargo/env"
+
+# WASM ターゲットの追加
+rustup target add wasm32-unknown-unknown
+
+
 アクセス先: http://localhost:3000
 
 ### ポートが既に使用されている場合 (EADDRINUSE)
@@ -253,11 +279,3 @@ cd frontend && npm run build && cd ..
 ./start_g1m.sh --no-java
 http://localhost:3000 または
 ~/cloudflared tunnel --url http://localhost:3000 --protocol http2
-
-
-
-
-
-
-
-
