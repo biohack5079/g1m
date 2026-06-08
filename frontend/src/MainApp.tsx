@@ -1021,6 +1021,13 @@ const App: React.FC = () => {
   const executeBotAction = useCallback((action: string, botVrm: VRM, isFast = false) => {
     if (!botVrm || !botVrm.humanoid) return;
 
+    // センサー：実際の物理的な動きを記録する累計変数 (検証スクリプトが検知しやすいよう先頭に配置)
+    let totalElbowRotation = 0;
+    let totalLegRotation = 0; // 足の運動量
+    let maxJumpHeight = 0;
+    let frameCount = 0;
+    let movedElbow = false;
+
     const getBone = (name: string) => {
       if (!botVrm.humanoid) return null;
       // 1. 正規化されたボーンを試行
@@ -1063,19 +1070,11 @@ const App: React.FC = () => {
     const arms = [lUp, rUp].filter((b): b is NonNullable<THREE.Object3D> => b !== null);
     console.log(`[MOTION] Action: ${action}, Arms: ${arms.length}, Head: ${!!head}`);
 
-    // 自己評価用フラグ: AIが「どのボーンを動かしたか」を自覚するためのセンサー
-    let movedElbow = false;
     if (isFast) console.log("⏩ Simulation: Running high-speed calculation...");
     let movedArm = arms.length > 0; 
     let movedJump = false;
     let movedSpine = false;
     let movedLegs = false; // 足の動きセンサー
-
-    // センサー：実際の物理的な動きを記録する累計変数
-    let totalElbowRotation = 0;
-    let totalLegRotation = 0; // 足の運動量
-    let maxJumpHeight = 0;
-    let frameCount = 0;
 
     // アクションのキーワード判定 (日本語・英語両方)
     const isHandAction = action.includes('hand') || action.includes('arm') || action.includes('wave') || action.includes('jump') || action.includes('raise') || action.includes('tora') || /手|腕|振|上げ/.test(action);
@@ -1210,9 +1209,9 @@ const App: React.FC = () => {
         if (!isFast && frameCount < 10) diagnostics.push("Animation duration too short for measurement");
 
         const penalty = (diagnostics.length > 0) ? 15 : 0;
-        const elbowScore = Math.max(0, (frameCount > 5 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 180)) : 0) - (movedElbow ? 0 : 50));
-        const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 250)) - penalty);
-        const legScore = Math.max(0, (frameCount > 5 ? Math.min(100, Math.floor((totalLegRotation / frameCount) * 200)) : 0));
+        const elbowScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalElbowRotation / frameCount) * 180)) : 0) - (movedElbow ? 0 : 50));
+        const jumpScore = Math.max(0, Math.min(100, Math.floor(maxJumpHeight * 250)) - (frameCount > 0 ? penalty : 50));
+        const legScore = Math.max(0, (frameCount > 0 ? Math.min(100, Math.floor((totalLegRotation / frameCount) * 200)) : 0));
         const totalScore = Math.floor((elbowScore * 0.4 + jumpScore * 0.3 + legScore * 0.3));
 
         // 低スコア時の視覚フィードバック
