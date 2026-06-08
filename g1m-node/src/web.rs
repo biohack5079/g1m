@@ -30,6 +30,9 @@ pub struct AppState {
     pub huggingface_token: String,
     pub ollama_url: String,
     pub ollama_model: String,
+    pub supabase_url: String,
+    pub supabase_key: String,
+    pub gemini_api_key: String,
     pub participants: Arc<Mutex<HashMap<String, ParticipantInfo>>>,
     pub help_gauge: Arc<Mutex<i32>>,
     pub io: SocketIo, // SocketIoインスタンスをAppStateに含める
@@ -121,6 +124,18 @@ async fn handle_llm(
         // 簡易的なキーワードまたは埋め込み検索 (本来は埋め込みモデルを通すが、ここではDBのmatch_knowledgeを利用)
         // ダミーのクエリベクトル（本来はpromptをベクトル化する）
         let query_vec = vec![0.0; 384]; 
+
+    // --- 練習日誌の注入 (Self-Correction) ---
+    let mut practice_context = String::new();
+    {
+        let db = state.db_conn.lock().unwrap();
+        if let Ok(Some(note)) = crate::db::get_latest_practice_note(&db, "dance") {
+            practice_context = format!("\n[重要: 前回の練習からの改善点]\n{}\n上記の反省を活かし、同じ失敗を繰り返さないコマンド（ACTION）を出力してください。\n", note);
+            log::info!("📝 [Self-Correction] Injecting latest practice note.");
+        }
+    }
+    context_augmented_prompt = format!("{}{}", practice_context, context_augmented_prompt);
+
         if let Ok(matches) = crate::db::match_knowledge(&db, &query_vec, 0.1, 3) {
             if !matches.is_empty() {
                 let context = matches.iter()
@@ -643,14 +658,116 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
         // ブラウザ上の物理センサーからの自己フィードバック（固有感覚）
         socket.on("motion_verified", { let st_v = st.clone(); move |socket: SocketRef, Data(payload): Data<Value>| {
             let st = st_v.clone();
-            let p = payload.clone();
-                log::info!("🦾 [SENSOR] Storing performance data to DB: {}", p);
+            let p = payload.clone(); // Capture for async block
+            
             tokio::spawn(async move {
-                let action = p["action"].as_str().unwrap_or("unknown");
-                let scores = p["scores"].to_string();
-                let diagnostic = p["diagnostic"].as_str().unwrap_or("");
-                let db = st.db_conn.lock().unwrap();
-                let _ = crate::db::save_performance(&db, action, &scores, diagnostic);
+                let action_name = p["action"].as_str().unwrap_or("unknown");
+                let total_score = p["scores"]["total"].as_i64().unwrap_or(0) as i32;
+                
+                {
+                    let db = st.db_conn.lock().unwrap();
+                    let _ = crate::db::save_performance(&db, action_name, &p["scores"].to_string(), p["diagnostic"].as_str().unwrap_or(""));
+                }
+
+                // スコアが低い場合に「自己反省（Reflection）」サイクルを回す
+                if total_score < 80 && action_name != "standby_calibration" {
+                    log::info!("🔍 [REFLECTION] Score low ({}/100). Generating practice note...", total_score);
+                    
+                    let reflection_prompt = format!(
+                        "あなたはダンス講師兼ロボティクスエンジニアです。VRアバターのアクション '{}' の実行結果が以下の通りでした。
+                        物理スコア: {}点
+                        診断メッセージ: '{}'
+
+                        この結果を元に、次回のパフォーマンスで改善すべき『物理的アドバイス』を100文字以内で作成してください。
+                        特にWASM側で関節角度制限（Physical constraints limited）が発生している場合、どの関節の動きを抑えるべきか具体的に指摘してください。
+                        例: '肘の角度が急すぎて制限に掛かっています。もう少し緩やかに曲げ始めてください。'",
+                        action_name, total_score, p["diagnostic"].as_str().unwrap_or("")
+                    );
+
+                    let mut feedback = format!("【反省】{}が原因で制限が発生。動作を{}%縮小せよ。", 
+                        p["diagnostic"].as_str().unwrap_or("物理制約"), 100 - total_score.min(100));
+
+                    // Gemini API が利用可能な場合は、より詳細な分析を行う
+                    if !st.gemini_api_key.is_empty() {
+                        let gemini_url = format!(
+                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}",
+                            st.gemini_api_key
+                        );
+
+                        let gemini_req = serde_json::json!({
+                            "contents": [{
+                                "parts": [{ "text": reflection_prompt }]
+                            }],
+                            "generationConfig": {
+                                "maxOutputTokens": 200,
+                                "temperature": 0.7
+                            }
+                        });
+
+                        if let Ok(resp) = st.client.post(&gemini_url).json(&gemini_req).send().await {
+                            if let Ok(data) = resp.json::<serde_json::Value>().await {
+                                if let Some(text) = data["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                                    feedback = format!("【Gemini先生のアドバイス】{}", text.trim());
+                                    log::info!("✨ [Gemini] Insight generated: {}", feedback);
+                                }
+                            }
+                        }
+                    }
+
+                    {
+                        let db = st.db_conn.lock().unwrap();
+                        let _ = crate::db::save_practice_note(&db, action_name, &feedback, total_score);
+                    }
+
+                    // Markdownファイルとして外部保存（OpenClawスタイル）
+                    let log_entry = format!(
+                        "\n## Practice Log: {}\n- Date: {}\n- Action: {}\n- Score: {}\n- Insight: {}\n",
+                        uuid::Uuid::new_v4().to_string().get(0..8).unwrap(),
+                        chrono::Utc::now().to_rfc3339(),
+                        action_name,
+                        total_score,
+                        feedback
+                    );
+                    
+                    let _ = std::fs::create_dir_all("md");
+                    if let Ok(mut file) = std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open("md/practice_log.md") {
+                        use std::io::Write;
+                        let _ = writeln!(file, "{}", log_entry);
+                    }
+                    
+                    let _ = st.io.emit("system_log", serde_json::json!({
+                        "message": format!("📝 Practice Log Updated: {} - {}", action_name, feedback),
+                        "timestamp": "now"
+                    }));
+
+                    // Supabaseへ同期 (Global Memory)
+                    if !st.supabase_url.is_empty() && !st.supabase_key.is_empty() {
+                        let supabase_endpoint = format!("{}/rest/v1/practice_notes", st.supabase_url.trim_end_matches('/'));
+                        let client = st.client.clone();
+                        let key = st.supabase_key.clone();
+                        let payload = serde_json::json!({
+                            "action_name": action_name,
+                            "feedback": feedback,
+                            "physical_score": total_score
+                        });
+
+                        tokio::spawn(async move {
+                            match client.post(&supabase_endpoint)
+                                .header("apikey", &key)
+                                .header("Authorization", format!("Bearer {}", key))
+                                .header("Content-Type", "application/json")
+                                .header("Prefer", "return=minimal")
+                                .json(&payload)
+                                .send().await {
+                                    Ok(_) => log::info!("☁️ [SUPABASE] Practice note synced globally."),
+                                    Err(e) => log::error!("❌ [SUPABASE] Sync failed: {:?}", e),
+                                }
+                        });
+                    }
+                }
             });
 
             log::info!("🦾 [Proprioception] Node {} reports movement stats: {}", socket.id, payload);

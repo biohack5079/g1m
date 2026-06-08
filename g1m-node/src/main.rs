@@ -44,6 +44,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ollama_model = std::env::var("OLLAMA_MODEL")
         .unwrap_or_else(|_| "gemma3:4b-it-q4_K_M".to_string());
 
+    let supabase_url = std::env::var("SUPABASE_URL")
+        .unwrap_or_else(|_| "".to_string());
+
+    let supabase_key = std::env::var("SUPABASE_KEY")
+        .unwrap_or_else(|_| "".to_string());
+
+    let gemini_api_key = std::env::var("GEMINI_API_KEY")
+        .unwrap_or_else(|_| "".to_string());
+
     // 1. Initialize SQLite Database
     log::info!("Initializing SQLite database...");
     let db_conn = db::init_db("g1m.db")?; // 起動ディレクトリ（通常はプロジェクトルート）のDBを使用
@@ -85,6 +94,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         huggingface_token,
         ollama_url,
         ollama_model,
+        supabase_url,
+        supabase_key,
+        gemini_api_key,
         participants: Arc::new(Mutex::new(HashMap::new())),
         help_gauge: Arc::new(Mutex::new(50)), // 初期値 50%
         io: io.clone(), // SocketIoインスタンスをAppStateに含める
@@ -111,17 +123,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval.tick().await;
 
             // データベースから同期用データを抽出 (ロックをこのブロック内で完結させる)
-            let sync_data = {
+            let chat_sync = {
                 let db = db_sync.lock().unwrap();
                 db::get_recent_messages(&db, 50).ok()
                     .and_then(|messages| serde_json::to_string(&messages).ok())
             }; // ここで MutexGuard がドロップされる
 
-            if let Some(data) = sync_data {
+            let practice_sync = {
+                let db = db_sync.lock().unwrap();
+                db::get_all_practice_notes(&db, 20).ok()
+                    .and_then(|notes| serde_json::to_string(&notes).ok())
+            };
+
+            if let Some(data) = chat_sync {
                 let _ = p2p_tx_sync.send(p2p::P2PCommand::SyncDatabase {
                     table: "chat_history".to_string(),
                     data,
                 }).await; // ロックを保持していないので安全に await 可能
+            }
+
+            if let Some(data) = practice_sync {
+                let _ = p2p_tx_sync.send(p2p::P2PCommand::SyncDatabase {
+                    table: "practice_notes".to_string(),
+                    data,
+                }).await;
             }
         }
     });
@@ -167,6 +192,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     msg.is_user, 
                                     &msg.sender_name
                                 );
+                            }
+                        }
+                    }
+                    if table == "practice_notes" {
+                        if let Ok(notes) = serde_json::from_str::<Vec<db::PracticeNote>>(&data) {
+                            let db = db_event_clone.lock().unwrap();
+                            for note in notes {
+                                // 同名のアクションでスコアが同じなら重複とみなして無視する等の処理が必要だが
+                                // 基本的には最新の feedback を save_practice_note する
+                                let _ = db::save_practice_note(&db, &note.action_name, &note.feedback, note.physical_score);
                             }
                         }
                     }

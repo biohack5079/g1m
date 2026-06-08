@@ -1165,7 +1165,7 @@ const App: React.FC = () => {
         
         const totalScore = frameCount > 0 ? perf.total_score : 0; // ゼロ除算保護とスコア確定
         const { elbow_score: elbowScore, jump_score: jumpScore } = perf;
-        const diagnostics = totalScore < 50 ? ["WASM: Physical constraints limited"] : [];
+        const diagnostics = totalScore < 50 ? [`Physical constraints: Elbow=${elbowScore}%, Jump=${jumpScore}% (Limit Reached)`] : [];
 
         // 低スコア時の視覚フィードバック
         if (totalScore < 40 && botVrm.expressionManager) {

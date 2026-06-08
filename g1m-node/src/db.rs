@@ -14,6 +14,14 @@ pub struct Message {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PracticeNote {
+    pub action_name: String,
+    pub feedback: String,
+    pub physical_score: i32,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KnowledgeItem {
     pub id: String,
     pub content: String,
@@ -44,6 +52,18 @@ pub fn init_db(path: &str) -> Result<Connection> {
             action_name TEXT NOT NULL,
             scores TEXT NOT NULL, -- JSON string of scores
             diagnostic TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+
+    // 練習ごとの反省点（Objective Functionへのフィードバック）を記録するテーブル
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS practice_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action_name TEXT NOT NULL,
+            feedback TEXT NOT NULL,
+            physical_score INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         [],
@@ -92,6 +112,48 @@ pub fn save_message(
         "INSERT OR REPLACE INTO messages (id, text, image, is_user, sender_name)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         params![id, text, image, if is_user { 1 } else { 0 }, sender_name],
+    )?;
+    Ok(())
+}
+
+/// 最新の練習記録（反省点）を取得する
+pub fn get_latest_practice_note(conn: &Connection, action_name: &str) -> Result<Option<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT feedback FROM practice_notes WHERE action_name = ?1 ORDER BY created_at DESC LIMIT 1",
+    )?;
+    let result = stmt.query_row([action_name], |row| row.get(0));
+    match result {
+        Ok(f) => Ok(Some(f)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// 同期用に直近の練習ログをすべて取得する
+pub fn get_all_practice_notes(conn: &Connection, limit: usize) -> Result<Vec<PracticeNote>> {
+    let mut stmt = conn.prepare(
+        "SELECT action_name, feedback, physical_score, created_at FROM practice_notes ORDER BY created_at DESC LIMIT ?1"
+    )?;
+    let rows = stmt.query_map([limit], |row| {
+        Ok(PracticeNote {
+            action_name: row.get(0)?,
+            feedback: row.get(1)?,
+            physical_score: row.get(2)?,
+            created_at: row.get(3)?,
+        })
+    })?;
+    let mut notes = Vec::new();
+    for note in rows {
+        notes.push(note?);
+    }
+    Ok(notes)
+}
+
+/// 練習記録を保存する
+pub fn save_practice_note(conn: &Connection, action_name: &str, feedback: &str, score: i32) -> Result<()> {
+    conn.execute(
+        "INSERT INTO practice_notes (action_name, feedback, physical_score) VALUES (?1, ?2, ?3)",
+        params![action_name, feedback, score],
     )?;
     Ok(())
 }
