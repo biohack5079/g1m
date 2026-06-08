@@ -105,11 +105,6 @@ async fn get_participants_count(
     }))
 }
 
-fn normalize_url(url: &str) -> String {
-    if url.ends_with('/') { url.to_string() }
-    else { format!("{}/", url) }
-}
-
 // LLM request handler with failover (HF -> local Ollama)
 async fn handle_llm(
     State(state): State<AppState>,
@@ -142,8 +137,12 @@ async fn handle_llm(
     // ブリッジ経由のタスク分配は、ローカル推論が失敗するか、他のPCを協力させる場合に使用します。
     if !state.ollama_url.is_empty() {
         log::info!("🤖 [LLM] Trying Local Ollama first...");
-        let ollama_base = normalize_url(&state.ollama_url);
-        let ollama_endpoint = format!("{}api/chat", ollama_base);
+        let base = if state.ollama_url.starts_with("http") {
+            state.ollama_url.clone()
+        } else {
+            format!("http://{}", state.ollama_url)
+        };
+        let ollama_endpoint = format!("{}/api/chat", base.trim_end_matches('/'));
         
         match state.client.post(&ollama_endpoint)
             .timeout(std::time::Duration::from_secs(2))

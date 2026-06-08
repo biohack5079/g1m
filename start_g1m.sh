@@ -226,11 +226,11 @@ const handleTask = async (s, data) => {
             const timer = setTimeout(() => {
                 console.warn("⚠️ [BRIDGE] Practice timeout. Proceeding without sensor data.");
                 resolve(null);
-            }, 8000);
+            }, 15000); // 15秒に延長
 
             // 特定のアクションの結果が来るまで待機するリスナー
             const filter = (res) => {
-                if (res.action === practiceAction) {
+                if (res.action === practiceAction || res.action === "standby_calibration") {
                     s.off('motion_verified', filter);
                     clearTimeout(timer);
                     resolve(res);
@@ -280,8 +280,9 @@ const handleTask = async (s, data) => {
                                 role: 'system', 
                                 content: `あなたはVRアイドル「G1:M」です。
 【重要ルール】
-1. 練習スコアが低い(70点未満)場合、それを「物理的な同期不全のストレス」として、正直にMC（セリフ）に反映させてください。
-2. スコアを捏造しないでください。「100点満点中、実際は何点だったか」をメタ的に把握して話してください。
+1. 提供された【固有感覚フィードバック】の数値を**そのまま**使用してください。捏造（110点など）は厳禁です。
+2. スコアが低い場合、それを「同期不全のストレス」としてMCに反映させてください。
+3. スコアが0点の場合、モデルのロード中であることを示唆してください。
 3. ステージ構成は [ACTION: dance] を含め、観客を煽る言葉を混ぜてください。
 
 出力構成:
@@ -336,6 +337,9 @@ const handleTask = async (s, data) => {
         }
         s.emit('task_result', { taskId: data.taskId, result: "[完了] 全てのタスクが終了しました。" });
         
+        // ステージ終了後に練習データをリセットし、次回の「練習」を促す
+        lastSimulationResult = null;
+
         // 余韻のためのウェイト
         await new Promise(r => setTimeout(r, 2000));
         console.log(`✨ [PERFORMANCE FINISHED] ステージが完了しました。`);
@@ -350,8 +354,11 @@ const handleTask = async (s, data) => {
 
 // 物理センサーからのフィードバック（乖離情報）をログに記録
 const handleMotionFeedback = (data) => {
-    // 本番（isStage）中のセンサー値はキャッシュ(lastSimulationResult)を更新せず、
-    // ログ記録とデバッグ表示のみに使用する。これにより次回の「練習」が正しく行われる。
+    // 練習モード中（isSimulation）のデータであれば、次回のステージMC用にキャッシュする
+    if (data.action === "tora" || data.action === "standby_calibration") {
+        lastSimulationResult = data;
+    }
+
     const gap = 100 - data.scores.total;
     const diagnostic = data.diagnostic || "none";
     
