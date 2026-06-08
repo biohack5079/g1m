@@ -119,34 +119,30 @@ async fn handle_llm(
 
     // --- RAG: 知識ベースからの検索 (Brain機能) ---
     let mut context_augmented_prompt = payload.prompt.clone();
+    let mut practice_context = String::new();
+
     {
         let db = state.db_conn.lock().unwrap();
         // 簡易的なキーワードまたは埋め込み検索 (本来は埋め込みモデルを通すが、ここではDBのmatch_knowledgeを利用)
         // ダミーのクエリベクトル（本来はpromptをベクトル化する）
         let query_vec = vec![0.0; 384]; 
 
-    // --- 練習日誌の注入 (Self-Correction) ---
-    let mut practice_context = String::new();
-    {
-        let db = state.db_conn.lock().unwrap();
+        // --- 練習日誌の注入 (Self-Correction) ---
         if let Ok(Some(note)) = crate::db::get_latest_practice_note(&db, "dance") {
             practice_context = format!("\n[重要: 前回の練習からの改善点]\n{}\n上記の反省を活かし、同じ失敗を繰り返さないコマンド（ACTION）を出力してください。\n", note);
             log::info!("📝 [Self-Correction] Injecting latest practice note.");
         }
-    }
-    context_augmented_prompt = format!("{}{}", practice_context, context_augmented_prompt);
 
         if let Ok(matches) = crate::db::match_knowledge(&db, &query_vec, 0.1, 3) {
             if !matches.is_empty() {
-                let context = matches.iter()
-                    .map(|m| m.content.clone())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                context_augmented_prompt = format!("以下の知識を参考に答えてください:\n{}\n\n質問: {}", context, payload.prompt);
+                let context = matches.iter().map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
+                context_augmented_prompt = format!("以下の知識を参考に答えてください:\n{}\n\n内容: {}", context, context_augmented_prompt);
                 log::info!("📚 [RAG] Context injected from knowledge base.");
             }
         }
     }
+    
+    context_augmented_prompt = format!("{}{}", practice_context, context_augmented_prompt);
 
     // 1. まずローカルのOllamaを試みる (Local-First 優先)
     // 自前で推論できる場合は、外部のスタッフノードやブリッジを経由せず直接処理するのが最も効率的です。
@@ -673,22 +669,15 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                 if total_score < 80 && action_name != "standby_calibration" {
                     log::info!("🔍 [REFLECTION] Score low ({}/100). Generating practice note...", total_score);
                     
-                    let reflection_prompt = format!(
-                        "あなたはダンス講師兼ロボティクスエンジニアです。VRアバターのアクション '{}' の実行結果が以下の通りでした。
-                        物理スコア: {}点
-                        診断メッセージ: '{}'
-
-                        この結果を元に、次回のパフォーマンスで改善すべき『物理的アドバイス』を100文字以内で作成してください。
-                        特にWASM側で関節角度制限（Physical constraints limited）が発生している場合、どの関節の動きを抑えるべきか具体的に指摘してください。
-                        例: '肘の角度が急すぎて制限に掛かっています。もう少し緩やかに曲げ始めてください。'",
-                        action_name, total_score, p["diagnostic"].as_str().unwrap_or("")
-                    );
-
                     let mut feedback = format!("【反省】{}が原因で制限が発生。動作を{}%縮小せよ。", 
                         p["diagnostic"].as_str().unwrap_or("物理制約"), 100 - total_score.min(100));
 
                     // Gemini API が利用可能な場合は、より詳細な分析を行う
                     if !st.gemini_api_key.is_empty() {
+                        let reflection_prompt = format!(
+                            "あなたはダンス講師です。アクション '{}'、スコア {}点、診断 '{}'。改善案を100字以内で答えて。",
+                            action_name, total_score, p["diagnostic"].as_str().unwrap_or("")
+                        );
                         let gemini_url = format!(
                             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}",
                             st.gemini_api_key
@@ -704,7 +693,9 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                             }
                         });
 
-                        if let Ok(resp) = st.client.post(&gemini_url).json(&gemini_req).send().await {
+                        if let Ok(resp) = st.client.post(&gemini_url)
+                            .timeout(std::time::Duration::from_secs(30))
+                            .json(&gemini_req).send().await {
                             if let Ok(data) = resp.json::<serde_json::Value>().await {
                                 if let Some(text) = data["candidates"][0]["content"]["parts"][0]["text"].as_str() {
                                     feedback = format!("【Gemini先生のアドバイス】{}", text.trim());
