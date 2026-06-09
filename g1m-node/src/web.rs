@@ -673,9 +673,14 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
                         p["diagnostic"].as_str().unwrap_or("物理制約"), 100 - total_score.min(100));
 
                     // Gemini API が利用可能な場合は、より詳細な分析を行う
+                    log::info!("Checking Gemini API key: {}", if st.gemini_api_key.is_empty() { "EMPTY" } else { "PRESENT" });
+
                     if !st.gemini_api_key.is_empty() {
                         let reflection_prompt = format!(
-                            "あなたはダンス講師です。アクション '{}'、スコア {}点、診断 '{}'。改善案を100字以内で答えて。",
+                            "あなたはVRアバターのモーションエンジニアです。アクション '{}' が Reality Score: {}点 でした。
+                            診断: '{}'。
+                            このエラーは関節の可動域制限や、動きの強度が足りない時に発生します。
+                            次回の実行に向けて、どのボーン（肘、腰、足）の動きをどの程度調整すべきか、具体的な改善案を100文字以内で作成してください。",
                             action_name, total_score, p["diagnostic"].as_str().unwrap_or("")
                         );
                         let gemini_url = format!(

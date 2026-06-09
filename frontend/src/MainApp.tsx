@@ -1052,10 +1052,17 @@ const App: React.FC = () => {
       node = (botVrm.humanoid as any).getBoneNode?.(name);
       if (node) return node;
 
-      // 3. 部分一致検索（J_Bip_L_LowerArm 等の特殊な命名に対応）
-      const lowerName = name.toLowerCase();
+      // 3. 曖昧検索（J_Bip_L_LowerArm や ArmLow_L 等に対応）
+      const searchTerms = name.toLowerCase().includes('lower') ? ['lower', 'elbow'] : 
+                          name.toLowerCase().includes('upper') ? ['upper', 'arm'] : [name.toLowerCase()];
+      
       botVrm.scene.traverse((obj) => {
-        if (!node && obj.type === 'Bone' && obj.name.toLowerCase().includes(lowerName)) {
+        if (node || obj.type !== 'Bone') return;
+        const boneName = obj.name.toLowerCase();
+        const isLeft = name.toLowerCase().includes('left');
+        const sideMatch = isLeft ? (boneName.includes('_l') || boneName.includes('left')) : (boneName.includes('_r') || boneName.includes('right'));
+        
+        if (sideMatch && searchTerms.some(term => boneName.includes(term))) {
           node = obj as THREE.Object3D;
         }
       });
@@ -1165,7 +1172,12 @@ const App: React.FC = () => {
         
         const totalScore = frameCount > 0 ? perf.total_score : 0; // ゼロ除算保護とスコア確定
         const { elbow_score: elbowScore, jump_score: jumpScore } = perf;
-        const diagnostics = totalScore < 50 ? [`Physical constraints: Elbow=${elbowScore}%, Jump=${jumpScore}% (Limit Reached)`] : [];
+        
+        // AIが「何が原因でスコアが低いか」を理解できるようにメッセージを詳細化
+        const diagnostics = totalScore < 50 ? [
+          totalScore === 0 ? "WASM: Physical constraints limited (No movement detected in bones)" :
+          `WASM: Low intensity (Elbow:${elbowScore}%, Jump:${jumpScore}%). Try larger rotations.`
+        ] : [];
 
         // 低スコア時の視覚フィードバック
         if (totalScore < 40 && botVrm.expressionManager) {
