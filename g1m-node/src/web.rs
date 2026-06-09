@@ -677,10 +677,16 @@ pub fn create_router(state: AppState, socketio_layer: SocketIoLayer) -> Router {
 
                     if !st.gemini_api_key.is_empty() {
                         let reflection_prompt = format!(
-                            "あなたはVRアバターのモーションエンジニアです。アクション '{}' が Reality Score: {}点 でした。
-                            診断: '{}'。
-                            このエラーは関節の可動域制限や、動きの強度が足りない時に発生します。
-                            次回の実行に向けて、どのボーン（肘、腰、足）の動きをどの程度調整すべきか、具体的な改善案を100文字以内で作成してください。",
+                            "あなたはダンスマスター『Gemi兄さん』です。
+                            今、あなたが披露したお手本パフォーマンスの物理データが届きました。
+                            アクション: '{}'
+                            現実スコア: {}/100
+                            診断: '{}'
+
+                            この結果を元に、次回のパフォーマンスで改善すべき『物理的アドバイス』を100文字以内で作成してください。
+                            特にWASM側で関節角度制限（Physical constraints limited）が発生している場合、どの関節の動きを抑えるべきか具体的に指摘してください。
+                            例: '肘の角度が急すぎて制限に掛かっています。もう少し緩やかに曲げ始めてください。'
+                            また、披露する中、「やっぱり難しいや」と言いながらコツをG1:Mちゃんに教えてあげてください。",
                             action_name, total_score, p["diagnostic"].as_str().unwrap_or("")
                         );
                         let gemini_url = format!(

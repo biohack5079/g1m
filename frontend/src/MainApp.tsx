@@ -1053,16 +1053,18 @@ const App: React.FC = () => {
       if (node) return node;
 
       // 3. 曖昧検索（J_Bip_L_LowerArm や ArmLow_L 等に対応）
-      const searchTerms = name.toLowerCase().includes('lower') ? ['lower', 'elbow'] : 
-                          name.toLowerCase().includes('upper') ? ['upper', 'arm'] : [name.toLowerCase()];
+      const isLeft = name.toLowerCase().includes('left');
+      const isLower = name.toLowerCase().includes('lower');
+      const isUpper = name.toLowerCase().includes('upper');
+
+      const sidePattern = isLeft ? /(left|_l|l_)/i : /(right|_r|r_)/i;
+      const partPattern = isLower ? /(lower|elbow|ひじ|肘)/i : 
+                          isUpper ? /(upper|arm|腕)/i : new RegExp(name, 'i');
       
       botVrm.scene.traverse((obj) => {
         if (node || obj.type !== 'Bone') return;
-        const boneName = obj.name.toLowerCase();
-        const isLeft = name.toLowerCase().includes('left');
-        const sideMatch = isLeft ? (boneName.includes('_l') || boneName.includes('left')) : (boneName.includes('_r') || boneName.includes('right'));
-        
-        if (sideMatch && searchTerms.some(term => boneName.includes(term))) {
+        const boneName = obj.name;
+        if (sidePattern.test(boneName) && partPattern.test(boneName)) {
           node = obj as THREE.Object3D;
         }
       });

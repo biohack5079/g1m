@@ -322,11 +322,9 @@ Future integrations:
 * Google Workspace APIs
 * Microsoft Graph APIs
 
+## 📁 Project Structure
 
-
-
-
-
+```text
 z1m/java-unit
 ├── Dockerfile
 ├── config
@@ -347,8 +345,7 @@ z1m/java-unit
 │   │   │               │   ├── FinancialDbConfig.java
 │   │   │               │   └── PersonalDbConfig.java
 │   │   │               ├── controller
-│   │   │               │   ├── KampaController.java
-│   │   │               │   └── application.properties
+│   │   │               │   └── KampaController.java
 │   │   │               ├── entity
 │   │   │               │   ├── financial
 │   │   │               │   │   └── FinancialInfo.java
@@ -374,55 +371,4 @@ z1m/java-unit
 │       └── resources
 │           └── application.properties
 └── target
-    ├── classes
-    │   ├── application.properties
-    │   ├── com
-    │   │   └── g1m
-    │   │       └── z1m
-    │   │           ├── Z1mApplication.class
-    │   │           ├── config
-    │   │           │   ├── FinancialDbConfig.class
-    │   │           │   └── PersonalDbConfig.class
-    │   │           ├── controller
-    │   │           │   ├── KampaController$DonationRequest.class
-    │   │           │   ├── KampaController$NicknameRequest.class
-    │   │           │   └── KampaController.class
-    │   │           ├── entity
-    │   │           │   ├── financial
-    │   │           │   │   ├── FinancialInfo$FinancialInfoBuilder.class
-    │   │           │   │   └── FinancialInfo.class
-    │   │           │   └── personal
-    │   │           │       ├── PersonalInfo$PersonalInfoBuilder.class
-    │   │           │       └── PersonalInfo.class
-    │   │           ├── model
-    │   │           │   └── WalletInfo.class
-    │   │           └── repository
-    │   │               ├── financial
-    │   │               │   └── FinancialInfoRepository.class
-    │   │               └── personal
-    │   │                   ├── PersonalInfoRepository.class
-    │   │                   └── WalletRepository.class
-    │   └── test.md
-    ├── generated-sources
-    │   └── annotations
-    ├── generated-test-sources
-    │   └── test-annotations
-    ├── maven-status
-    │   └── maven-compiler-plugin
-    │       ├── compile
-    │       │   └── default-compile
-    │       │       ├── createdFiles.lst
-    │       │       └── inputFiles.lst
-    │       └── testCompile
-    │           └── default-testCompile
-    │               ├── createdFiles.lst
-    │               └── inputFiles.lst
-    ├── surefire-reports
-    │   ├── TEST-com.g1m.z1m.VaultIntegrationTest.xml
-    │   └── com.g1m.z1m.VaultIntegrationTest.txt
-    └── test-classes
-        ├── application.properties
-        └── com
-            └── g1m
-                └── z1m
-                    └── VaultIntegrationTest.class
+```

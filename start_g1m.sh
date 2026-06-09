@@ -187,6 +187,7 @@ echo "P2P Port: 4001"
 # [Bridge] このPCをRenderサーバー側の「Staff」として登録するためのバックグラウンド処理
 # これにより、Render上のサイトを見ている人からも、あなたのPCが「Active」に見えるようになります。
 echo "[Bridge] Connecting to Remote Signaling: $REMOTE_G1M_URL"
+export GEMINI_API_KEY=$(grep GEMINI_API_KEY .env | cut -d '=' -f2)
 export NODE_PATH="$(pwd)/frontend/node_modules"
 # cloudflared を 3000 番 (Rust) に向け、Node.js ブリッジも 3000 番を監視する
 node <<'EOF' 2>&1 | tee -a bridge.log &
@@ -245,6 +246,37 @@ register(localSocket, 'Local Node');
 // 物理センサー情報を一時保持する変数
 let lastSimulationResult = null;
 
+// Gemini APIを使用して「お手本」を生成する関数
+const callGeminiMaster = async (prompt, sensoryFeedback) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+
+    console.log("✨ [GEMINI-TAKEOVER] Gemi兄さんがお手本を披露します...");
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{
+                parts: [{ text: `あなたはダンスマスターの「Gemi兄さん」です。G1:Mちゃんにお手本を見せることになりました。
+                
+${sensoryFeedback}
+
+以下の構成で完璧なパフォーマンスを出力してください：
+1. 余裕のある、プロフェッショナルな挨拶
+2. [ACTION: dance] タグを含めたキレのあるダンス中の掛け声
+3. 最後に「Gemi兄さんの自己採点」として、100点満点の評価と技術的解説
+
+元のリクエスト: ${prompt}` }]
+            }]
+        })
+    });
+    const json = await res.json();
+    try {
+        return json.candidates[0].content.parts[0].text;
+    } catch (e) { return null; }
+};
+
 // タスクが飛んできたらローカルのAIに投げて、結果を返すロジック
 // ポート8000(Python)ではなく11434(Ollama)のOpenAI互換エンドポイントを使用
 const handleTask = async (s, data) => {
@@ -300,9 +332,16 @@ const handleTask = async (s, data) => {
         const finalPrompt = `${sensoryFeedback}\n\n指令: ${data.prompt}`;
         const ollamaUrl = 'http://127.0.0.1:11434/v1/chat/completions';
         
-        let res;
-        let retries = 3;
-        while (retries > 0) {
+        let text = "";
+        // 「Gemi兄さん」への呼びかけがあるかチェック
+        if (data.prompt.includes("Gemi兄さん") || data.prompt.includes("お手本")) {
+             text = await callGeminiMaster(data.prompt, sensoryFeedback);
+        }
+
+        if (!text) {
+            let res;
+            let retries = 3;
+            while (retries > 0) {
             try {
                 res = await fetch(ollamaUrl, {
                     method: 'POST',
@@ -348,16 +387,17 @@ const handleTask = async (s, data) => {
                 if (retries === 0) throw err;
                 await new Promise(r => setTimeout(r, 2000)); // 2秒待機してリトライ
             }
+            }
+
+            if (!res || !res.ok) {
+                throw new Error(`Ollama API failed after retries: ${res ? res.status : 'No response'}`);
+            }
+
+            const json = await res.json();
+            // OpenAI互換形式 (choices[0].message.content) と Ollama標準形式 (message.content) の両方に対応
+            text = (json.choices && json.choices[0] && json.choices[0].message) ? json.choices[0].message.content : (json.message ? json.message.content : (json.response || json.error || "⚠️ Ollamaからの応答が空です"));
         }
 
-        if (!res || !res.ok) {
-            throw new Error(`Ollama API failed after retries: ${res ? res.status : 'No response'}`);
-        }
-
-        const json = await res.json();
-        // OpenAI互換形式 (choices[0].message.content) と Ollama標準形式 (message.content) の両方に対応
-        let text = (json.choices && json.choices[0] && json.choices[0].message) ? json.choices[0].message.content : (json.message ? json.message.content : (json.response || json.error || "⚠️ Ollamaからの応答が空です"));
-        
         console.log(`✨ [BRIDGE] 練習完了。3分間のメインステージを開始します！`);
         s.emit('system_log', { message: `💃 練習を終え、本番ステージを開始します（総尺180秒）` });
 
